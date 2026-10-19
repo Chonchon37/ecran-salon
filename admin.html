@@ -72,7 +72,7 @@ input[type=time]{font:inherit;color:var(--ink);background:var(--bg);border:1.5px
 <body>
 <div class="page">
   <h1>Réglages de l'écran</h1>
-  <p class="sous">Écran du salon · les changements s'affichent sur le cadre en 2 minutes au plus.</p>
+  <p class="sous">Écran du salon · les changements s'affichent sur le cadre en quelques minutes.</p>
 
   <!-- Connexion -->
   <section id="connexion">
@@ -453,7 +453,7 @@ $('enregistrer').addEventListener('click', async () => {
     const j = await appel('/reglages', { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(R.reglages) });
     R.reglages = j.reglages; R.maj = j.maj; modifie = false;
     remplir(); dessinerMaison();
-    $('etat').textContent = 'Enregistré à ' + new Date(j.maj).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) + '. L\'écran se met à jour d\'ici 2 minutes.';
+    $('etat').textContent = 'Enregistré à ' + new Date(j.maj).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) + '. L\'écran se met à jour d\'ici quelques minutes.';
     $('etat').style.color = 'var(--ok)';
   } catch (err) {
     alerteEtat('Échec : ' + err.message); $('enregistrer').disabled = false;

@@ -398,7 +398,9 @@ function recharger(){
 /* ---------- Si les réglages changent dans la page admin : on recharge l'écran ---------- */
 function surveillerReglages(){
   lireReglages(function(R){
-    if (R && R.maj && REGLAGES_MAJ && R.maj !== REGLAGES_MAJ && navigator.onLine !== false) recharger();
+    // seulement si les réglages sont PLUS RÉCENTS (Cloudflare peut renvoyer un moment l'ancienne version :
+    // avec « différent » on rechargeait en boucle), et jamais plus d'une fois toutes les 3 min
+    if (R && R.maj && REGLAGES_MAJ && R.maj > REGLAGES_MAJ && Date.now() - CHARGE > 180000 && navigator.onLine !== false) recharger();
   });
 }
 
