@@ -10,13 +10,13 @@
   --bg:#E8ECE3; --card:#F6F7F2; --card2:#DEE4D7; --ink:#1E2A23; --muted:#5E6B62; --line:#CBD3C4;
   --accent:#587A57; --on-ink:#F6F7F2; --p2:#94679A; --nous:#C98622; --fete:#C98622; --fete-soft:#F4E4C6;
   --sun:#D8962A; --moon:#9AA6BF; --cloud:#B4BFBA; --rain:#3B74A6; --rain-soft:#D3E2EE;
-  --ok:#4C8758; --warn:#BC6430; --warn-soft:#F2DCCB; --tram:#B8325A; --bus:#2F6DB5; --badge-ink:#FFFFFF;
+  --ok:#4C8758; --warn:#BC6430; --warn-soft:#F2DCCB; --tram:#BD074E; --bus:#004488; --badge-ink:#FFFFFF;
 }
 html.nuit{
   --bg:#0F151C; --card:#18212A; --card2:#222D38; --ink:#E3E8E1; --muted:#8E9B95; --line:#2B3743;
   --accent:#92B28E; --on-ink:#0F151C; --p2:#C49BCB; --nous:#E0A847; --fete:#E0A847; --fete-soft:#33280F;
   --sun:#E6AE48; --moon:#D8D0A4; --cloud:#5A6977; --rain:#6EA5D5; --rain-soft:#1C3246;
-  --ok:#7CBA87; --warn:#E38A52; --warn-soft:#3A2619; --tram:#C9476D; --bus:#4683CB; --badge-ink:#FFFFFF;
+  --ok:#7CBA87; --warn:#E38A52; --warn-soft:#3A2619; --tram:#D0326A; --bus:#2F6FB0; --badge-ink:#FFFFFF;
 }
 html,body{margin:0;width:1280px;height:728px;overflow:hidden;background:var(--bg)}
 body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;transition:background-color .8s,color .8s}
@@ -118,6 +118,7 @@ body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;fon
 var CONFIG = {
   DEMO: true,             // données d'exemple pour transports, agenda, maison, anniversaires
   METEO_REELLE: true,     // météo réelle via Open-Meteo (gratuit, sans clé)
+  WORKER_TRANSPORTS: '',  // adresse du Worker Cloudflare (vide = exemple)
   LAT: 47.418, LON: 0.688
 };
 /* ==================================================== */
@@ -266,6 +267,18 @@ function afficherMeteo(){
 chargerMeteo();
 setInterval(chargerMeteo, 15 * 60000);
 
+var transportsReels = null;
+function chargerTransports(){
+  if (!CONFIG.WORKER_TRANSPORTS) return;
+  var xhr = new XMLHttpRequest();
+  xhr.open('GET', CONFIG.WORKER_TRANSPORTS, true);
+  xhr.timeout = 20000;
+  xhr.onload = function(){ if (xhr.status === 200) { try { transportsReels = JSON.parse(xhr.responseText); afficher(); } catch (e) {} } };
+  xhr.send();
+}
+chargerTransports();
+setInterval(chargerTransports, 30000);
+
 function textePluie(){
   // même logique que meteo.html : début de pluie dans 7 tranches de 5 min
   var t = new Date(Date.now() + 7 * 5 * 60000);
@@ -289,11 +302,17 @@ function afficher(){
   var tr = '';
   for (var k = 0; k < DEMO_TR.length; k++) {
     var L = DEMO_TR[k], restants = [];
-    for (var p = 0; p < L.passages.length; p++) {
-      var m = Math.floor((t0 + L.passages[p] * 60000 - Date.now()) / 60000);
-      if (m >= 0) restants.push(m);
+    if (transportsReels) {
+      var PR = transportsReels.lignes[L.ligne] ? transportsReels.lignes[L.ligne].passages : [];
+      for (var q = 0; q < PR.length; q++) { var mq = Math.floor((PR[q].t - Date.now()) / 60000); if (mq >= 0) restants.push(mq); }
+    } else {
+      for (var p = 0; p < L.passages.length; p++) {
+        var m = Math.floor((t0 + L.passages[p] * 60000 - Date.now()) / 60000);
+        if (m >= 0) restants.push(m);
+      }
+      if (!restants.length) { t0 = Date.now(); restants = [3]; }
     }
-    if (!restants.length) { t0 = Date.now(); restants = [3]; }
+    if (!restants.length) { tr += '<div class="tl"><div class="badge ' + L.type + '">' + L.ligne + '</div><div><div class="tl-s">' + L.arret + '</div><div class="tl-d">Aucun passage annoncé</div></div></div>'; continue; }
     tr += '<div class="tl"><div class="badge ' + L.type + '">' + L.ligne + '</div>' +
       '<div><div class="tl-s">' + L.arret + '</div><div class="tl-d">vers ' + L.direction + '</div></div>' +
       '<div class="tl-m"><b>' + (restants[0] < 1 ? '&lt;1' : restants[0]) + '</b><small>min</small>' +
