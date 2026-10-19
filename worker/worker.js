@@ -458,13 +458,18 @@ function haUrl(env, chemin) {
   if (!env.HA_URL || !env.HA_TOKEN) throw new Error('HA_URL ou HA_TOKEN manquant dans les réglages du Worker');
   return env.HA_URL.replace(/\/+$/, '') + chemin;
 }
+// Lumières à ne pas afficher (ici les « segments » des rubans LED)
+const LUMIERES_MASQUEES = /segment/i;
+
 async function construireMaison(env) {
   const r = await fetch(haUrl(env, '/api/states'), { headers: { Authorization: 'Bearer ' + env.HA_TOKEN } });
   if (!r.ok) throw new Error('Home Assistant a répondu ' + r.status);
   const etats = await r.json(), lumieres = [], scenes = [];
   for (const e of etats) {
-    const nom = (e.attributes && e.attributes.friendly_name) || e.entity_id;
+    const nom = e.attributes && e.attributes.friendly_name;
+    if (!nom) continue;                                    // entités fantômes sans nom : ignorées
     if (e.entity_id.startsWith('light.')) {
+      if (LUMIERES_MASQUEES.test(nom)) continue;
       const b = e.attributes && e.attributes.brightness;
       lumieres.push({ id: e.entity_id, nom: nom, allumee: e.state === 'on', dispo: e.state !== 'unavailable', luminosite: e.state === 'on' && b ? Math.round(b / 2.55) : null });
     } else if (e.entity_id.startsWith('scene.')) {
@@ -472,18 +477,20 @@ async function construireMaison(env) {
     }
   }
   const tri = (a, b) => a.nom.localeCompare(b.nom, 'fr');
-  return { maj: Date.now(), lumieres: lumieres.sort(tri), scenes: scenes.sort(tri) };
+  scenes.sort(tri).push({ id: 'special.tout_eteindre', nom: 'Tout éteindre', derniere: null });
+  return { maj: Date.now(), lumieres: lumieres.sort(tri), scenes: scenes };
 }
 async function actionMaison(env, corps) {
   const id = String(corps.id || '');
-  let service;
-  if (corps.action === 'basculer' && /^light\.[a-z0-9_]+$/.test(id)) service = '/api/services/light/toggle';
+  let service, donnees = { entity_id: id };
+  if (corps.action === 'scene' && id === 'special.tout_eteindre') { service = '/api/services/light/turn_off'; donnees = { entity_id: 'all' }; }
+  else if (corps.action === 'basculer' && /^light\.[a-z0-9_]+$/.test(id)) service = '/api/services/light/toggle';
   else if (corps.action === 'scene' && /^scene\.[a-z0-9_]+$/.test(id)) service = '/api/services/scene/turn_on';
   else throw new Error('Action refusée');
   const r = await fetch(haUrl(env, service), {
     method: 'POST',
     headers: { Authorization: 'Bearer ' + env.HA_TOKEN, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ entity_id: id })
+    body: JSON.stringify(donnees)
   });
   if (!r.ok) throw new Error('Home Assistant a répondu ' + r.status);
   return { ok: true };
