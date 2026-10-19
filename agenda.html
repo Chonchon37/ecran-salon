@@ -57,13 +57,16 @@ body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;fon
 <script>
 /* ===================== RÉGLAGES ===================== */
 var CONFIG = {
-  DEMO: true,
-  RAFRAICHIR_MIN: 10,
+  WORKER: 'https://ecran-salon.nico-michon37.workers.dev/agenda',
+  RAFRAICHIR_MIN: 5,
   PERSONNES: {
-    moi:  { nom: 'Chonchon',  couleur: 'var(--accent)' },
-    elle: { nom: 'Ma moitié', couleur: 'var(--p2)' },
-    nous: { nom: 'Ensemble',  couleur: 'var(--nous)' }
-  }
+    moi: { nom: 'Chonchon', couleur: 'var(--accent)' },
+    flo: { nom: 'Flo',      couleur: 'var(--p2)' }
+  },
+  // Qui est concerné ? Le premier mot trouvé dans le titre décide (sinon : moi)
+  REGLES: [
+    { mot: 'flo', qui: 'flo' }
+  ]
 };
 /* ==================================================== */
 
@@ -78,21 +81,39 @@ document.addEventListener('touchstart', signalerToucher, true);
 document.addEventListener('mousedown', signalerToucher, true);
 function $(id){ return document.getElementById(id); }
 var JOURS_COURTS = ['Dim.', 'Lun.', 'Mar.', 'Mer.', 'Jeu.', 'Ven.', 'Sam.'];
+var CLE = param('cle');
+function echapper(t){ return String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+function quiPour(titre){
+  var t = titre.toLowerCase();
+  for (var i = 0; i < CONFIG.REGLES.length; i++) if (t.indexOf(CONFIG.REGLES[i].mot) >= 0) return CONFIG.REGLES[i].qui;
+  return 'moi';
+}
+// Événements du Worker → { j, debut 'HH:MM' ou null, titre, qui } pour chacun des 7 jours qu'ils touchent
+function convertir(evts){
+  var now = new Date(), res = [];
+  for (var j = 0; j < 7; j++) {
+    var d0 = new Date(now.getFullYear(), now.getMonth(), now.getDate() + j).getTime();
+    var d1 = new Date(now.getFullYear(), now.getMonth(), now.getDate() + j + 1).getTime();
+    for (var k = 0; k < evts.length; k++) {
+      var e = evts[k], fin = Math.max(e.fin, e.debut + 1);
+      if (e.debut >= d1 || fin <= d0) continue;
+      var dd = new Date(e.debut);
+      res.push({ j: j, debut: (!e.journee && e.debut >= d0) ? pad(dd.getHours()) + ':' + pad(dd.getMinutes()) : null, titre: e.titre, qui: quiPour(e.titre) });
+    }
+  }
+  return res;
+}
 
 /* ---------- Données d'exemple (j = décalage en jours depuis aujourd'hui) ---------- */
 function donneesDemo(){
   return [
     { j: 0, debut: '08:30', titre: 'Point d\'équipe', qui: 'moi' },
-    { j: 0, debut: '20:30', titre: 'Cinéma', qui: 'nous' },
+    { j: 0, debut: '20:30', titre: 'Cinéma avec Flo', qui: 'flo' },
     { j: 1, debut: '12:30', titre: 'Déjeuner avec Marc', qui: 'moi' },
-    { j: 1, debut: '18:30', titre: 'Yoga', qui: 'elle' },
-    { j: 2, debut: '09:00', titre: 'Dentiste', qui: 'elle' },
-    { j: 2, debut: '20:00', titre: 'Dîner chez Paul et Julie', qui: 'nous' },
+    { j: 1, debut: '18:30', titre: 'Yoga Flo', qui: 'flo' },
     { j: 3, debut: '17:30', titre: 'Récupérer le colis', qui: 'moi' },
-    { j: 4, debut: '19:00', titre: 'Apéro sur la terrasse', qui: 'nous' },
-    { j: 5, debut: '10:00', titre: 'Marché des Halles', qui: 'nous' },
-    { j: 5, debut: '15:00', titre: 'Coiffeur', qui: 'elle' },
-    { j: 6, debut: null,    titre: 'Déjeuner en famille', qui: 'nous' }
+    { j: 5, debut: '10:00', titre: 'Marché des Halles', qui: 'moi' },
+    { j: 6, debut: null,    titre: 'Déjeuner en famille', qui: 'moi' }
   ];
 }
 
@@ -109,11 +130,11 @@ function afficher(evts){
       '<span class="day-d h">' + d.getDate() + '</span></div>';
     if (!jour.length) html += '<div class="vide">Rien de prévu</div>';
     for (var k = 0; k < jour.length; k++) {
-      var e = jour[k], p = CONFIG.PERSONNES[e.qui] || CONFIG.PERSONNES.nous;
+      var e = jour[k], p = CONFIG.PERSONNES[e.qui] || CONFIG.PERSONNES.moi;
       var passe = false;
       if (j === 0 && e.debut) { var hm = e.debut.split(':'); passe = parseInt(hm[0], 10) * 60 + parseInt(hm[1], 10) + 60 < minNow; }
       html += '<div class="ev' + (passe ? ' passe' : '') + '"><div class="ev-t"><i style="background:' + p.couleur + '"></i>' +
-        (e.debut ? e.debut.replace(':', ' h ') : 'Journée') + '</div><div class="ev-n">' + e.titre + '</div></div>';
+        (e.debut ? e.debut.replace(':', ' h ') : 'Journée') + '</div><div class="ev-n">' + echapper(e.titre) + '</div></div>';
     }
     html += '</div>';
   }
@@ -122,12 +143,24 @@ function afficher(evts){
   var leg = '';
   for (var cle in CONFIG.PERSONNES) leg += '<span><i style="background:' + CONFIG.PERSONNES[cle].couleur + '"></i>' + CONFIG.PERSONNES[cle].nom + '</span>';
   $('legend').innerHTML = leg;
-  $('demo').style.display = CONFIG.DEMO ? '' : 'none';
+  $('demo').style.display = enDemo() ? '' : 'none';
 }
+function enDemo(){ return !CONFIG.WORKER || !CLE; }
+var dernieres = null;
 function charger(){
-  if (CONFIG.DEMO) { afficher(donneesDemo()); return; }
-  // Étape suivante : Worker Cloudflare qui lit tes Google Agenda (adresse iCal secrète)
+  if (enDemo()) { afficher(donneesDemo()); return; }
+  var xhr = new XMLHttpRequest();
+  xhr.open('GET', CONFIG.WORKER + '?cle=' + encodeURIComponent(CLE), true);
+  xhr.timeout = 25000;
+  xhr.onload = function(){
+    var j = null; try { j = JSON.parse(xhr.responseText); } catch (e) {}
+    if (xhr.status === 200 && j) { dernieres = j.evenements; afficher(convertir(dernieres)); }
+    else if (!dernieres) $('week').innerHTML = '<div class="vide">Agenda indisponible : ' + echapper(j && j.erreur ? j.erreur : 'erreur ' + xhr.status) + '</div>';
+  };
+  xhr.send();
 }
+// À minuit, les colonnes changent de jour même sans nouveau chargement
+setInterval(function(){ if (dernieres) afficher(convertir(dernieres)); }, 60000);
 charger();
 setInterval(charger, CONFIG.RAFRAICHIR_MIN * 60000);
 </script>

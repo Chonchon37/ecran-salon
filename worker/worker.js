@@ -1,13 +1,16 @@
 /**
- * Worker « ecran-salon » : prochains passages Fil Bleu pour l'écran du salon.
+ * Worker « ecran-salon » : les données de l'écran du salon.
  *
- * Il combine :
- *  - les horaires prévus (bloc HORAIRES ci-dessous, tiré du GTFS Fil Bleu),
- *  - le temps réel GTFS-RT open data de Fil Bleu (licence ouverte, sans clé),
- *  - les alertes trafic GTFS-RT.
- * et renvoie un petit JSON lisible par le cadre (avec autorisation CORS).
+ *  /transports      Fil Bleu : horaires prévus + temps réel + alertes (public, open data)
+ *  /agenda          Google Agenda : 7 prochains jours + anniversaires 🎂   (clé requise)
+ *  /maison          Home Assistant : lumières et scènes                     (clé requise)
+ *  /maison/action   Home Assistant : allumer/éteindre, lancer une scène     (clé requise)
  *
- * Adresse à appeler : https://<ton-worker>.workers.dev/transports
+ * Réglages à saisir dans Cloudflare (Settings → Variables and Secrets) :
+ *  ECRAN_CLE   (secret) mot de passe de l'écran, ajouté à l'adresse du cadre : ?cle=…
+ *  GOOGLE_ICS  (secret) adresse secrète au format iCal de ton Google Agenda
+ *  HA_URL      (texte)  https://ha.petitgeranium.duckdns.org
+ *  HA_TOKEN    (secret) jeton d'accès longue durée Home Assistant
  */
 
 const ARRETS = {           // ligne → identifiant du quai dans ta direction
@@ -61,16 +64,22 @@ function lirePrevus() {
   return res;
 }
 
-// Décalage Paris/UTC (en minutes) à un instant donné : gère l'heure d'été tout seul
-const FMT = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Paris', hourCycle: 'h23',
-  year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' });
-function partiesParis(ms) {
-  const p = {}; for (const x of FMT.formatToParts(new Date(ms))) p[x.type] = x.value;
-  return p;
+// Décalage Paris/UTC (en minutes) : règle européenne de l'heure d'été
+// (de 1 h UTC le dernier dimanche de mars à 1 h UTC le dernier dimanche d'octobre)
+function dernierDimanche(annee, mois) {          // mois 1-12, renvoie l'instant à 1 h UTC
+  const fin = new Date(Date.UTC(annee, mois, 0));
+  return Date.UTC(annee, mois - 1, fin.getUTCDate() - fin.getUTCDay(), 1);
 }
+const CACHE_ETE = {};
 function decalageParis(ms) {
-  const p = partiesParis(ms);
-  return (Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour, +p.minute, +p.second) - Math.floor(ms / 1000) * 1000) / 60000;
+  const an = new Date(ms).getUTCFullYear();
+  const e = CACHE_ETE[an] || (CACHE_ETE[an] = [dernierDimanche(an, 3), dernierDimanche(an, 10)]);
+  return ms >= e[0] && ms < e[1] ? 120 : 60;
+}
+function partiesParis(ms) {
+  const d = new Date(ms + decalageParis(ms) * 60000), p2 = n => (n < 10 ? '0' : '') + n;
+  return { year: String(d.getUTCFullYear()), month: p2(d.getUTCMonth() + 1), day: p2(d.getUTCDate()),
+    hour: p2(d.getUTCHours()), minute: p2(d.getUTCMinutes()), second: p2(d.getUTCSeconds()) };
 }
 function ymd(y, m, d) { const t = new Date(Date.UTC(y, m - 1, d)); return t.toISOString().slice(0, 10).replace(/-/g, ''); }
 function joursEntre(a, b) {
@@ -213,28 +222,310 @@ async function construire() {
   };
 }
 
+/* =====================================================================
+   AGENDA GOOGLE (fichier iCal secret) + ANNIVERSAIRES 🎂
+   ===================================================================== */
+
+// Date iCal → composants { y, m, d, h, mi, s, utc, jour }
+function lireDateIcs(valeur, params) {
+  const v = valeur.trim();
+  const jour = /VALUE=DATE(?!-)/.test(params) || /^\d{8}$/.test(v);
+  return {
+    y: +v.slice(0, 4), m: +v.slice(4, 6), d: +v.slice(6, 8),
+    h: jour ? 0 : +v.slice(9, 11), mi: jour ? 0 : +v.slice(11, 13), s: jour ? 0 : +v.slice(13, 15),
+    utc: /Z$/.test(v), jour: jour
+  };
+}
+// Composants → instant (ms). Heure « locale » = heure de Paris.
+function versMs(c) {
+  const t = Date.UTC(c.y, c.m - 1, c.d, c.h, c.mi, c.s);
+  if (c.utc) return t;
+  return t - decalageParis(t - 2 * 3600000) * 60000;
+}
+function dureeIso(v) {   // P1D, PT1H30M…
+  const m = /P(?:(\d+)W)?(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?)?/.exec(v || '');
+  if (!m) return 0;
+  return ((+m[1] || 0) * 7 * 86400 + (+m[2] || 0) * 86400 + (+m[3] || 0) * 3600 + (+m[4] || 0) * 60 + (+m[5] || 0)) * 1000;
+}
+function texteIcs(v) { return v.replace(/\\n/gi, ' ').replace(/\\,/g, ',').replace(/\\;/g, ';').replace(/\\\\/g, '\\').trim(); }
+
+function lireEvenements(ics, debutFenetreYmd) {
+  const evts = [];
+  const blocs = ics.replace(/\r?\n[ \t]/g, '').split('BEGIN:VEVENT');
+  for (let b = 1; b < blocs.length; b++) {
+    const bloc = blocs[b];
+    // Tri rapide : un événement unique déjà passé ne nous intéresse pas
+    if (bloc.indexOf('RRULE') < 0 && bloc.indexOf('RECURRENCE-ID') < 0) {
+      const p = bloc.indexOf('\nDTSTART');
+      if (p >= 0) {
+        const deux = bloc.indexOf(':', p), date = bloc.slice(deux + 1, deux + 9);
+        if (date < debutFenetreYmd && bloc.indexOf('🎂') < 0) {
+          // garder quand même les longs événements sur plusieurs jours
+          const q = bloc.indexOf('\nDTEND');
+          if (q < 0) continue;
+          const d2 = bloc.indexOf(':', q);
+          if (bloc.slice(d2 + 1, d2 + 9) < debutFenetreYmd) continue;
+        }
+      }
+    }
+    const ev = { exdates: [] };
+    for (const ligne of bloc.split(/\r?\n/)) {
+      if (ligne.startsWith('END:VEVENT')) break;
+      const deux = ligne.indexOf(':'); if (deux < 0) continue;
+      const tete = ligne.slice(0, deux), valeur = ligne.slice(deux + 1);
+      const pv = tete.indexOf(';'), nom = pv < 0 ? tete : tete.slice(0, pv), params = pv < 0 ? '' : tete.slice(pv + 1);
+      if (nom === 'DTSTART') ev.debut = lireDateIcs(valeur, params);
+      else if (nom === 'DTEND') ev.fin = lireDateIcs(valeur, params);
+      else if (nom === 'DURATION') ev.duree = dureeIso(valeur);
+      else if (nom === 'SUMMARY') ev.titre = texteIcs(valeur);
+      else if (nom === 'RRULE') ev.rrule = valeur;
+      else if (nom === 'EXDATE') for (const x of valeur.split(',')) ev.exdates.push(versMs(lireDateIcs(x, params)));
+      else if (nom === 'RECURRENCE-ID') ev.recurrence = versMs(lireDateIcs(valeur, params));
+      else if (nom === 'UID') ev.uid = valeur;
+      else if (nom === 'STATUS') ev.statut = valeur.trim();
+    }
+    if (!ev.debut) continue;
+    const t0 = versMs(ev.debut);
+    ev.dureeMs = ev.fin ? Math.max(0, versMs(ev.fin) - t0) : (ev.duree || (ev.debut.jour ? 86400000 : 0));
+    evts.push(ev);
+  }
+  return evts;
+}
+
+const JOURS_ICS = { MO: 1, TU: 2, WE: 3, TH: 4, FR: 5, SA: 6, SU: 0 };
+function lireRegle(txt) {
+  const r = { freq: '', intervalle: 1, compte: 0, jusqua: 0, parJour: [], parJourMois: [], parMois: [] };
+  for (const morceau of txt.split(';')) {
+    const [k, v] = morceau.split('=');
+    if (k === 'FREQ') r.freq = v;
+    else if (k === 'INTERVAL') r.intervalle = Math.max(1, +v);
+    else if (k === 'COUNT') r.compte = +v;
+    else if (k === 'UNTIL') r.jusqua = versMs(lireDateIcs(v, /T/.test(v) ? '' : 'VALUE=DATE')) + (/T/.test(v) ? 0 : 86399999);
+    else if (k === 'BYDAY') r.parJour = v.split(',').map(x => { const m = /^([+-]?\d+)?([A-Z]{2})$/.exec(x); return m ? { n: m[1] ? +m[1] : 0, j: JOURS_ICS[m[2]] } : null; }).filter(Boolean);
+    else if (k === 'BYMONTHDAY') r.parJourMois = v.split(',').map(Number);
+    else if (k === 'BYMONTH') r.parMois = v.split(',').map(Number);
+  }
+  return r;
+}
+// Jours (en n° de jour UTC) d'un mois correspondant à BYDAY / BYMONTHDAY
+function joursDuMois(y, m, r, jourDefaut) {
+  const nb = new Date(Date.UTC(y, m, 0)).getUTCDate(), res = [];
+  if (r.parJour.length) {
+    for (const bj of r.parJour) {
+      const liste = [];
+      for (let d = 1; d <= nb; d++) if (new Date(Date.UTC(y, m - 1, d)).getUTCDay() === bj.j) liste.push(d);
+      if (!bj.n) res.push(...liste);
+      else { const d = bj.n > 0 ? liste[bj.n - 1] : liste[liste.length + bj.n]; if (d) res.push(d); }
+    }
+  } else if (r.parJourMois.length) {
+    for (const x of r.parJourMois) { const d = x > 0 ? x : nb + 1 + x; if (d >= 1 && d <= nb) res.push(d); }
+  } else if (jourDefaut <= nb) res.push(jourDefaut);
+  return res.sort((a, b) => a - b);
+}
+
+// Toutes les occurrences d'un événement qui touchent la fenêtre [debut, fin]
+function occurrences(ev, debut, fin) {
+  const s = ev.debut, res = [];
+  const pousser = c => { const t = versMs(c); if (t + Math.max(ev.dureeMs, 1) > debut && t < fin) res.push(t); return t; };
+  if (!ev.rrule) { pousser(s); return res; }
+  const r = lireRegle(ev.rrule), ex = new Set(ev.exdates);
+  const jour0 = Date.UTC(s.y, s.m - 1, s.d) / 86400000;
+  let n = 0;
+  const essayer = (y, m, d) => {           // renvoie false quand on peut s'arrêter
+    const c = { y, m, d, h: s.h, mi: s.mi, s: s.s, utc: s.utc, jour: s.jour };
+    if (Date.UTC(y, m - 1, d) / 86400000 < jour0) return true;
+    const t = versMs(c);
+    if (r.jusqua && t > r.jusqua) return false;
+    n++;
+    if (r.compte && n > r.compte) return false;
+    if (t >= fin) return false;
+    if (!ex.has(t)) pousser(c);
+    return true;
+  };
+  const sautPossible = !r.compte;
+  const finJour = fin / 86400000 + 2, debutJour = debut / 86400000 - 3;
+  if (r.freq === 'DAILY') {
+    let k = 0;
+    if (sautPossible && debutJour > jour0) k = Math.floor((debutJour - jour0) / r.intervalle);
+    for (; ; k++) {
+      const jj = jour0 + k * r.intervalle; if (jj > finJour) break;
+      const dt = new Date(jj * 86400000);
+      if (r.parJour.length && !r.parJour.some(b => b.j === dt.getUTCDay())) continue;
+      if (r.parMois.length && r.parMois.indexOf(dt.getUTCMonth() + 1) < 0) continue;
+      if (!essayer(dt.getUTCFullYear(), dt.getUTCMonth() + 1, dt.getUTCDate())) break;
+    }
+  } else if (r.freq === 'WEEKLY') {
+    const jours = r.parJour.length ? r.parJour.map(b => b.j) : [new Date(jour0 * 86400000).getUTCDay()];
+    const lundi0 = jour0 - ((new Date(jour0 * 86400000).getUTCDay() + 6) % 7);
+    let k = 0;
+    if (sautPossible && debutJour > lundi0) k = Math.floor((debutJour - lundi0) / 7 / r.intervalle);
+    let continuer = true;
+    for (; continuer; k++) {
+      const lundi = lundi0 + k * 7 * r.intervalle; if (lundi > finJour) break;
+      const ordre = jours.map(j => (j + 6) % 7).sort((a, b) => a - b);
+      for (const o of ordre) {
+        const dt = new Date((lundi + o) * 86400000);
+        if (!essayer(dt.getUTCFullYear(), dt.getUTCMonth() + 1, dt.getUTCDate())) { continuer = false; break; }
+      }
+    }
+  } else if (r.freq === 'MONTHLY') {
+    let k = 0;
+    const moisDebut = new Date(debut).getUTCFullYear() * 12 + new Date(debut).getUTCMonth() - 1;
+    const mois0 = s.y * 12 + (s.m - 1);
+    if (sautPossible && moisDebut > mois0) k = Math.floor((moisDebut - mois0) / r.intervalle);
+    let continuer = true;
+    for (; continuer; k++) {
+      const mm = mois0 + k * r.intervalle, y = Math.floor(mm / 12), m = mm % 12 + 1;
+      if (Date.UTC(y, m - 1, 1) > fin + 86400000) break;
+      for (const d of joursDuMois(y, m, r, s.d)) if (!essayer(y, m, d)) { continuer = false; break; }
+    }
+  } else if (r.freq === 'YEARLY') {
+    let k = 0;
+    const anDebut = new Date(debut).getUTCFullYear() - 1;
+    if (sautPossible && anDebut > s.y) k = Math.floor((anDebut - s.y) / r.intervalle);
+    let continuer = true;
+    for (; continuer; k++) {
+      const y = s.y + k * r.intervalle;
+      if (Date.UTC(y, 0, 1) > fin + 86400000) break;
+      const moisListe = r.parMois.length ? r.parMois : [s.m];
+      for (const m of moisListe) {
+        const jours = (r.parJour.length || r.parJourMois.length) ? joursDuMois(y, m, r, s.d) : (s.d <= new Date(Date.UTC(y, m, 0)).getUTCDate() ? [s.d] : []);
+        for (const d of jours) if (!essayer(y, m, d)) { continuer = false; break; }
+        if (!continuer) break;
+      }
+    }
+  }
+  return res;
+}
+
+function ymdParis(ms) { const p = partiesParis(ms); return p.year + p.month + p.day; }
+function minuitParis(ms) {
+  const p = partiesParis(ms);
+  return versMs({ y: +p.year, m: +p.month, d: +p.day, h: 0, mi: 0, s: 0, utc: false });
+}
+
+async function construireAgenda(env) {
+  if (!env.GOOGLE_ICS) throw new Error('GOOGLE_ICS manquant dans les réglages du Worker');
+  const r = await fetch(env.GOOGLE_ICS, { cf: { cacheTtl: 300 } });
+  if (!r.ok) throw new Error('Google Agenda a répondu ' + r.status);
+  const ics = await r.text();
+  const maintenant = Date.now(), aujourdhui = minuitParis(maintenant);
+  const finAgenda = aujourdhui + 8 * 86400000, finAnniv = aujourdhui + 367 * 86400000;
+  const evts = lireEvenements(ics, ymdParis(aujourdhui - 40 * 86400000));
+
+  // Occurrences modifiées (RECURRENCE-ID) : elles remplacent l'occurrence d'origine
+  const remplacees = {};
+  for (const e of evts) if (e.recurrence && e.uid) (remplacees[e.uid] = remplacees[e.uid] || new Set()).add(e.recurrence);
+
+  const agenda = [], anniversaires = [];
+  for (const e of evts) {
+    const titre = e.titre || '(sans titre)';
+    const estAnniv = titre.indexOf('🎂') === 0;
+    if (e.statut === 'CANCELLED') continue;
+    const fenetreFin = estAnniv ? finAnniv : finAgenda;
+    let liste = occurrences(e, aujourdhui, fenetreFin);
+    if (!e.recurrence && e.uid && remplacees[e.uid]) liste = liste.filter(t => !remplacees[e.uid].has(t));
+    for (const t of liste) {
+      if (estAnniv) {
+        let nom = titre.replace(/^🎂\s*/, '');
+        const an = /\b(19\d\d|20\d\d)\b/.exec(nom);
+        nom = nom.replace(/\(?\b(19\d\d|20\d\d)\b\)?/, '').replace(/\s{2,}/g, ' ').trim();
+        anniversaires.push({ nom: nom, date: t, annee: an ? +an[1] : 0 });
+      } else {
+        agenda.push({ debut: t, fin: t + e.dureeMs, journee: !!e.debut.jour, titre: titre });
+      }
+    }
+  }
+  agenda.sort((a, b) => a.debut - b.debut);
+  anniversaires.sort((a, b) => a.date - b.date);
+  // un anniversaire n'apparaît qu'une fois (le prochain)
+  const vus = new Set(), annivUniques = [];
+  for (const a of anniversaires) { if (vus.has(a.nom)) continue; vus.add(a.nom); annivUniques.push(a); }
+  return { maj: maintenant, aujourdhui: aujourdhui, evenements: agenda.slice(0, 80), anniversaires: annivUniques.slice(0, 12) };
+}
+
+/* =====================================================================
+   HOME ASSISTANT
+   ===================================================================== */
+function haUrl(env, chemin) {
+  if (!env.HA_URL || !env.HA_TOKEN) throw new Error('HA_URL ou HA_TOKEN manquant dans les réglages du Worker');
+  return env.HA_URL.replace(/\/+$/, '') + chemin;
+}
+async function construireMaison(env) {
+  const r = await fetch(haUrl(env, '/api/states'), { headers: { Authorization: 'Bearer ' + env.HA_TOKEN } });
+  if (!r.ok) throw new Error('Home Assistant a répondu ' + r.status);
+  const etats = await r.json(), lumieres = [], scenes = [];
+  for (const e of etats) {
+    const nom = (e.attributes && e.attributes.friendly_name) || e.entity_id;
+    if (e.entity_id.startsWith('light.')) {
+      const b = e.attributes && e.attributes.brightness;
+      lumieres.push({ id: e.entity_id, nom: nom, allumee: e.state === 'on', dispo: e.state !== 'unavailable', luminosite: e.state === 'on' && b ? Math.round(b / 2.55) : null });
+    } else if (e.entity_id.startsWith('scene.')) {
+      scenes.push({ id: e.entity_id, nom: nom, derniere: e.state && e.state !== 'unknown' ? Date.parse(e.state) || null : null });
+    }
+  }
+  const tri = (a, b) => a.nom.localeCompare(b.nom, 'fr');
+  return { maj: Date.now(), lumieres: lumieres.sort(tri), scenes: scenes.sort(tri) };
+}
+async function actionMaison(env, corps) {
+  const id = String(corps.id || '');
+  let service;
+  if (corps.action === 'basculer' && /^light\.[a-z0-9_]+$/.test(id)) service = '/api/services/light/toggle';
+  else if (corps.action === 'scene' && /^scene\.[a-z0-9_]+$/.test(id)) service = '/api/services/scene/turn_on';
+  else throw new Error('Action refusée');
+  const r = await fetch(haUrl(env, service), {
+    method: 'POST',
+    headers: { Authorization: 'Bearer ' + env.HA_TOKEN, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ entity_id: id })
+  });
+  if (!r.ok) throw new Error('Home Assistant a répondu ' + r.status);
+  return { ok: true };
+}
+
+/* =====================================================================
+   AIGUILLAGE
+   ===================================================================== */
+function repondre(objet, statut, entetes) {
+  return new Response(JSON.stringify(objet), { status: statut || 200, headers: entetes });
+}
+async function avecCache(cle, secondes, fabriquer, entetes, ctx) {
+  const cache = caches.default, req = new Request('https://cache.ecran-salon.local/' + cle);
+  const enCache = await cache.match(req);
+  if (enCache) return new Response(enCache.body, { headers: entetes });
+  const corps = JSON.stringify(await fabriquer());
+  ctx.waitUntil(cache.put(req, new Response(corps, { headers: { 'Cache-Control': 'max-age=' + secondes } })));
+  return new Response(corps, { headers: entetes });
+}
+
 export default {
   async fetch(request, env, ctx) {
     const entetes = {
       'Access-Control-Allow-Origin': ORIGINE_AUTORISEE,
+      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type',
       'Content-Type': 'application/json; charset=utf-8',
-      'Cache-Control': 'public, max-age=' + CACHE_SECONDES
+      'Cache-Control': 'no-store'
     };
-    const url = new URL(request.url);
+    const url = new URL(request.url), chemin = url.pathname.replace(/\/+$/, '') || '/';
     if (request.method === 'OPTIONS') return new Response(null, { headers: entetes });
-    if (url.pathname !== '/transports') {
-      return new Response(JSON.stringify({ ok: true, aide: 'Appelle /transports' }), { headers: entetes });
-    }
-    const cache = caches.default, cle = new Request(url.origin + '/transports');
-    const enCache = await cache.match(cle);
-    if (enCache) return enCache;
     try {
-      const corps = JSON.stringify(await construire());
-      const rep = new Response(corps, { headers: entetes });
-      ctx.waitUntil(cache.put(cle, rep.clone()));
-      return rep;
+      if (chemin === '/transports') return await avecCache('transports', CACHE_SECONDES, construire, entetes, ctx);
+
+      // Tout le reste est privé : il faut la clé de l'écran
+      if (chemin === '/agenda' || chemin.startsWith('/maison')) {
+        if (!env.ECRAN_CLE) return repondre({ erreur: 'ECRAN_CLE manquant dans les réglages du Worker' }, 503, entetes);
+        if (url.searchParams.get('cle') !== env.ECRAN_CLE) return repondre({ erreur: 'Clé de l\'écran absente ou incorrecte' }, 401, entetes);
+      }
+      if (chemin === '/agenda') return await avecCache('agenda', 300, () => construireAgenda(env), entetes, ctx);
+      if (chemin === '/maison') return repondre(await construireMaison(env), 200, entetes);
+      if (chemin === '/maison/action' && request.method === 'POST') {
+        let corps = {};
+        try { corps = JSON.parse(await request.text()); } catch (e) {}
+        return repondre(await actionMaison(env, corps), 200, entetes);
+      }
+      return repondre({ ok: true, adresses: ['/transports', '/agenda?cle=…', '/maison?cle=…'] }, 200, entetes);
     } catch (e) {
-      return new Response(JSON.stringify({ erreur: String(e) }), { status: 502, headers: entetes });
+      return repondre({ erreur: String(e.message || e) }, 502, entetes);
     }
   }
 };

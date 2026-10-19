@@ -125,6 +125,9 @@ function ajuster(){
 window.addEventListener('resize', ajuster);
 ajuster();
 
+/* ---------- Clé privée de l'écran (dans l'adresse de Fully : ?cle=…) ---------- */
+var CLE = param('cle') || '';
+
 /* ---------- Thème jour / nuit ---------- */
 var themeForce = param('theme') || CONFIG.THEME;
 function calculerTheme(){
@@ -141,7 +144,7 @@ var zoneSlides = document.getElementById('slides');
 var zoneTabs = document.getElementById('tabs');
 for (var i = 0; i < S.length; i++) {
   var f = document.createElement('iframe');
-  f.src = S[i].fichier + '?theme=' + theme;
+  f.src = S[i].fichier + '?theme=' + theme + (CLE ? '&cle=' + encodeURIComponent(CLE) : '');
   f.setAttribute('scrolling', 'no');
   zoneSlides.appendChild(f);
   frames.push(f);

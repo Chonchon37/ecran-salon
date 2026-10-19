@@ -53,7 +53,7 @@ body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;fon
 <div class="wrap">
   <div class="top">
     <div>
-      <div class="label">Maison<span class="demo" id="demo">exemple, rien n'est piloté</span></div>
+      <div class="label">Maison · Home Assistant<span class="demo" id="demo">exemple, rien n'est piloté</span></div>
       <div class="sum h" id="sum"></div>
     </div>
     <div class="note">Touche une scène ou une lampe</div>
@@ -67,26 +67,13 @@ body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;fon
 <script>
 /* ===================== RÉGLAGES ===================== */
 var CONFIG = {
-  DEMO: true,
+  WORKER: 'https://ecran-salon.nico-michon37.workers.dev',
   RAFRAICHIR_SEC: 20,
-  // entity_id = identifiant Home Assistant (on les remplira à l'étape domotique)
-  LUMIERES: [
-    { id: 'light.salon_plafonnier', nom: 'Salon · plafonnier' },
-    { id: 'light.lampe_canape',     nom: 'Salon · lampe canapé' },
-    { id: 'light.salle_a_manger',   nom: 'Salle à manger' },
-    { id: 'light.cuisine_ruban',    nom: 'Cuisine · ruban LED' },
-    { id: 'light.chambre',          nom: 'Chambre' },
-    { id: 'light.bureau',           nom: 'Bureau' },
-    { id: 'light.entree',           nom: 'Entrée' },
-    { id: 'light.guirlande',        nom: 'Terrasse · guirlande' }
-  ],
-  SCENES: [
-    { id: 'scene.bonjour', nom: 'Bonjour',       icone: 'soleil' },
-    { id: 'scene.soiree',  nom: 'Soirée cosy',   icone: 'lune' },
-    { id: 'scene.film',    nom: 'Film',          icone: 'tele' },
-    { id: 'scene.diner',   nom: 'Dîner',         icone: 'couverts' },
-    { id: 'scene.eteindre',nom: 'Tout éteindre', icone: 'off' }
-  ]
+  // Laisse vide pour afficher automatiquement tes 8 premières lumières et 5 premières scènes
+  // (ordre alphabétique). Sinon, liste les identifiants Home Assistant voulus, dans l'ordre :
+  // LUMIERES: ['light.salon', 'light.cuisine'],
+  LUMIERES: [],
+  SCENES: []
 };
 /* ==================================================== */
 
@@ -99,6 +86,9 @@ function signalerToucher(){ if (window.parent !== window) { try { window.parent.
 document.addEventListener('touchstart', signalerToucher, true);
 document.addEventListener('mousedown', signalerToucher, true);
 function $(id){ return document.getElementById(id); }
+function echapper(t){ return String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+var CLE = param('cle');
+function enDemo(){ return !CONFIG.WORKER || !CLE; }
 
 var SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">';
 var ICONES = {
@@ -107,68 +97,131 @@ var ICONES = {
   tele: '<rect x="3" y="5" width="18" height="12" rx="2"/><path d="M8 21h8M12 17v4"/>',
   couverts: '<path d="M7 3v18M4.5 3v5a2.5 2.5 0 0 0 5 0V3M17 21V3c-2.2 1.8-3 4.5-3 8h3"/>',
   off: '<path d="M12 3v8"/><path d="M6.3 6.8a8 8 0 1 0 11.4 0"/>',
+  lit: '<path d="M3 18v-7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v7M3 14h18M3 18v2M21 18v2M7 9V6h4v3"/>',
+  etoile: '<path d="M12 3l2.6 5.5 6 .8-4.4 4.1 1.1 5.9L12 16.4 6.7 19.3l1.1-5.9L3.4 9.3l6-.8z"/>',
   ampoule: '<path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-3.6 10.8c.7.5 1.1 1.3 1.1 2.1V16h5v-.1c0-.8.4-1.6 1.1-2.1A6 6 0 0 0 12 3z"/>'
 };
+// Icône d'une scène devinée d'après son nom
+function iconeScene(nom){
+  var n = nom.toLowerCase();
+  if (/éteind|eteind|off|dodo|nuit|coucher|départ|depart|absent/.test(n)) return /nuit|dodo|coucher/.test(n) ? 'lit' : 'off';
+  if (/film|ciné|cine|télé|tele|tv|série|serie/.test(n)) return 'tele';
+  if (/dîner|diner|repas|déjeuner|dejeuner|cuisine|apéro|apero/.test(n)) return 'couverts';
+  if (/soir|cosy|détente|detente|calme|tamis/.test(n)) return 'lune';
+  if (/matin|bonjour|réveil|reveil|jour|lumineux|travail/.test(n)) return 'soleil';
+  return 'etoile';
+}
 
-/* ---------- Données d'exemple ---------- */
-// état = luminosité en % (0 = éteinte)
-var etat = { 'light.lampe_canape': 60, 'light.cuisine_ruban': 40, 'light.guirlande': 100 };
-var sceneActive = 'scene.soiree';
-var REGLAGES_SCENES = {
-  'scene.bonjour':  { 'light.salon_plafonnier': 100, 'light.cuisine_ruban': 100, 'light.entree': 80 },
-  'scene.soiree':   { 'light.lampe_canape': 60, 'light.cuisine_ruban': 40, 'light.guirlande': 100 },
-  'scene.film':     { 'light.lampe_canape': 20 },
-  'scene.diner':    { 'light.salle_a_manger': 80, 'light.cuisine_ruban': 60, 'light.guirlande': 100 },
-  'scene.eteindre': {}
+/* ---------- Données d'exemple (sans clé) ---------- */
+var DEMO = {
+  lumieres: [
+    { id: 'light.salon_plafonnier', nom: 'Salon · plafonnier', allumee: false, dispo: true },
+    { id: 'light.lampe_canape', nom: 'Salon · lampe canapé', allumee: true, dispo: true, luminosite: 60 },
+    { id: 'light.salle_a_manger', nom: 'Salle à manger', allumee: false, dispo: true },
+    { id: 'light.cuisine_ruban', nom: 'Cuisine · ruban LED', allumee: true, dispo: true, luminosite: 40 },
+    { id: 'light.chambre', nom: 'Chambre', allumee: false, dispo: true },
+    { id: 'light.bureau', nom: 'Bureau', allumee: false, dispo: true },
+    { id: 'light.entree', nom: 'Entrée', allumee: false, dispo: true },
+    { id: 'light.guirlande', nom: 'Terrasse · guirlande', allumee: true, dispo: true, luminosite: 100 }
+  ],
+  scenes: [
+    { id: 'scene.bonjour', nom: 'Bonjour' }, { id: 'scene.soiree', nom: 'Soirée cosy' },
+    { id: 'scene.film', nom: 'Film' }, { id: 'scene.diner', nom: 'Dîner' }, { id: 'scene.eteindre', nom: 'Tout éteindre' }
+  ]
 };
+
+/* ---------- Choix des lumières et scènes à afficher ---------- */
+function choisir(liste, choix, max){
+  if (!choix.length) return liste.slice(0, max);
+  var res = [];
+  for (var i = 0; i < choix.length; i++) for (var k = 0; k < liste.length; k++) if (liste[k].id === choix[i]) res.push(liste[k]);
+  return res.slice(0, max);
+}
+var donnees = null, sceneActive = null, enAttente = {};
 
 /* ---------- Affichage ---------- */
 function afficher(){
-  var allumees = 0, html = '', i;
-  for (i = 0; i < CONFIG.LUMIERES.length; i++) {
-    var L = CONFIG.LUMIERES[i], v = etat[L.id] || 0;
-    if (v > 0) allumees++;
-    html += '<div class="tile' + (v > 0 ? '' : ' off') + '" data-id="' + L.id + '">' +
+  var D = donnees || DEMO, html = '', i;
+  var lum = choisir(D.lumieres, CONFIG.LUMIERES, 8), sc = choisir(D.scenes, CONFIG.SCENES, 5);
+  var allumees = 0;
+  for (i = 0; i < D.lumieres.length; i++) if (D.lumieres[i].allumee) allumees++;
+  for (i = 0; i < lum.length; i++) {
+    var L = lum[i], on = L.allumee;
+    var etat = !L.dispo ? 'Indisponible' : (enAttente[L.id] ? 'Un instant…' : (on ? 'Allumée' + (L.luminosite ? ' · ' + L.luminosite + ' %' : '') : 'Éteinte'));
+    html += '<div class="tile' + (on ? '' : ' off') + '" data-id="' + echapper(L.id) + '"' + (L.dispo ? '' : ' style="opacity:.5"') + '>' +
       '<div class="t-top"><div class="bulb">' + SVG + ICONES.ampoule + '</svg></div><div class="sw"><i></i></div></div>' +
-      '<div class="t-name">' + L.nom + '</div>' +
-      '<div class="t-state">' + (v > 0 ? 'Allumée · ' + v + ' %' : 'Éteinte') + '</div></div>';
+      '<div class="t-name">' + echapper(L.nom) + '</div><div class="t-state">' + etat + '</div></div>';
   }
+  if (!lum.length) html = '<div class="t-state">Aucune lumière trouvée dans Home Assistant.</div>';
   $('lights').innerHTML = html;
   $('sum').innerHTML = allumees === 0 ? 'Tout est éteint' : allumees + (allumees > 1 ? ' lumières allumées' : ' lumière allumée');
 
-  var sc = '';
-  for (i = 0; i < CONFIG.SCENES.length; i++) {
-    var S = CONFIG.SCENES[i];
-    sc += '<div class="scene' + (S.id === sceneActive ? ' on' : '') + '" data-id="' + S.id + '">' + SVG + ICONES[S.icone] + '</svg><span>' + S.nom + '</span></div>';
+  // Scène active : celle touchée ici, sinon la dernière lancée dans Home Assistant (moins de 6 h)
+  var active = sceneActive, recent = 0;
+  if (!active) for (i = 0; i < sc.length; i++) if (sc[i].derniere && sc[i].derniere > recent && Date.now() - sc[i].derniere < 6 * 3600000) { recent = sc[i].derniere; active = sc[i].id; }
+  var h = '';
+  for (i = 0; i < sc.length; i++) {
+    h += '<div class="scene' + (sc[i].id === active ? ' on' : '') + '" data-id="' + echapper(sc[i].id) + '">' + SVG + ICONES[iconeScene(sc[i].nom)] + '</svg><span>' + echapper(sc[i].nom) + '</span></div>';
   }
-  $('scenes').innerHTML = sc;
-  $('demo').style.display = CONFIG.DEMO ? '' : 'none';
+  if (!sc.length) h = '<div class="t-state">Aucune scène trouvée dans Home Assistant.</div>';
+  $('scenes').innerHTML = h;
+  $('demo').style.display = enDemo() ? '' : 'none';
+}
+function erreur(msg){ $('sum').innerHTML = '<span style="color:var(--warn);font-size:24px">' + echapper(msg) + '</span>'; }
+
+/* ---------- Échanges avec le Worker ---------- */
+function charger(){
+  if (enDemo()) { afficher(); return; }
+  var xhr = new XMLHttpRequest();
+  xhr.open('GET', CONFIG.WORKER + '/maison?cle=' + encodeURIComponent(CLE), true);
+  xhr.timeout = 20000;
+  xhr.onload = function(){
+    var j = null; try { j = JSON.parse(xhr.responseText); } catch (e) {}
+    if (xhr.status === 200 && j) { donnees = j; enAttente = {}; afficher(); }
+    else erreur('Maison indisponible : ' + (j && j.erreur ? j.erreur : 'erreur ' + xhr.status));
+  };
+  xhr.onerror = xhr.ontimeout = function(){ if (!donnees) erreur('Maison injoignable, nouvel essai bientôt'); };
+  xhr.send();
+}
+function action(type, id, apres){
+  var xhr = new XMLHttpRequest();
+  xhr.open('POST', CONFIG.WORKER + '/maison/action?cle=' + encodeURIComponent(CLE), true);
+  xhr.setRequestHeader('Content-Type', 'text/plain');
+  xhr.timeout = 15000;
+  xhr.onload = function(){
+    if (xhr.status !== 200) { var j = null; try { j = JSON.parse(xhr.responseText); } catch (e) {} erreur('Action impossible : ' + (j && j.erreur ? j.erreur : 'erreur ' + xhr.status)); }
+    setTimeout(charger, 1200);
+    if (apres) apres();
+  };
+  xhr.onerror = xhr.ontimeout = function(){ erreur('Action impossible, réseau indisponible'); setTimeout(charger, 3000); };
+  xhr.send(JSON.stringify({ action: type, id: id }));
 }
 
-/* ---------- Actions ---------- */
+/* ---------- Touchers ---------- */
 function cible(e, classe){
   var el = e.target;
   while (el && el !== document.body) { if (el.className && (' ' + el.className + ' ').indexOf(' ' + classe + ' ') >= 0) return el; el = el.parentNode; }
   return null;
 }
+function trouver(liste, id){ for (var i = 0; i < liste.length; i++) if (liste[i].id === id) return liste[i]; return null; }
 $('lights').addEventListener('click', function(e){
   var t = cible(e, 'tile'); if (!t) return;
-  var id = t.getAttribute('data-id');
-  if (CONFIG.DEMO) { etat[id] = (etat[id] || 0) > 0 ? 0 : 80; sceneActive = null; afficher(); return; }
-  // Étape suivante : appel du Worker → Home Assistant (light.toggle)
+  var id = t.getAttribute('data-id'), D = donnees || DEMO, L = trouver(D.lumieres, id);
+  if (!L || !L.dispo) return;
+  L.allumee = !L.allumee; if (!L.allumee) L.luminosite = null;   // réaction immédiate à l'écran
+  sceneActive = null;
+  if (enDemo()) { afficher(); return; }
+  enAttente[id] = true; afficher();
+  action('basculer', id);
 });
 $('scenes').addEventListener('click', function(e){
   var t = cible(e, 'scene'); if (!t) return;
-  var id = t.getAttribute('data-id');
-  if (CONFIG.DEMO) {
-    var r = REGLAGES_SCENES[id] || {}; etat = {};
-    for (var k in r) etat[k] = r[k];
-    sceneActive = id; afficher(); return;
-  }
-  // Étape suivante : appel du Worker → Home Assistant (scene.turn_on)
+  sceneActive = t.getAttribute('data-id'); afficher();
+  if (!enDemo()) action('scene', sceneActive);
 });
 
-afficher();
+charger();
+setInterval(function(){ if (!enDemo()) charger(); }, CONFIG.RAFRAICHIR_SEC * 1000);
 </script>
 </body>
 </html>

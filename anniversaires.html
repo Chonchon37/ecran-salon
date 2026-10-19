@@ -55,8 +55,10 @@ body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;fon
 <script>
 /* ===================== RÉGLAGES ===================== */
 var CONFIG = {
-  DEMO: true,
-  // Liste d'exemple : jour/mois, année de naissance (0 si inconnue)
+  // Les anniversaires viennent de ton Google Agenda : événements dont le titre commence par 🎂
+  // (ajoute l'année de naissance dans le titre pour afficher l'âge, ex. « 🎂 Lucie 1995 »)
+  WORKER: 'https://ecran-salon.nico-michon37.workers.dev/agenda',
+  // Liste d'exemple, utilisée seulement sans clé : jour/mois, année de naissance (0 si inconnue)
   PERSONNES: [
     { nom: 'Lucie',        jour: 22, mois: 10, annee: 1995 },
     { nom: 'Maman',        jour: 3,  mois: 11, annee: 1962 },
@@ -94,13 +96,18 @@ function prochains(liste){
   res.sort(function(a, b){ return a.jours - b.jours; });
   return res;
 }
+var CLE = param('cle');
+function enDemo(){ return !CONFIG.WORKER || !CLE; }
+function echapper(t){ return String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 function dans(n){ return n === 0 ? 'Aujourd\'hui' : (n === 1 ? 'Demain' : 'Dans ' + n + ' jours'); }
 
+var listeReelle = null;
 function afficher(){
-  var L = prochains(CONFIG.PERSONNES), p = L[0];
+  var L = prochains(listeReelle || CONFIG.PERSONNES), p = L[0];
+  if (!p) { $('hero').innerHTML = '<div class="detail">Aucun anniversaire trouvé. Crée dans ton agenda un événement annuel qui commence par 🎂.</div>'; $('rows').innerHTML = ''; return; }
   $('hero').innerHTML =
     '<div class="cake">' + GATEAU + '</div>' +
-    '<div class="qui h">' + p.nom + '</div>' +
+    '<div class="qui h">' + echapper(p.nom) + '</div>' +
     '<div class="quand h">' + dans(p.jours) + '</div>' +
     '<div class="detail">' + JOURS[p.date.getDay()] + ' ' + p.date.getDate() + ' ' + MOIS[p.date.getMonth()] + (p.age ? ' · ' + p.age + ' ans' : '') + '</div>' +
     (p.jours === 0 ? '<div class="tag">Pense à appeler !</div>' : (p.jours <= 7 ? '<div class="tag">Cette semaine</div>' : ''));
@@ -108,14 +115,31 @@ function afficher(){
   for (var i = 1; i < Math.min(L.length, 7); i++) {
     var q = L[i];
     html += '<div class="row' + (q.jours <= 14 ? ' proche' : '') + '"><div class="cal"><b>' + q.date.getDate() + '</b><span>' + MOIS_COURTS[q.date.getMonth()] + '</span></div>' +
-      '<div><div class="r-n">' + q.nom + '</div><div class="r-a">' + JOURS[q.date.getDay()] + (q.age ? ' · ' + q.age + ' ans' : '') + '</div></div>' +
+      '<div><div class="r-n">' + echapper(q.nom) + '</div><div class="r-a">' + JOURS[q.date.getDay()] + (q.age ? ' · ' + q.age + ' ans' : '') + '</div></div>' +
       '<div class="r-j">' + (q.jours === 1 ? 'demain' : 'dans ' + q.jours + ' j') + '</div></div>';
   }
   $('rows').innerHTML = html;
-  $('demo').style.display = CONFIG.DEMO ? '' : 'none';
+  $('demo').style.display = enDemo() ? '' : 'none';
 }
-afficher();
-setInterval(afficher, 30 * 60000);
+function charger(){
+  if (enDemo()) { afficher(); return; }
+  var xhr = new XMLHttpRequest();
+  xhr.open('GET', CONFIG.WORKER + '?cle=' + encodeURIComponent(CLE), true);
+  xhr.timeout = 25000;
+  xhr.onload = function(){
+    var j = null; try { j = JSON.parse(xhr.responseText); } catch (e) {}
+    if (xhr.status === 200 && j) {
+      listeReelle = j.anniversaires.map(function(a){ var d = new Date(a.date); return { nom: a.nom, jour: d.getDate(), mois: d.getMonth() + 1, annee: a.annee }; });
+      afficher();
+    } else if (!listeReelle) {
+      $('hero').innerHTML = '<div class="detail">Anniversaires indisponibles : ' + echapper(j && j.erreur ? j.erreur : 'erreur ' + xhr.status) + '</div>';
+    }
+  };
+  xhr.send();
+}
+charger();
+setInterval(charger, 30 * 60000);
+setInterval(function(){ if (listeReelle) afficher(); }, 10 * 60000);
 </script>
 </body>
 </html>
