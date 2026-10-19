@@ -512,7 +512,9 @@ function nettoyerReglages(r) {
   for (const s of Array.isArray(rot.slides) ? rot.slides : []) {
     if (!s || !SLIDES_CONNUES[s.id] || vues.has(s.id)) continue;
     vues.add(s.id);
-    slides.push({ id: s.id, actif: s.actif !== false, duree: entier(s.duree, 5, 600, 30) });
+    const actif = s.actif !== false;
+    // onglet = page visible dans la barre du bas même si elle n'est pas dans la rotation
+    slides.push({ id: s.id, actif: actif, onglet: actif || (s.onglet === undefined ? false : !!s.onglet), duree: entier(s.duree, 5, 600, 30) });
   }
   for (const s of D.rotation.slides) if (!vues.has(s.id)) slides.push(Object.assign({}, s));
   if (!slides.some(s => s.actif)) slides[0].actif = true;

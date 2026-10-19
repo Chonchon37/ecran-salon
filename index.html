@@ -170,7 +170,7 @@ function appliquerReglages(R){
   for (i = 0; i < g.rotation.slides.length; i++) {
     var sl = g.rotation.slides[i], base = parId[sl.id];
     // une page masquée mais utilisée par une plage fixe reste chargée (hors rotation)
-    if (base && (sl.actif || fixes[sl.id])) liste.push({ id: base.id, fichier: base.fichier, nom: base.nom, icone: base.icone, duree: sl.duree, horsRotation: !sl.actif });
+    if (base && (sl.actif || sl.onglet || fixes[sl.id])) liste.push({ id: base.id, fichier: base.fichier, nom: base.nom, icone: base.icone, duree: sl.duree, horsRotation: !sl.actif, onglet: !!(sl.actif || sl.onglet) });
   }
   if (liste.length) CONFIG.SLIDES = liste;
   CONFIG.PLAGES = plages;
@@ -229,7 +229,7 @@ function construire(){
 
     var t = document.createElement('div');
     t.className = 'tab';
-    if (S[i].horsRotation) t.style.display = 'none';
+    if (S[i].horsRotation && !S[i].onglet) t.style.display = 'none';
     t.innerHTML = SVG_DEBUT + ICONES[S[i].icone] + '</svg><span>' + S[i].nom + '</span>';
     (function(index){
       t.addEventListener('click', function(){

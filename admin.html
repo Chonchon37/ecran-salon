@@ -98,7 +98,7 @@ input[type=time]{font:inherit;color:var(--ink);background:var(--bg);border:1.5px
 
     <section>
       <h2>Pages et rotation</h2>
-      <p class="aide">Ordre des pages, celles qu'on affiche, et combien de secondes chacune reste à l'écran.</p>
+      <p class="aide">Ordre des pages et combien de secondes chacune reste à l'écran. « Onglet seulement » : la page reste accessible en touchant la barre du bas, mais ne passe pas toute seule.</p>
       <div id="slides"></div>
       <div class="rang" style="margin-top:14px">
         <label for="pause">Pause quand on touche l'écran</label>
@@ -286,7 +286,11 @@ function dessinerSlides() {
         <button type="button" data-descendre="${i}" ${i === L.length - 1 ? 'disabled' : ''} aria-label="Descendre ${NOMS_SLIDES[s.id]}">↓</button>
       </div>
       <div class="nom">${NOMS_SLIDES[s.id]}</div>
-      <label class="interrupteur"><input type="checkbox" data-actif="${i}" ${s.actif ? 'checked' : ''}> Affichée</label>
+      <select data-etat="${i}" aria-label="Affichage de ${NOMS_SLIDES[s.id]}">
+        <option value="rotation" ${s.actif ? 'selected' : ''}>Dans la rotation</option>
+        <option value="onglet" ${!s.actif && s.onglet ? 'selected' : ''}>Onglet seulement</option>
+        <option value="masquee" ${!s.actif && !s.onglet ? 'selected' : ''}>Masquée</option>
+      </select>
       <input type="number" min="5" max="600" data-duree="${i}" value="${s.duree}" aria-label="Durée de ${NOMS_SLIDES[s.id]}"> <span>s</span>
     </div>`).join('');
 }
@@ -297,9 +301,10 @@ $('slides').addEventListener('click', e => {
 });
 $('slides').addEventListener('change', e => {
   const L = R.reglages.rotation.slides, t = e.target;
-  if (t.dataset.actif !== undefined) {
-    L[+t.dataset.actif].actif = t.checked;
-    if (!L.some(s => s.actif)) { t.checked = true; L[+t.dataset.actif].actif = true; alerteEtat('Il faut garder au moins une page.'); return; }
+  if (t.dataset.etat !== undefined) {
+    const s = L[+t.dataset.etat], avant = { actif: s.actif, onglet: s.onglet };
+    s.actif = t.value === 'rotation'; s.onglet = t.value !== 'masquee';
+    if (!L.some(x => x.actif)) { Object.assign(s, avant); dessinerSlides(); alerteEtat('Il faut garder au moins une page dans la rotation.'); return; }
   }
   if (t.dataset.duree !== undefined) L[+t.dataset.duree].duree = +t.value;
   dessinerPlages(); aChange();
@@ -310,7 +315,7 @@ const NOMS_JOURS = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi
 function dessinerPlages() {
   const P = R.reglages.rotation.plages || (R.reglages.rotation.plages = []);
   if (!P.length) { $('plages').innerHTML = '<p class="vide">Aucune plage : l\'écran tourne en permanence.</p>'; return; }
-  const masquee = id => !(R.reglages.rotation.slides.find(s => s.id === id) || {}).actif;
+  const masquee = id => { const s = R.reglages.rotation.slides.find(x => x.id === id) || {}; return !s.actif && !s.onglet; };
   $('plages').innerHTML = P.map((p, i) => `
     <div class="plage">
       <div class="rang">
