@@ -67,9 +67,14 @@ body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;fon
 .tl-n{font-size:16px;color:var(--ok);font-weight:700}
 .tl-n.vite{color:var(--warn)}
 .bd{flex:1;display:flex;flex-direction:column}
-.bd-q{font-size:36px;font-weight:600;margin-top:auto;line-height:1.05}
-.bd-j{font-size:24px;font-weight:700;color:var(--fete);margin-top:6px}
-.bd-d{font-size:17px;color:var(--muted);margin-top:4px}
+.bd-q{font-size:30px;font-weight:600;margin-top:auto;line-height:1.05;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bd-j{font-size:20px;font-weight:700;color:var(--fete);margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bd-d{font-size:17px;color:var(--muted);margin-top:4px;font-weight:400}
+.bd-j .bd-d{margin-top:0}
+.bd-suite{margin-top:10px;border-top:1.5px solid var(--line);padding-top:6px}
+.bd-l{display:flex;align-items:baseline;font-size:18px;line-height:1.5}
+.bd-n{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}
+.bd-w{color:var(--muted);margin-left:10px;white-space:nowrap}
 
 .ag{flex:1;margin-bottom:16px;display:flex;flex-direction:column;min-height:0}
 .ev{display:flex;align-items:center;margin-top:12px}
@@ -144,6 +149,7 @@ document.addEventListener('touchstart', signalerToucher, true);
 document.addEventListener('mousedown', signalerToucher, true);
 function $(id){ return document.getElementById(id); }
 var JOURS = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
+var MOIS_C = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
 var MOIS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
 function majuscule(s){ return s.charAt(0).toUpperCase() + s.slice(1); }
 
@@ -207,7 +213,7 @@ var DEMO_AG = [
   { j: 1, debut: '18:30', titre: 'Yoga Flo', qui: 'flo' }
 ];
 var COULEURS = { moi: 'var(--accent)', flo: 'var(--p2)', nous: 'var(--nous)' };
-var DEMO_ANNIV = { nom: 'Lucie', jour: 22, mois: 10, annee: 1995 };
+var DEMO_ANNIV = [{ nom: 'Lucie', jour: 22, mois: 10, annee: 1995 }, { nom: 'Papa', jour: 3, mois: 11, annee: 1962 }, { nom: 'Julien', jour: 14, mois: 11, annee: 1990 }];
 var lumieres = 3, sceneActive = 'soiree';
 
 /* ---------- Météo : réelle (Open-Meteo) ou exemple ---------- */
@@ -391,28 +397,39 @@ function afficher(){
   }
   $('tr').innerHTML = tr;
 
-  // Anniversaire : le prochain (réel si disponible)
+  // Anniversaires : les 3 prochains (réels si disponibles)
   var auj = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  var A = null;
+  var AN = [];
   if (agendaReel && agendaReel.anniversaires) {
-    for (var b = 0; b < agendaReel.anniversaires.length && !A; b++) {
+    for (var b = 0; b < agendaReel.anniversaires.length && AN.length < 3; b++) {
       var x = agendaReel.anniversaires[b], dx = new Date(x.date);
       var dj = new Date(dx.getFullYear(), dx.getMonth(), dx.getDate());
-      if (dj >= auj) A = { nom: x.nom, date: dj, age: x.annee ? dj.getFullYear() - x.annee : 0 };
+      if (dj >= auj) AN.push({ nom: x.nom, date: dj, age: x.annee ? dj.getFullYear() - x.annee : 0 });
     }
   } else if (!prive()) {
-    var dA = new Date(auj.getFullYear(), DEMO_ANNIV.mois - 1, DEMO_ANNIV.jour);
-    if (dA < auj) dA = new Date(auj.getFullYear() + 1, DEMO_ANNIV.mois - 1, DEMO_ANNIV.jour);
-    A = { nom: DEMO_ANNIV.nom, date: dA, age: dA.getFullYear() - DEMO_ANNIV.annee };
+    for (var dm = 0; dm < DEMO_ANNIV.length; dm++) {
+      var Dd = DEMO_ANNIV[dm], dA = new Date(auj.getFullYear(), Dd.mois - 1, Dd.jour);
+      if (dA < auj) dA = new Date(auj.getFullYear() + 1, Dd.mois - 1, Dd.jour);
+      AN.push({ nom: Dd.nom, date: dA, age: dA.getFullYear() - Dd.annee });
+    }
+    AN.sort(function(p, q){ return p.date - q.date; });
   }
-  if (A) {
-    var nj = Math.round((A.date - auj) / 86400000);
-    $('bd').innerHTML = '<div class="label">Prochain anniversaire<span class="voir">›</span></div>' +
+  function dansJours(d){ var n = Math.round((d - auj) / 86400000); return n === 0 ? 'Aujourd\'hui !' : (n === 1 ? 'Demain' : 'Dans ' + n + ' jours'); }
+  var titreBd = '<div class="label">' + (AN.length > 1 ? 'Prochains anniversaires' : 'Prochain anniversaire') + '<span class="voir">›</span></div>';
+  if (AN.length) {
+    var A = AN[0], bd = titreBd +
       '<div class="bd-q h">' + echapper(A.nom) + '</div>' +
-      '<div class="bd-j">' + (nj === 0 ? 'Aujourd\'hui !' : (nj === 1 ? 'Demain' : 'Dans ' + nj + ' jours')) + '</div>' +
-      '<div class="bd-d">' + JOURS[A.date.getDay()] + ' ' + A.date.getDate() + ' ' + MOIS[A.date.getMonth()] + (A.age ? ' · ' + A.age + ' ans' : '') + '</div>';
+      '<div class="bd-j">' + dansJours(A.date) + '<span class="bd-d"> · ' + JOURS[A.date.getDay()].slice(0, 3) + '. ' + A.date.getDate() + ' ' + MOIS_C[A.date.getMonth()] + (A.age ? ' · ' + A.age + ' ans' : '') + '</span></div>';
+    if (AN.length > 1) {
+      bd += '<div class="bd-suite">';
+      for (var k = 1; k < AN.length; k++) {
+        bd += '<div class="bd-l"><span class="bd-n">' + echapper(AN[k].nom) + '</span><span class="bd-w">' + JOURS[AN[k].date.getDay()].slice(0, 3) + '. ' + AN[k].date.getDate() + ' ' + MOIS_C[AN[k].date.getMonth()] + '</span></div>';
+      }
+      bd += '</div>';
+    }
+    $('bd').innerHTML = bd;
   } else {
-    $('bd').innerHTML = '<div class="label">Prochain anniversaire<span class="voir">›</span></div><div class="bd-d" style="margin-top:auto">' + (prive() && !agendaReel ? 'Chargement…' : 'Aucun 🎂 dans l\'agenda') + '</div>';
+    $('bd').innerHTML = titreBd + '<div class="bd-d" style="margin-top:auto">' + (prive() && !agendaReel ? 'Chargement…' : 'Aucun 🎂 dans l\'agenda') + '</div>';
   }
 
   // Agenda : ce qui reste aujourd'hui, puis demain
