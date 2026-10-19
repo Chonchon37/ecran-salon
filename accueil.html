@@ -31,8 +31,8 @@ body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;fon
 .hello{padding:6px 4px 20px}
 .greet{font-size:68px;font-weight:600;line-height:1;letter-spacing:-.02em}
 .date{font-size:30px;font-weight:500;margin-top:10px}
-.fete{font-size:19px;color:var(--muted);margin-top:8px;display:flex;align-items:center}
-.fete .demo{margin-left:10px}
+.msg{display:inline-block;margin-top:12px;padding:8px 14px;border-radius:12px;background:var(--fete-soft);color:var(--fete);font-size:21px;font-weight:700;line-height:1.3;max-width:420px}
+[hidden]{display:none!important}
 .wx{flex:1;display:flex;flex-direction:column}
 .wx-main{display:flex;align-items:center;margin-top:6px}
 .wx-temp{font-size:100px;font-weight:600;line-height:1;letter-spacing:-.03em;margin-left:6px}
@@ -59,7 +59,8 @@ body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;fon
 .tl-m{margin-left:auto;text-align:right}
 .tl-m b{font-family:"Bricolage Grotesque",Figtree,Arial,sans-serif;font-size:46px;font-weight:600;line-height:1}
 .tl-m small{font-size:18px;font-weight:600;margin-left:4px}
-.tl-n{font-size:15px;color:var(--muted)}
+.tl-n{font-size:16px;color:var(--ok);font-weight:700}
+.tl-n.vite{color:var(--warn)}
 .bd{flex:1;display:flex;flex-direction:column}
 .bd-q{font-size:36px;font-weight:600;margin-top:auto;line-height:1.05}
 .bd-j{font-size:24px;font-weight:700;color:var(--fete);margin-top:6px}
@@ -89,6 +90,7 @@ body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;fon
     <div class="hello">
       <div class="greet h" id="greet"></div>
       <div class="date" id="date"></div>
+      <div class="msg" id="msg" hidden></div>
     </div>
     <div class="card wx">
       <div class="label">Météo · Tours Nord</div>
@@ -187,8 +189,8 @@ function mockCode(h){
 function jourA(h){ return h >= 9 && h < 19; }
 var t0 = Date.now();
 var DEMO_TR = [
-  { ligne: 'A', type: 'tram', arret: 'Monconseil', direction: 'Jean Monnet', marche: 6, passages: [3.6, 11.2, 19.4] },
-  { ligne: '2', type: 'bus', arret: 'Maréchal Juin', direction: 'CHU Trousseau', marche: 4, passages: [7.3, 21.5, 35.2] }
+  { ligne: 'A', type: 'tram', arret: 'Monconseil', direction: 'Jean Monnet', marche: 7, passages: [3.6, 11.2, 19.4] },
+  { ligne: '2', type: 'bus', arret: 'Maréchal Juin', direction: 'CHU Trousseau', marche: 9, passages: [7.3, 21.5, 35.2] }
 ];
 var DEMO_AG = [
   { j: 0, debut: '08:30', titre: 'Point d\'équipe', qui: 'moi' },
@@ -312,6 +314,7 @@ function afficher(){
   // Bonjour
   $('greet').innerHTML = h < 5 ? 'Bonne nuit' : (h < 12 ? 'Bonjour' : (h < 18 ? 'Bon après-midi' : 'Bonsoir'));
   $('date').innerHTML = majuscule(JOURS[now.getDay()]) + ' ' + now.getDate() + ' ' + MOIS[now.getMonth()];
+  $('msg').hidden = !MESSAGE; $('msg').innerHTML = echapper(MESSAGE);
   $('date').innerHTML += prive() ? '' : ' <span class="demo" style="vertical-align:middle">exemple</span>';
 
   // Météo
@@ -321,21 +324,22 @@ function afficher(){
   var tr = '';
   for (var k = 0; k < DEMO_TR.length; k++) {
     var L = DEMO_TR[k], restants = [];
+    if (L.actif === false) continue;
     if (transportsReels) {
       var PR = transportsReels.lignes[L.ligne] ? transportsReels.lignes[L.ligne].passages : [];
-      for (var q = 0; q < PR.length; q++) { var mq = Math.floor((PR[q].t - Date.now()) / 60000); if (mq >= 0) restants.push(mq); }
+      for (var q = 0; q < PR.length; q++) { var mq = Math.floor((PR[q].t - Date.now()) / 60000); if (mq >= L.marche) restants.push(mq); }
     } else {
       for (var p = 0; p < L.passages.length; p++) {
         var m = Math.floor((t0 + L.passages[p] * 60000 - Date.now()) / 60000);
-        if (m >= 0) restants.push(m);
+        if (m >= L.marche) restants.push(m);
       }
-      if (!restants.length) { t0 = Date.now(); restants = [3]; }
+      if (!restants.length) { t0 = Date.now(); restants = [12]; }
     }
-    if (!restants.length) { tr += '<div class="tl"><div class="badge ' + L.type + '">' + L.ligne + '</div><div><div class="tl-s">' + L.arret + '</div><div class="tl-d">Aucun passage annoncé</div></div></div>'; continue; }
+    if (!restants.length) { tr += '<div class="tl"><div class="badge ' + L.type + '">' + L.ligne + '</div><div><div class="tl-s">' + L.arret + '</div><div class="tl-d">Aucun passage attrapable</div></div></div>'; continue; }
     tr += '<div class="tl"><div class="badge ' + L.type + '">' + L.ligne + '</div>' +
       '<div><div class="tl-s">' + L.arret + '</div><div class="tl-d">vers ' + L.direction + '</div></div>' +
       '<div class="tl-m"><b>' + (restants[0] < 1 ? '&lt;1' : restants[0]) + '</b><small>min</small>' +
-      '<div class="tl-n">' + (restants[1] !== undefined ? 'puis ' + restants[1] + ' min' : '') + '</div></div></div>';
+      '<div class="tl-n' + (restants[0] - L.marche <= 1 ? ' vite' : '') + '">' + (restants[0] - L.marche <= 1 ? 'pars maintenant' : 'pars dans ' + (restants[0] - L.marche) + ' min') + '</div></div></div>';
   }
   $('tr').innerHTML = tr;
 
@@ -440,6 +444,17 @@ $('sc').addEventListener('click', function(e){
   xhr.setRequestHeader('Content-Type', 'text/plain');
   xhr.onload = function(){ setTimeout(chargerMaison, 1500); };
   xhr.send(JSON.stringify({ action: 'scene', id: S.id }));
+});
+
+// Réglages envoyés par l'écran (page admin) : temps de marche, agendas, message
+var MESSAGE = '';
+window.addEventListener('message', function(e){
+  if (!e.data || e.data.type !== 'reglages' || !e.data.value) return;
+  var g = e.data.value, k;
+  if (g.transports) for (k = 0; k < DEMO_TR.length; k++) { var t = g.transports[DEMO_TR[k].ligne]; if (t) { DEMO_TR[k].marche = t.marche; DEMO_TR[k].actif = t.actif; } }
+  if (g.agenda) { AGENDAS = { commun: 'nous' }; for (k in g.agenda.agendas) AGENDAS[k] = g.agenda.agendas[k]; }
+  MESSAGE = g.message || '';
+  afficher();
 });
 
 afficher();

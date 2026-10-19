@@ -25,47 +25,63 @@ body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;fon
 .demo{margin-left:10px;font-size:12px;letter-spacing:.06em;padding:3px 9px;border-radius:20px;background:var(--warn-soft);color:var(--warn)}
 
 .top{display:flex;align-items:center;justify-content:space-between;height:28px;margin-bottom:16px}
-.upd{font-size:16px;color:var(--muted)}
-.lines{flex:1;display:flex}
-.line{flex:1;display:flex;flex-direction:column}
-.line:first-child{margin-right:16px}
+.upd{font-size:17px;color:var(--muted);display:flex;align-items:center}
+.upd.vieux{color:var(--warn);font-weight:700}
+.lines{flex:1;display:flex;min-height:0}
+.line{flex:1;display:flex;flex-direction:column;min-width:0}
+.line + .line{margin-left:16px}
 
 .ln-head{display:flex;align-items:center}
-.badge{width:62px;height:62px;display:flex;align-items:center;justify-content:center;font-family:"Bricolage Grotesque",Figtree,Arial,sans-serif;font-size:36px;font-weight:700;color:var(--badge-ink);margin-right:18px;flex:none}
+.badge{width:60px;height:60px;display:flex;align-items:center;justify-content:center;font-family:"Bricolage Grotesque",Figtree,Arial,sans-serif;font-size:34px;font-weight:700;color:var(--badge-ink);margin-right:18px;flex:none}
 .badge.tram{background:var(--tram);border-radius:50%}
 .badge.bus{background:var(--bus);border-radius:14px}
 .ln-stop{font-size:30px;font-weight:600;line-height:1.1}
-.ln-dir{font-size:19px;color:var(--muted);margin-top:3px}
-.ln-status{margin-left:auto;font-size:15px;font-weight:700;padding:6px 12px;border-radius:16px;background:var(--ok-soft);color:var(--ok);align-self:flex-start}
+.ln-dir{font-size:20px;color:var(--muted);margin-top:3px}
+.ln-status{margin-left:auto;font-size:16px;font-weight:700;padding:7px 13px;border-radius:16px;background:var(--ok-soft);color:var(--ok);align-self:flex-start;white-space:nowrap}
 .ln-status.pb{background:var(--warn-soft);color:var(--warn)}
+.alerte{margin-top:14px;padding:12px 16px;border-radius:14px;background:var(--warn-soft);color:var(--warn);font-size:19px;font-weight:600;line-height:1.3}
 
-.ln-next{display:flex;align-items:flex-end;margin-top:26px}
-.big{font-size:132px;font-weight:600;line-height:.9;letter-spacing:-.03em}
-.big small{font-size:40px;font-weight:600;letter-spacing:0;margin-left:8px}
-.ln-meta{font-size:19px;color:var(--muted);margin:0 0 10px 22px;line-height:1.5}
-.live{display:inline-flex;align-items:center;color:var(--ok);font-weight:700}
-.live i{width:9px;height:9px;border-radius:50%;background:var(--ok);margin-right:7px;-webkit-animation:pulse 1.6s infinite;animation:pulse 1.6s infinite}
+/* Bloc principal : quand partir */
+.hero{margin-top:22px;padding:18px 22px;border-radius:18px;background:var(--ok-soft);color:var(--ok);display:flex;align-items:center}
+.hero.vite{background:var(--warn-soft);color:var(--warn)}
+.hero.rien{background:var(--card2);color:var(--muted)}
+.hero-g{flex:none;margin-right:24px}
+.hero-l{font-size:17px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+.hero-n{font-size:104px;font-weight:600;line-height:.95;letter-spacing:-.03em}
+.hero-n small{font-size:36px;font-weight:600;letter-spacing:0;margin-left:6px}
+.hero-n.mot{font-size:54px;line-height:1.1;letter-spacing:-.01em}
+.hero-d{color:var(--ink);font-size:24px;font-weight:600;line-height:1.35;min-width:0}
+.hero-d span{display:block;font-size:19px;font-weight:500;color:var(--muted)}
+.tag{display:inline-flex;align-items:center;font-size:16px;font-weight:700;margin-top:6px}
+.tag.live{color:var(--ok)}
+.tag.prevu{color:var(--muted)}
+.tag i{width:10px;height:10px;border-radius:50%;margin-right:7px;background:currentColor}
+.tag.live i{-webkit-animation:pulse 1.6s infinite;animation:pulse 1.6s infinite}
+.tag.prevu i{background:transparent;border:2px solid currentColor;width:6px;height:6px}
 @-webkit-keyframes pulse{50%{opacity:.25}}
 @keyframes pulse{50%{opacity:.25}}
+.rate{margin-top:10px;font-size:17px;color:var(--muted)}
 
-.leave{margin-top:24px;display:flex;align-items:center;font-size:22px;font-weight:600;padding:14px 18px;border-radius:14px;background:var(--ok-soft);color:var(--ok)}
-.leave.vite{background:var(--warn-soft);color:var(--warn)}
-.leave svg{width:26px;height:26px;margin-right:12px;flex:none}
-
-.frise{position:relative;height:92px;margin-top:30px}
-.fr-track{position:absolute;left:0;right:0;top:32px;height:6px;border-radius:3px;background:var(--card2)}
-.fr-walk{position:absolute;left:0;top:32px;height:6px;border-radius:3px;background:var(--warn);opacity:.6}
-.fr-wl{position:absolute;left:0;top:4px;font-size:15px;font-weight:700;color:var(--warn)}
-.fr-dot{position:absolute;top:24px;width:22px;height:22px;margin-left:-11px;border-radius:50%;box-sizing:border-box;border:4px solid;background:var(--card)}
-.fr-lab{position:absolute;top:58px;white-space:nowrap;font-size:15px;color:var(--muted);-webkit-transform:translateX(-50%);transform:translateX(-50%)}
+/* Frise des 60 prochaines minutes */
+.frise{position:relative;height:96px;margin-top:auto}
+.fr-titre{position:absolute;left:0;top:0;font-size:16px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.fr-track{position:absolute;left:0;right:0;top:44px;height:8px;border-radius:4px;background:var(--card2)}
+.fr-walk{position:absolute;left:0;top:44px;height:8px;border-radius:4px 0 0 4px;background:repeating-linear-gradient(135deg,var(--warn) 0 6px,transparent 6px 11px);opacity:.75}
+.fr-dot{position:absolute;top:36px;width:24px;height:24px;margin-left:-12px;border-radius:50%;box-sizing:border-box;border:4px solid;background:var(--card)}
+.fr-dot.passe{opacity:.35}
+.fr-lab{position:absolute;top:70px;white-space:nowrap;font-size:17px;color:var(--muted);-webkit-transform:translateX(-50%);transform:translateX(-50%)}
 .fr-lab.g{-webkit-transform:none;transform:none}
 .fr-lab.d{-webkit-transform:translateX(-100%);transform:translateX(-100%)}
-.ln-list{margin-top:auto;display:flex;border-top:2px solid var(--line);padding-top:18px}
+
+/* Passages suivants */
+.ln-list{margin-top:18px;display:flex;border-top:2px solid var(--line);padding-top:16px}
 .dep{flex:1}
-.dep-m{font-size:34px;font-weight:600}
-.dep-m small{font-size:18px;color:var(--muted);font-weight:600;margin-left:4px}
-.dep-h{font-size:17px;color:var(--muted);margin-top:2px}
-.foot{margin-top:14px;font-size:16px;color:var(--muted)}
+.dep-h{font-size:32px;font-weight:600}
+.dep-m{font-size:18px;color:var(--muted);margin-top:2px;display:flex;align-items:center}
+.dep-m i{width:9px;height:9px;border-radius:50%;margin-right:7px;background:var(--ok)}
+.dep-m i.p{background:transparent;border:2px solid var(--muted);width:5px;height:5px}
+.foot{margin-top:12px;font-size:17px;color:var(--muted);display:flex;align-items:center}
+.foot svg{width:20px;height:20px;margin-right:8px}
 </style>
 </head>
 <body>
@@ -84,10 +100,10 @@ var CONFIG = {
   WORKER: 'https://ecran-salon.nico-michon37.workers.dev/transports',
   RAFRAICHIR_SEC: 30,
   LIGNES: [
-    { ligne: 'A', type: 'tram', arret: 'Monconseil',    direction: 'Jean Monnet',   marche: 6 },
-    { ligne: '2', type: 'bus',  arret: 'Maréchal Juin', direction: 'CHU Trousseau', marche: 4 }
+    { ligne: 'A', type: 'tram', nom: 'tram', arret: 'Monconseil',    direction: 'Jean Monnet',   marche: 7, actif: true },
+    { ligne: '2', type: 'bus',  nom: 'bus',  arret: 'Maréchal Juin', direction: 'CHU Trousseau', marche: 9, actif: true }
   ]
-  // marche = minutes à pied de chez toi jusqu'à l'arrêt (à ajuster)
+  // marche = minutes à pied jusqu'à l'arrêt (modifiable aussi depuis la page admin)
 };
 /* ==================================================== */
 
@@ -134,65 +150,72 @@ function donneesDemo(){
 
 /* ---------- Affichage ---------- */
 function minutesAvant(ms){ return Math.floor((ms - Date.now()) / 60000); }
+function enMin(m){ return m < 1 ? 'moins d\'1 min' : m + ' min'; }
+function tag(p){ return p.tempsReel ? '<div class="tag live"><i></i>temps réel</div>' : '<div class="tag prevu"><i></i>horaire prévu</div>'; }
 function carte(cfg, D){
-  var P = D ? D.passages : [], html = '';
-  html += '<div class="card line"><div class="ln-head">' +
+  var P = (D ? D.passages : []).filter(function(p){ return p.heure > Date.now() - 30000; });
+  var html = '<div class="card line"><div class="ln-head">' +
     '<div class="badge ' + cfg.type + '">' + cfg.ligne + '</div>' +
     '<div><div class="ln-stop h">' + cfg.arret + '</div><div class="ln-dir">vers ' + cfg.direction + '</div></div>' +
     (D && D.perturbation ? '<div class="ln-status pb">Perturbé</div>' : '<div class="ln-status">Trafic normal</div>') +
     '</div>';
-  if (!P.length) return html + '<div class="ln-next"><div class="ln-meta">Aucun passage annoncé</div></div></div>';
+  if (D && D.perturbation) html += '<div class="alerte">' + D.perturbation.replace(/</g, '&lt;') + '</div>';
 
-  var m = minutesAvant(P[0].heure);
-  html += '<div class="ln-next"><div class="big h">' + (m < 1 ? '&lt;1' : m) + '<small>min</small></div>' +
-    '<div class="ln-meta">à ' + hm(P[0].heure) + '<br>' +
-    (P[0].tempsReel ? '<span class="live"><i></i>temps réel</span>' : 'horaire prévu') + '</div></div>';
+  // 1) Premier passage qu'on peut encore attraper à pied
+  var cible = -1;
+  for (var i = 0; i < P.length; i++) if (minutesAvant(P[i].heure) - cfg.marche >= 0) { cible = i; break; }
 
-  // Quand partir ? On cherche le premier passage qu'on peut encore attraper à pied
-  for (var i = 0; i < P.length; i++) {
-    var marge = minutesAvant(P[i].heure) - cfg.marche;
-    if (marge >= 0) {
-      var vise = i === 0 ? '' : ' pour celui de ' + hm(P[i].heure);
-      html += marge <= 1
-        ? '<div class="leave vite">' + PIETON + 'Pars maintenant' + vise + '</div>'
-        : '<div class="leave">' + PIETON + 'Pars dans ' + marge + ' min' + vise + '</div>';
-      break;
-    }
+  if (cible < 0) {
+    html += '<div class="hero rien"><div class="hero-g"><div class="hero-l">Prochain départ</div><div class="hero-n mot h">' + (P.length ? 'Trop juste' : 'Aucun') + '</div></div>' +
+      '<div class="hero-d">' + (P.length ? 'Le ' + cfg.nom + ' de ' + hm(P[0].heure) + ' arrive avant toi.<span>Rien d\'autre d\'annoncé dans les 2 h.</span>' : 'Aucun passage dans les 2 prochaines heures.<span>Fin de service, ou données indisponibles.</span>') + '</div></div>';
+  } else {
+    var p = P[cible], marge = minutesAvant(p.heure) - cfg.marche, vite = marge <= 1;
+    html += '<div class="hero' + (vite ? ' vite' : '') + '"><div class="hero-g"><div class="hero-l">Pars dans</div>' +
+      (vite ? '<div class="hero-n mot h">Maintenant</div>' : '<div class="hero-n h">' + marge + '<small>min</small></div>') + '</div>' +
+      '<div class="hero-d">pour le ' + cfg.nom + ' de ' + hm(p.heure) + '<span>il passe dans ' + enMin(minutesAvant(p.heure)) + '</span>' + tag(p) + '</div></div>';
+    if (cible > 0) html += '<div class="rate">Celui de ' + hm(P[cible - 1].heure) + ' (dans ' + enMin(minutesAvant(P[cible - 1].heure)) + ') est trop proche pour y aller à pied.</div>';
   }
 
-  // Frise des 60 prochaines minutes
+  // 2) Frise des 60 prochaines minutes ; la zone hachurée = temps de marche
   var coul = cfg.type === 'tram' ? 'var(--tram)' : 'var(--bus)';
-  html += '<div class="frise"><div class="fr-track"></div>' +
-    '<div class="fr-walk" style="width:' + (cfg.marche / 60 * 100).toFixed(1) + '%"></div>' +
-    '<div class="fr-wl">à pied</div>';
+  html += '<div class="frise"><div class="fr-titre">Prochaine heure</div><div class="fr-track"></div>' +
+    '<div class="fr-walk" style="width:' + (Math.min(cfg.marche, 60) / 60 * 100).toFixed(1) + '%"></div>';
   for (var f = 0; f < P.length; f++) {
     var mf = (P[f].heure - Date.now()) / 60000;
     if (mf < 0 || mf > 60) continue;
-    html += '<div class="fr-dot" style="left:' + (mf / 60 * 100).toFixed(1) + '%;border-color:' + coul + (P[f].tempsReel ? ';background:' + coul : '') + '"></div>';
+    html += '<div class="fr-dot' + (mf < cfg.marche ? ' passe' : '') + '" style="left:' + (mf / 60 * 100).toFixed(1) + '%;border-color:' + coul + (P[f].tempsReel ? ';background:' + coul : '') + '"></div>';
   }
   var reperes = [0, 15, 30, 45, 60];
   for (var r = 0; r < reperes.length; r++) {
-    html += '<div class="fr-lab' + (r === 0 ? ' g' : (r === 4 ? ' d' : '')) + '" style="left:' + (reperes[r] / 60 * 100) + '%">' + (r === 0 ? 'maint.' : '+' + reperes[r] + ' min') + '</div>';
+    html += '<div class="fr-lab' + (r === 0 ? ' g' : (r === 4 ? ' d' : '')) + '" style="left:' + (reperes[r] / 60 * 100) + '%">' + (r === 0 ? 'maint.' : '+' + reperes[r]) + '</div>';
   }
   html += '</div>';
 
-  html += '<div class="ln-list">';
-  for (var k = 1; k < Math.min(P.length, 4); k++) {
-    html += '<div class="dep"><div class="dep-m">' + minutesAvant(P[k].heure) + '<small>min</small></div><div class="dep-h">' + hm(P[k].heure) + (P[k].tempsReel ? '' : ' · prévu') + '</div></div>';
+  // 3) Les passages suivants
+  var suivants = P.slice(cible < 0 ? P.length : cible + 1, (cible < 0 ? P.length : cible + 1) + 3);
+  if (suivants.length) {
+    html += '<div class="ln-list">';
+    for (var k = 0; k < suivants.length; k++) {
+      html += '<div class="dep"><div class="dep-h">' + hm(suivants[k].heure) + '</div><div class="dep-m"><i' + (suivants[k].tempsReel ? '' : ' class="p"') + '></i>dans ' + minutesAvant(suivants[k].heure) + ' min</div></div>';
+    }
+    html += '</div>';
   }
-  html += '</div><div class="foot">' + (D && D.perturbation ? '<b style="color:var(--warn)">' + D.perturbation + '</b>' : 'À ' + cfg.marche + ' min à pied') + '</div></div>';
+  html += '<div class="foot">' + PIETON + cfg.marche + ' min à pied jusqu\'à l\'arrêt</div></div>';
   return html;
 }
 var derniereMaj = 0;
+var tempsReelOk = true;
 function afficher(D){
   var html = '';
-  for (var i = 0; i < CONFIG.LIGNES.length; i++) html += carte(CONFIG.LIGNES[i], D[CONFIG.LIGNES[i].ligne]);
+  for (var i = 0; i < CONFIG.LIGNES.length; i++) if (CONFIG.LIGNES[i].actif !== false) html += carte(CONFIG.LIGNES[i], D[CONFIG.LIGNES[i].ligne]);
   $('lines').innerHTML = html;
   $('demo').style.display = CONFIG.WORKER ? 'none' : '';
 }
 function majTexte(){
-  var s = Math.round((Date.now() - derniereMaj) / 1000);
-  $('upd').innerHTML = s < 10 ? 'À jour' : 'Mis à jour il y a ' + (s < 60 ? s + ' s' : Math.floor(s / 60) + ' min');
+  var s = Math.round((Date.now() - derniereMaj) / 1000), z = $('upd');
+  if (s > 180) { z.className = 'upd vieux'; z.innerHTML = 'Pas de mise à jour depuis ' + Math.floor(s / 60) + ' min : vérifie la connexion'; return; }
+  z.className = 'upd';
+  z.innerHTML = (tempsReelOk ? '' : 'Temps réel indisponible, horaires prévus · ') + (s < 15 ? 'À jour' : 'Mis à jour il y a ' + (s < 60 ? s + ' s' : Math.floor(s / 60) + ' min'));
 }
 var dernieresDonnees = null;
 function charger(){
@@ -210,12 +233,22 @@ function charger(){
           perturbation: j.lignes[cle].perturbation
         };
       }
-      dernieresDonnees = res; derniereMaj = j.maj || Date.now();
+      dernieresDonnees = res; derniereMaj = j.maj || Date.now(); tempsReelOk = j.tempsReelDisponible !== false;
       afficher(res); majTexte();
     } catch (e) {}
   };
   xhr.send();
 }
+// Réglages envoyés par l'écran (page admin) : temps de marche, lignes affichées
+window.addEventListener('message', function(e){
+  if (!e.data || e.data.type !== 'reglages' || !e.data.value || !e.data.value.transports) return;
+  var T = e.data.value.transports;
+  for (var i = 0; i < CONFIG.LIGNES.length; i++) {
+    var r = T[CONFIG.LIGNES[i].ligne];
+    if (r) { CONFIG.LIGNES[i].marche = r.marche; CONFIG.LIGNES[i].actif = r.actif; }
+  }
+  if (dernieresDonnees) afficher(dernieresDonnees);
+});
 charger();
 setInterval(charger, CONFIG.RAFRAICHIR_SEC * 1000);
 // Entre deux chargements, on recalcule les minutes restantes chaque 10 s

@@ -85,16 +85,18 @@ var CONFIG = {
   DUREE_DEFAUT: 30,          // secondes par slide
   PAUSE_APRES_TOUCHER: 90,   // secondes de pause quand on touche l'écran
   RECHARGEMENT_MIN: 60,      // rechargement complet de secours (minutes)
+  WORKER: 'https://ecran-salon.nico-michon37.workers.dev',
+  // Avec la clé, les réglages ci-dessous sont remplacés par ceux de la page admin
   THEME: 'auto',             // 'auto', 'jour' ou 'nuit'
   NUIT_DEBUT: 19,            // en auto : thème nuit à partir de 19 h…
   NUIT_FIN: 7,               // …jusqu'à 7 h
   SLIDES: [
-    { fichier: 'accueil.html',       nom: 'Accueil',       icone: 'accueil',  duree: 40 },
-    { fichier: 'meteo.html',         nom: 'Météo',         icone: 'meteo' },
-    { fichier: 'transports.html',    nom: 'Transports',    icone: 'tram' },
-    { fichier: 'agenda.html',        nom: 'Agenda',        icone: 'agenda' },
-    { fichier: 'maison.html',        nom: 'Maison',        icone: 'maison' },
-    { fichier: 'anniversaires.html', nom: 'Anniversaires', icone: 'gateau' }
+    { id: 'accueil', fichier: 'accueil.html',       nom: 'Accueil',       icone: 'accueil',  duree: 40 },
+    { id: 'meteo', fichier: 'meteo.html',         nom: 'Météo',         icone: 'meteo' },
+    { id: 'transports', fichier: 'transports.html',    nom: 'Transports',    icone: 'tram' },
+    { id: 'agenda', fichier: 'agenda.html',        nom: 'Agenda',        icone: 'agenda' },
+    { id: 'maison', fichier: 'maison.html',        nom: 'Maison',        icone: 'maison' },
+    { id: 'anniversaires', fichier: 'anniversaires.html', nom: 'Anniversaires', icone: 'gateau' }
   ]
 };
 /* ================================================================= */
@@ -128,35 +130,72 @@ ajuster();
 /* ---------- Clé privée de l'écran (dans l'adresse de Fully : ?cle=…) ---------- */
 var CLE = param('cle') || '';
 
+/* ---------- Réglages de la page admin (appliqués si la clé est présente) ---------- */
+var REGLAGES = null, REGLAGES_MAJ = 0;
+function lireReglages(quandFini){
+  if (!CLE || !CONFIG.WORKER) { quandFini(null); return; }
+  var fini = false, xhr = new XMLHttpRequest();
+  function terminer(r){ if (!fini) { fini = true; quandFini(r); } }
+  xhr.open('GET', CONFIG.WORKER + '/reglages?cle=' + encodeURIComponent(CLE), true);
+  xhr.timeout = 8000;
+  xhr.onload = function(){ var j = null; try { j = JSON.parse(xhr.responseText); } catch (e) {} terminer(xhr.status === 200 && j ? j : null); };
+  xhr.onerror = xhr.ontimeout = function(){ terminer(null); };
+  xhr.send();
+  setTimeout(function(){ terminer(null); }, 9000);
+}
+function appliquerReglages(R){
+  if (!R || !R.reglages) return;
+  var g = R.reglages, parId = {}, i;
+  for (i = 0; i < CONFIG.SLIDES.length; i++) parId[CONFIG.SLIDES[i].id] = CONFIG.SLIDES[i];
+  var liste = [];
+  for (i = 0; i < g.rotation.slides.length; i++) {
+    var sl = g.rotation.slides[i], base = parId[sl.id];
+    if (base && sl.actif) liste.push({ id: base.id, fichier: base.fichier, nom: base.nom, icone: base.icone, duree: sl.duree });
+  }
+  if (liste.length) CONFIG.SLIDES = liste;
+  CONFIG.PAUSE_APRES_TOUCHER = g.rotation.pause;
+  CONFIG.THEME = g.theme.mode; CONFIG.NUIT_DEBUT = g.theme.nuitDebut; CONFIG.NUIT_FIN = g.theme.nuitFin;
+  REGLAGES = g; REGLAGES_MAJ = R.maj;
+}
+function envoyerReglages(f){
+  if (REGLAGES) { try { f.contentWindow.postMessage({ type: 'reglages', value: REGLAGES }, '*'); } catch (e) {} }
+}
+
 /* ---------- Thème jour / nuit ---------- */
-var themeForce = param('theme') || CONFIG.THEME;
+var themeForce, theme;
 function calculerTheme(){
   if (themeForce === 'jour' || themeForce === 'nuit') return themeForce;
-  var h = new Date().getHours();
-  return (h >= CONFIG.NUIT_DEBUT || h < CONFIG.NUIT_FIN) ? 'nuit' : 'jour';
+  var h = new Date().getHours(), d = CONFIG.NUIT_DEBUT, f = CONFIG.NUIT_FIN;
+  var nuit = d > f ? (h >= d || h < f) : (h >= d && h < f);
+  return nuit ? 'nuit' : 'jour';
 }
-var theme = calculerTheme();
-document.documentElement.className = theme === 'nuit' ? 'nuit' : '';
 
 /* ---------- Construction des slides et des onglets ---------- */
-var S = CONFIG.SLIDES, frames = [], tabs = [];
+var S, frames = [], tabs = [];
 var zoneSlides = document.getElementById('slides');
 var zoneTabs = document.getElementById('tabs');
-for (var i = 0; i < S.length; i++) {
-  var f = document.createElement('iframe');
-  f.src = S[i].fichier + '?theme=' + theme + (CLE ? '&cle=' + encodeURIComponent(CLE) : '');
-  f.setAttribute('scrolling', 'no');
-  zoneSlides.appendChild(f);
-  frames.push(f);
+function construire(){
+  themeForce = param('theme') || CONFIG.THEME;
+  theme = calculerTheme();
+  document.documentElement.className = theme === 'nuit' ? 'nuit' : '';
+  S = CONFIG.SLIDES;
+  for (var i = 0; i < S.length; i++) {
+    var f = document.createElement('iframe');
+    f.src = S[i].fichier + '?theme=' + theme + (CLE ? '&cle=' + encodeURIComponent(CLE) : '');
+    f.setAttribute('scrolling', 'no');
+    (function(cadre){ cadre.addEventListener('load', function(){ envoyerReglages(cadre); }); })(f);
+    zoneSlides.appendChild(f);
+    frames.push(f);
 
-  var t = document.createElement('div');
-  t.className = 'tab';
-  t.innerHTML = SVG_DEBUT + ICONES[S[i].icone] + '</svg><span>' + S[i].nom + '</span>';
-  (function(index){
-    t.addEventListener('click', function(){ afficher(index); mettreEnPause(); });
-  })(i);
-  zoneTabs.appendChild(t);
-  tabs.push(t);
+    var t = document.createElement('div');
+    t.className = 'tab';
+    t.innerHTML = SVG_DEBUT + ICONES[S[i].icone] + '</svg><span>' + S[i].nom + '</span>';
+    (function(index){
+      t.addEventListener('click', function(){ afficher(index); mettreEnPause(); });
+    })(i);
+    zoneTabs.appendChild(t);
+    tabs.push(t);
+  }
 }
 
 /* ---------- Rotation automatique ---------- */
@@ -223,8 +262,12 @@ function tic(){
     }
   }
 }
-tic();
-setInterval(tic, 5000);
+/* ---------- Si les réglages changent dans la page admin : on recharge l'écran ---------- */
+function surveillerReglages(){
+  lireReglages(function(R){
+    if (R && R.maj && REGLAGES_MAJ && R.maj !== REGLAGES_MAJ && navigator.onLine !== false) location.reload();
+  });
+}
 
 /* ---------- Rechargement de secours ---------- */
 function rechargerSiEnLigne(){
@@ -233,7 +276,15 @@ function rechargerSiEnLigne(){
 }
 setTimeout(rechargerSiEnLigne, CONFIG.RECHARGEMENT_MIN * 60000);
 
-afficher(0);
+/* ---------- Démarrage ---------- */
+lireReglages(function(R){
+  appliquerReglages(R);
+  construire();
+  tic();
+  setInterval(tic, 5000);
+  setInterval(surveillerReglages, 120000);
+  afficher(0);
+});
 </script>
 </body>
 </html>

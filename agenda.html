@@ -156,6 +156,15 @@ function charger(){
 }
 // À minuit, les colonnes changent de jour même sans nouveau chargement
 setInterval(function(){ if (dernieres) afficher(convertir(dernieres)); }, 60000);
+// Réglages envoyés par l'écran (page admin) : prénoms et agenda de chacun
+window.addEventListener('message', function(e){
+  if (!e.data || e.data.type !== 'reglages' || !e.data.value || !e.data.value.agenda) return;
+  var A = e.data.value.agenda;
+  CONFIG.PERSONNES.moi.nom = A.personnes.moi; CONFIG.PERSONNES.flo.nom = A.personnes.flo;
+  CONFIG.AGENDAS = { commun: 'nous' };
+  for (var k in A.agendas) CONFIG.AGENDAS[k] = A.agendas[k];
+  if (dernieres) afficher(convertir(dernieres)); else if (enDemo()) afficher(donneesDemo());
+});
 charger();
 setInterval(charger, CONFIG.RAFRAICHIR_MIN * 60000);
 </script>

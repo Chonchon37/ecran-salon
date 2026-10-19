@@ -11,6 +11,11 @@
  *  GOOGLE_ICS1, GOOGLE_ICS2… (secrets) adresses secrètes au format iCal de tes Google Agenda
  *  HA_URL      (texte)  https://ha.petitgeranium.duckdns.org
  *  HA_TOKEN    (secret) jeton d'accès longue durée Home Assistant
+ *  ADMIN_CLE   (secret, facultatif) mot de passe de la page admin (sinon : ECRAN_CLE)
+ *  Liaison KV « REGLAGES » : stockage des réglages modifiés depuis la page admin
+ *
+ *  /reglages         lecture (clé écran ou admin) / enregistrement POST (clé admin)
+ *  /maison/catalogue lumières, automatisations, scènes et scripts disponibles (clé admin)
  */
 
 const ARRETS = {           // ligne → identifiant du quai dans ta direction
@@ -22,7 +27,7 @@ const ORIGINE_AUTORISEE = '*';   // tu pourras mettre 'https://chonchon37.github
 const FLUX_TR = 'https://data.filbleu.fr/ws-tr/gtfs-rt/opendata/trip-updates';
 const FLUX_ALERTES = 'https://data.filbleu.fr/ws-tr/gtfs-rt/opendata/service-alerts';
 const CACHE_SECONDES = 20;
-const VERSION = '5';   // à changer à chaque mise à jour du code : vide les caches
+const VERSION = '7';   // à changer à chaque mise à jour du code : vide les caches
 
 // Horaires prévus, format compact : "jours" = n° de grille pour chaque jour depuis "debut",
 // chaque ligne "g=" = minutes depuis minuit, écrites en écarts successifs.
@@ -470,48 +475,150 @@ function haUrl(env, chemin) {
   if (!env.HA_URL || !env.HA_TOKEN) throw new Error('HA_URL ou HA_TOKEN manquant dans les réglages du Worker');
   return env.HA_URL.replace(/\/+$/, '') + chemin;
 }
-// Lumières à ne pas afficher (ici les « segments » des rubans LED)
+// Lumières masquées par défaut (les « segments » des rubans LED)
 const LUMIERES_MASQUEES = /segment/i;
-// Boutons « modes » : les mêmes que sur ton tableau Home Assistant « Gestion du Salon »
-// (ce sont des automatisations déclenchées, comme dans Home Assistant)
-const MODES = [
-  { id: 'automation.apero',    nom: 'Apéro' },
-  { id: 'automation.all_cine', nom: 'Ciné' },
-  { id: 'special.tout_eteindre', nom: 'Tout éteindre' }
-];
 
-async function construireMaison(env) {
+/* =====================================================================
+   RÉGLAGES (modifiables depuis la page admin, stockés dans Cloudflare KV)
+   ===================================================================== */
+const SLIDES_CONNUES = { accueil: 'Accueil', meteo: 'Météo', transports: 'Transports', agenda: 'Agenda', maison: 'Maison', anniversaires: 'Anniversaires' };
+const REGLAGES_DEFAUT = {
+  rotation: {
+    pause: 90,
+    slides: [
+      { id: 'accueil', actif: true, duree: 40 }, { id: 'meteo', actif: true, duree: 30 },
+      { id: 'transports', actif: true, duree: 30 }, { id: 'agenda', actif: true, duree: 30 },
+      { id: 'maison', actif: true, duree: 30 }, { id: 'anniversaires', actif: true, duree: 30 }
+    ]
+  },
+  theme: { mode: 'auto', nuitDebut: 19, nuitFin: 7 },
+  transports: { A: { actif: true, marche: 7 }, '2': { actif: true, marche: 9 } },
+  agenda: { personnes: { moi: 'Chonchon', flo: 'Flo' }, agendas: { GOOGLE_ICS1: 'flo', GOOGLE_ICS2: 'moi' } },
+  maison: { lumieres: [], modes: ['automation.apero', 'automation.all_cine', 'special.tout_eteindre'], noms: { 'automation.apero': 'Apéro', 'automation.all_cine': 'Ciné' } },
+  message: ''
+};
+const entier = (v, min, max, defaut) => { const n = Math.round(Number(v)); return isFinite(n) ? Math.min(max, Math.max(min, n)) : defaut; };
+const texte = (v, max) => String(v == null ? '' : v).replace(/[<>]/g, '').trim().slice(0, max);
+
+// Ne garde que des valeurs valides : rien d'autre ne peut être enregistré
+function nettoyerReglages(r) {
+  r = r && typeof r === 'object' ? r : {};
+  const D = REGLAGES_DEFAUT, res = {};
+  const rot = r.rotation || {};
+  const vues = new Set(), slides = [];
+  for (const s of Array.isArray(rot.slides) ? rot.slides : []) {
+    if (!s || !SLIDES_CONNUES[s.id] || vues.has(s.id)) continue;
+    vues.add(s.id);
+    slides.push({ id: s.id, actif: s.actif !== false, duree: entier(s.duree, 5, 600, 30) });
+  }
+  for (const s of D.rotation.slides) if (!vues.has(s.id)) slides.push(Object.assign({}, s));
+  if (!slides.some(s => s.actif)) slides[0].actif = true;
+  res.rotation = { pause: entier(rot.pause, 10, 600, D.rotation.pause), slides: slides };
+  const th = r.theme || {};
+  res.theme = {
+    mode: ['auto', 'jour', 'nuit'].indexOf(th.mode) >= 0 ? th.mode : 'auto',
+    nuitDebut: entier(th.nuitDebut, 0, 23, D.theme.nuitDebut), nuitFin: entier(th.nuitFin, 0, 23, D.theme.nuitFin)
+  };
+  const tr = r.transports || {};
+  res.transports = {};
+  for (const l of Object.keys(D.transports)) {
+    const x = tr[l] || {};
+    res.transports[l] = { actif: x.actif !== false, marche: entier(x.marche, 0, 60, D.transports[l].marche) };
+  }
+  const ag = r.agenda || {}, pers = ag.personnes || {};
+  res.agenda = {
+    personnes: { moi: texte(pers.moi, 20) || D.agenda.personnes.moi, flo: texte(pers.flo, 20) || D.agenda.personnes.flo },
+    agendas: {}
+  };
+  const agd = ag.agendas && typeof ag.agendas === 'object' ? ag.agendas : D.agenda.agendas;
+  for (const k of Object.keys(agd)) if (/^GOOGLE_ICS\d*$/.test(k) && ['moi', 'flo', 'nous'].indexOf(agd[k]) >= 0) res.agenda.agendas[k] = agd[k];
+  const ma = r.maison || {};
+  res.maison = {
+    lumieres: (Array.isArray(ma.lumieres) ? ma.lumieres : []).filter(x => /^light\.[a-z0-9_]+$/.test(x)).slice(0, 8),
+    modes: (Array.isArray(ma.modes) ? ma.modes : D.maison.modes).filter(x => /^(automation|scene|script)\.[a-z0-9_]+$/.test(x) || x === 'special.tout_eteindre').slice(0, 5),
+    noms: {}
+  };
+  const noms = ma.noms && typeof ma.noms === 'object' ? ma.noms : D.maison.noms;
+  for (const id of res.maison.modes) { const n = texte(noms[id], 24); if (n) res.maison.noms[id] = n; }
+  res.message = texte(r.message, 140);
+  return res;
+}
+let REGLAGES_MEMOIRE = null, REGLAGES_LUS = 0;
+async function lireReglages(env) {
+  if (REGLAGES_MEMOIRE && Date.now() - REGLAGES_LUS < 30000) return REGLAGES_MEMOIRE;
+  let brut = null;
+  if (env.REGLAGES) { try { brut = await env.REGLAGES.get('reglages', 'json'); } catch (e) {} }
+  const res = { reglages: nettoyerReglages(brut ? brut.reglages : REGLAGES_DEFAUT), maj: brut ? brut.maj : 0, stockage: !!env.REGLAGES };
+  REGLAGES_MEMOIRE = res; REGLAGES_LUS = Date.now();
+  return res;
+}
+async function ecrireReglages(env, corps) {
+  if (!env.REGLAGES) throw new Error('Stockage des réglages non configuré (liaison KV « REGLAGES » manquante)');
+  const propre = nettoyerReglages(corps), maj = Date.now();
+  await env.REGLAGES.put('reglages', JSON.stringify({ reglages: propre, maj: maj }));
+  REGLAGES_MEMOIRE = { reglages: propre, maj: maj, stockage: true }; REGLAGES_LUS = Date.now();
+  return REGLAGES_MEMOIRE;
+}
+
+/* =====================================================================
+   HOME ASSISTANT (suite)
+   ===================================================================== */
+async function etatsHA(env) {
   const r = await fetch(haUrl(env, '/api/states'), { headers: { Authorization: 'Bearer ' + env.HA_TOKEN } });
   if (!r.ok) throw new Error('Home Assistant a répondu ' + r.status);
-  const etats = await r.json(), lumieres = [], scenes = [];
+  return r.json();
+}
+function lumiere(e) {
+  const b = e.attributes && e.attributes.brightness;
+  return { id: e.entity_id, nom: e.attributes.friendly_name, allumee: e.state === 'on', dispo: e.state !== 'unavailable', luminosite: e.state === 'on' && b ? Math.round(b / 2.55) : null };
+}
+const NOM_SPECIAL = { 'special.tout_eteindre': 'Tout éteindre' };
+
+async function construireMaison(env) {
+  const [etats, R] = await Promise.all([etatsHA(env), lireReglages(env)]);
+  const parId = {}; for (const e of etats) parId[e.entity_id] = e;
+  const choix = R.reglages.maison;
+  let lumieres;
+  if (choix.lumieres.length) {
+    lumieres = choix.lumieres.map(id => parId[id]).filter(e => e && e.attributes && e.attributes.friendly_name).map(lumiere);
+  } else {
+    lumieres = etats.filter(e => e.entity_id.startsWith('light.') && e.attributes && e.attributes.friendly_name && !LUMIERES_MASQUEES.test(e.attributes.friendly_name)).map(lumiere);
+    lumieres.sort((a, b) => a.nom.localeCompare(b.nom, 'fr'));
+  }
+  const scenes = [];
+  for (const id of choix.modes) {
+    const e = parId[id];
+    if (!e && !NOM_SPECIAL[id]) continue;
+    const t = e && e.attributes && (e.attributes.last_triggered || (id.startsWith('scene.') && e.state !== 'unknown' ? e.state : null));
+    scenes.push({ id: id, nom: choix.noms[id] || NOM_SPECIAL[id] || e.attributes.friendly_name || id, derniere: t ? Date.parse(t) || null : null });
+  }
+  return { maj: Date.now(), lumieres: lumieres, scenes: scenes };
+}
+// Liste de tout ce qui peut être choisi dans la page admin
+async function catalogueMaison(env) {
+  const etats = await etatsHA(env), res = { lumieres: [], modes: [{ id: 'special.tout_eteindre', nom: 'Tout éteindre (intégré)', type: 'intégré' }] };
   for (const e of etats) {
     const nom = e.attributes && e.attributes.friendly_name;
-    if (!nom) continue;                                    // entités fantômes sans nom : ignorées
-    if (e.entity_id.startsWith('light.')) {
-      if (LUMIERES_MASQUEES.test(nom)) continue;
-      const b = e.attributes && e.attributes.brightness;
-      lumieres.push({ id: e.entity_id, nom: nom, allumee: e.state === 'on', dispo: e.state !== 'unavailable', luminosite: e.state === 'on' && b ? Math.round(b / 2.55) : null });
-    }
-  }
-  // Modes : on garde l'ordre ci-dessus ; « derniere » = dernier déclenchement de l'automatisation
-  const parId = {}; for (const e of etats) parId[e.entity_id] = e;
-  for (const m of MODES) {
-    const e = parId[m.id];
-    if (!e && !m.id.startsWith('special.')) continue;
-    const t = e && e.attributes && e.attributes.last_triggered;
-    scenes.push({ id: m.id, nom: m.nom, derniere: t ? Date.parse(t) || null : null });
+    if (!nom) continue;
+    const domaine = e.entity_id.split('.')[0];
+    if (domaine === 'light') res.lumieres.push({ id: e.entity_id, nom: nom, segment: LUMIERES_MASQUEES.test(nom), dispo: e.state !== 'unavailable' });
+    else if (domaine === 'automation' || domaine === 'scene' || domaine === 'script') res.modes.push({ id: e.entity_id, nom: nom, type: { automation: 'automatisation', scene: 'scène', script: 'script' }[domaine] });
   }
   const tri = (a, b) => a.nom.localeCompare(b.nom, 'fr');
-  return { maj: Date.now(), lumieres: lumieres.sort(tri), scenes: scenes };
+  res.lumieres.sort(tri); res.modes.sort((a, b) => a.type === 'intégré' ? -1 : b.type === 'intégré' ? 1 : tri(a, b));
+  return res;
 }
 async function actionMaison(env, corps) {
-  const id = String(corps.id || '');
+  const id = String(corps.id || ''), R = await lireReglages(env);
   let service, donnees = { entity_id: id };
-  if (corps.action === 'scene' && id === 'special.tout_eteindre') { service = '/api/services/light/turn_off'; donnees = { entity_id: 'all' }; }
-  else if (corps.action === 'basculer' && /^light\.[a-z0-9_]+$/.test(id)) service = '/api/services/light/toggle';
-  else if (corps.action === 'scene' && MODES.some(m => m.id === id) && id.startsWith('automation.')) { service = '/api/services/automation/trigger'; donnees = { entity_id: id, skip_condition: true }; }
-  else if (corps.action === 'scene' && /^scene\.[a-z0-9_]+$/.test(id)) service = '/api/services/scene/turn_on';
-  else throw new Error('Action refusée');
+  if (corps.action === 'basculer' && /^light\.[a-z0-9_]+$/.test(id)) service = '/api/services/light/toggle';
+  else if (corps.action === 'scene' && R.reglages.maison.modes.indexOf(id) >= 0) {     // seuls les modes choisis sont autorisés
+    if (id === 'special.tout_eteindre') { service = '/api/services/light/turn_off'; donnees = { entity_id: 'all' }; }
+    else if (id.startsWith('automation.')) { service = '/api/services/automation/trigger'; donnees = { entity_id: id, skip_condition: true }; }
+    else if (id.startsWith('scene.')) service = '/api/services/scene/turn_on';
+    else if (id.startsWith('script.')) service = '/api/services/script/turn_on';
+  }
+  if (!service) throw new Error('Action refusée');
   const r = await fetch(haUrl(env, service), {
     method: 'POST',
     headers: { Authorization: 'Bearer ' + env.HA_TOKEN, 'Content-Type': 'application/json' },
@@ -550,11 +657,13 @@ export default {
     try {
       if (chemin === '/transports') return await avecCache('transports', CACHE_SECONDES, construire, entetes, ctx);
 
-      // Tout le reste est privé : il faut la clé de l'écran
-      if (chemin === '/agenda' || chemin.startsWith('/maison')) {
-        if (!env.ECRAN_CLE) return repondre({ erreur: 'ECRAN_CLE manquant dans les réglages du Worker' }, 503, entetes);
-        if (url.searchParams.get('cle') !== env.ECRAN_CLE) return repondre({ erreur: 'Clé de l\'écran absente ou incorrecte' }, 401, entetes);
-      }
+      // Tout le reste est privé
+      const cle = url.searchParams.get('cle') || '';
+      const cleAdmin = env.ADMIN_CLE || env.ECRAN_CLE;
+      if (!env.ECRAN_CLE) return repondre({ erreur: 'ECRAN_CLE manquant dans les réglages du Worker' }, 503, entetes);
+      const estEcran = cle === env.ECRAN_CLE, estAdmin = !!cleAdmin && cle === cleAdmin;
+      if (!estEcran && !estAdmin) return repondre({ erreur: 'Clé absente ou incorrecte' }, 401, entetes);
+
       if (chemin === '/agenda') return await avecCache('agenda', 300, () => construireAgenda(env), entetes, ctx);
       if (chemin === '/maison') return repondre(await construireMaison(env), 200, entetes);
       if (chemin === '/maison/action' && request.method === 'POST') {
@@ -562,7 +671,24 @@ export default {
         try { corps = JSON.parse(await request.text()); } catch (e) {}
         return repondre(await actionMaison(env, corps), 200, entetes);
       }
-      return repondre({ ok: true, adresses: ['/transports', '/agenda?cle=…', '/maison?cle=…'] }, 200, entetes);
+      if (chemin === '/reglages' && request.method === 'GET') {
+        const R = await lireReglages(env);
+        return repondre({ reglages: R.reglages, maj: R.maj, stockage: R.stockage, admin: estAdmin }, 200, entetes);
+      }
+      // Réservé à l'admin
+      if (chemin === '/reglages' && request.method === 'POST') {
+        if (!estAdmin) return repondre({ erreur: 'Clé admin requise' }, 403, entetes);
+        let corps = null;
+        try { corps = JSON.parse(await request.text()); } catch (e) {}
+        if (!corps) return repondre({ erreur: 'Réglages illisibles' }, 400, entetes);
+        const R = await ecrireReglages(env, corps);
+        return repondre({ ok: true, reglages: R.reglages, maj: R.maj }, 200, entetes);
+      }
+      if (chemin === '/maison/catalogue') {
+        if (!estAdmin) return repondre({ erreur: 'Clé admin requise' }, 403, entetes);
+        return repondre(await catalogueMaison(env), 200, entetes);
+      }
+      return repondre({ ok: true, adresses: ['/transports', '/agenda', '/maison', '/reglages'] }, 200, entetes);
     } catch (e) {
       return repondre({ erreur: String(e.message || e) }, 502, entetes);
     }

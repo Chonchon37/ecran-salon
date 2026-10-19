@@ -10,6 +10,9 @@ Tableau de bord mural pour un cadre photo Frameo (Android 6, 1280×800), affich�
 | `transports.html` | Tram A Monconseil et ligne 2 Maréchal Juin (exemple pour l'instant) |
 | `agenda.html` | Semaine à venir (exemple pour l'instant) |
 | `maison.html` | Scènes et lumières Home Assistant (exemple pour l'instant) |
+| `admin.html` | Page de réglages (navigateur, clé requise) |
 | `anniversaires.html` | Prochains anniversaires (exemple pour l'instant) |
 
 Réglages : bloc `CONFIG` en haut de chaque fichier. Aucune clé d'API ici : elles restent dans les Workers Cloudflare.
+
+Réglages modifiables sans toucher au code : https://chonchon37.github.io/ecran-salon/admin.html (stockés dans Cloudflare KV).

@@ -1,0 +1,355 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Réglages de l'écran</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Figtree:wght@400;500;600;700&display=swap">
+<style>
+/* Page admin : mêmes teintes que l'écran (sauge le jour, bleu nuit le soir) */
+:root{
+  --bg:#E8ECE3; --card:#F6F7F2; --card2:#DEE4D7; --ink:#1E2A23; --muted:#5E6B62; --line:#CBD3C4;
+  --accent:#587A57; --accent-ink:#F6F7F2; --ok:#4C8758; --ok-soft:#D5E6D3; --warn:#BC6430; --warn-soft:#F2DCCB;
+  --display:"Bricolage Grotesque",Figtree,Arial,sans-serif; --body:Figtree,Roboto,"Segoe UI",Arial,sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root{ --bg:#0F151C; --card:#18212A; --card2:#222D38; --ink:#E3E8E1; --muted:#8E9B95; --line:#2B3743;
+    --accent:#92B28E; --accent-ink:#0F151C; --ok:#7CBA87; --ok-soft:#1E3324; --warn:#E38A52; --warn-soft:#3A2619; color-scheme:dark; }
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 var(--body);-webkit-font-smoothing:antialiased}
+.page{max-width:760px;margin:0 auto;padding-block:28px 120px;padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px))}
+h1{font:700 30px/1.15 var(--display);margin:0;text-wrap:balance}
+.sous{color:var(--muted);margin:6px 0 24px}
+h2{font:700 20px/1.2 var(--display);margin:0 0 4px}
+.aide{color:var(--muted);font-size:14px;margin:0 0 16px}
+section{background:var(--card);border-radius:18px;padding:22px;margin-bottom:16px}
+label{font-weight:600}
+input[type=text],input[type=password],input[type=number],select,textarea{font:inherit;color:var(--ink);background:var(--bg);border:1.5px solid var(--line);border-radius:10px;padding:9px 12px;min-width:0}
+input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+input[type=number]{width:86px;text-align:right}
+textarea{width:100%;resize:vertical;min-height:70px}
+button{font:600 15px var(--body);border:0;border-radius:10px;padding:10px 16px;cursor:pointer;background:var(--card2);color:var(--ink)}
+button.principal{background:var(--accent);color:var(--accent-ink)}
+button:disabled{opacity:.45;cursor:default}
+.rang{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.rang + .rang{margin-top:12px}
+.ligne{display:flex;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--line);flex-wrap:wrap}
+.ligne:first-child{border-top:0}
+.ligne .nom{flex:1;min-width:140px;font-weight:600}
+.ligne .petit{color:var(--muted);font-size:14px;font-weight:400}
+.fleches{display:flex;gap:4px}
+.fleches button{padding:6px 10px;min-width:38px}
+.interrupteur{display:inline-flex;align-items:center;gap:8px;font-weight:500;cursor:pointer}
+.interrupteur input{width:20px;height:20px;accent-color:var(--accent)}
+.segment{display:inline-flex;background:var(--bg);border-radius:12px;padding:4px;gap:4px}
+.segment label{padding:7px 14px;border-radius:9px;cursor:pointer;font-weight:600}
+.segment input{position:absolute;opacity:0;pointer-events:none}
+.segment input:checked + span{color:var(--accent-ink)}
+.segment label:has(input:checked){background:var(--accent);color:var(--accent-ink)}
+.compteur{color:var(--muted);font-size:14px;text-align:right;font-variant-numeric:tabular-nums}
+.bandeau{border-radius:12px;padding:12px 16px;margin-bottom:16px;font-weight:600}
+.bandeau.alerte{background:var(--warn-soft);color:var(--warn)}
+.bandeau.ok{background:var(--ok-soft);color:var(--ok)}
+.puce{font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:2px 8px;border-radius:10px;background:var(--card2);color:var(--muted)}
+.barre{position:fixed;left:0;right:0;bottom:0;background:var(--card);border-top:1px solid var(--line);padding:12px max(16px, env(safe-area-inset-right, 0px)) calc(12px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px))}
+.barre .dedans{max-width:760px;margin:0 auto;display:flex;align-items:center;gap:14px}
+.barre .etat{flex:1;color:var(--muted);font-size:14px;min-width:0}
+.vide{color:var(--muted);font-style:italic}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>Réglages de l'écran</h1>
+  <p class="sous">Écran du salon · les changements s'affichent sur le cadre en 2 minutes au plus.</p>
+
+  <!-- Connexion -->
+  <section id="connexion">
+    <h2>Connexion</h2>
+    <p class="aide">Saisis la clé de l'écran (celle de l'adresse du cadre, après <code>?cle=</code>).</p>
+    <form id="formCle" class="rang">
+      <input type="password" id="cle" autocomplete="current-password" placeholder="Clé" style="flex:1" required>
+      <label class="interrupteur"><input type="checkbox" id="souvenir"> Se souvenir sur cet appareil</label>
+      <button class="principal" type="submit">Se connecter</button>
+    </form>
+    <p id="erreurCle" class="bandeau alerte" style="margin:14px 0 0" hidden></p>
+  </section>
+
+  <div id="reglages" hidden>
+    <div id="avertissement" class="bandeau alerte" hidden></div>
+
+    <section>
+      <h2>Message de l'accueil</h2>
+      <p class="aide">Un petit mot affiché sous la date (rappel, info du jour…). Laisse vide pour ne rien afficher.</p>
+      <textarea id="message" maxlength="140" placeholder="Ex. : Pense à sortir les poubelles ce soir"></textarea>
+      <div class="compteur"><span id="compteur">0</span> / 140</div>
+    </section>
+
+    <section>
+      <h2>Pages et rotation</h2>
+      <p class="aide">Ordre des pages, celles qu'on affiche, et combien de secondes chacune reste à l'écran.</p>
+      <div id="slides"></div>
+      <div class="rang" style="margin-top:14px">
+        <label for="pause">Pause quand on touche l'écran</label>
+        <input type="number" id="pause" min="10" max="600"> <span>secondes</span>
+      </div>
+    </section>
+
+    <section>
+      <h2>Thème</h2>
+      <div class="rang">
+        <div class="segment" role="radiogroup" aria-label="Thème">
+          <label><input type="radio" name="theme" value="auto"><span>Automatique</span></label>
+          <label><input type="radio" name="theme" value="jour"><span>Toujours clair</span></label>
+          <label><input type="radio" name="theme" value="nuit"><span>Toujours sombre</span></label>
+        </div>
+      </div>
+      <div class="rang" id="heuresNuit">
+        <label for="nuitDebut">Sombre de</label>
+        <input type="number" id="nuitDebut" min="0" max="23"> <span>h à</span>
+        <input type="number" id="nuitFin" min="0" max="23"> <span>h</span>
+      </div>
+    </section>
+
+    <section>
+      <h2>Transports</h2>
+      <p class="aide">Temps de marche de chez vous jusqu'à l'arrêt : il sert à calculer « Pars dans… ».</p>
+      <div id="lignes"></div>
+    </section>
+
+    <section>
+      <h2>Agenda</h2>
+      <div class="rang">
+        <label for="prenomMoi">Prénom 1</label><input type="text" id="prenomMoi" maxlength="20" style="width:150px">
+        <label for="prenomFlo">Prénom 2</label><input type="text" id="prenomFlo" maxlength="20" style="width:150px">
+      </div>
+      <p class="aide" style="margin-top:16px">À qui appartient chaque agenda Google (la couleur des pastilles en dépend).</p>
+      <div id="agendas"></div>
+    </section>
+
+    <section>
+      <h2>Maison · lumières</h2>
+      <p class="aide">Jusqu'à 8 lumières. Sans choix, l'écran affiche automatiquement toutes les lumières sauf les « segments ».</p>
+      <div id="lumieres"></div>
+    </section>
+
+    <section>
+      <h2>Maison · boutons de modes</h2>
+      <p class="aide">Jusqu'à 5 boutons (automatisations, scènes ou scripts de Home Assistant). Les 4 premiers apparaissent aussi sur l'accueil. Tu peux changer le nom affiché sur chaque bouton.</p>
+      <div id="modes"></div>
+    </section>
+  </div>
+</div>
+
+<div class="barre" id="barre" hidden>
+  <div class="dedans">
+    <div class="etat" id="etat">Aucune modification</div>
+    <button id="deconnexion" type="button">Se déconnecter</button>
+    <button class="principal" id="enregistrer" type="button" disabled>Enregistrer</button>
+  </div>
+</div>
+
+<script>
+const WORKER = 'https://ecran-salon.nico-michon37.workers.dev';
+const NOMS_SLIDES = { accueil: 'Accueil', meteo: 'Météo', transports: 'Transports', agenda: 'Agenda', maison: 'Maison', anniversaires: 'Anniversaires' };
+const LIGNES = { A: 'Tram A · Monconseil', '2': 'Bus 2 · Maréchal Juin' };
+const $ = id => document.getElementById(id);
+const echapper = t => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+let CLE = '', R = null, catalogue = null, agendasConnus = [], modifie = false;
+
+function memoire(action, valeur) {
+  try {
+    if (action === 'lire') return localStorage.getItem('ecran-cle') || '';
+    if (action === 'ecrire') localStorage.setItem('ecran-cle', valeur);
+    if (action === 'oublier') localStorage.removeItem('ecran-cle');
+  } catch (e) { return ''; }
+}
+async function appel(chemin, options) {
+  const sep = chemin.includes('?') ? '&' : '?';
+  const r = await fetch(WORKER + chemin + sep + 'cle=' + encodeURIComponent(CLE), options);
+  let j = null; try { j = await r.json(); } catch (e) {}
+  if (!r.ok) throw new Error((j && j.erreur) || ('Erreur ' + r.status));
+  return j;
+}
+
+/* ---------- Connexion ---------- */
+$('formCle').addEventListener('submit', e => { e.preventDefault(); connecter($('cle').value.trim()); });
+async function connecter(cle) {
+  CLE = cle; $('erreurCle').hidden = true;
+  try {
+    const j = await appel('/reglages');
+    if (!j.admin) throw new Error('Cette clé permet d\'afficher l\'écran, mais pas de modifier les réglages.');
+    if ($('souvenir').checked) memoire('ecrire', cle);
+    R = j;
+    $('connexion').hidden = true; $('reglages').hidden = false; $('barre').hidden = false;
+    $('avertissement').hidden = j.stockage;
+    $('avertissement').textContent = 'Le stockage des réglages n\'est pas encore configuré dans Cloudflare : tu peux consulter, mais pas enregistrer.';
+    remplir();
+    // Infos complémentaires (catalogue Home Assistant, noms des agendas) : en parallèle
+    appel('/maison/catalogue').then(c => { catalogue = c; dessinerMaison(); }).catch(err => { $('lumieres').innerHTML = $('modes').innerHTML = '<p class="vide">Home Assistant injoignable : ' + echapper(err.message) + '</p>'; });
+    appel('/agenda').then(a => { agendasConnus = a.agendas || []; dessinerAgendas(); }).catch(() => dessinerAgendas());
+  } catch (err) {
+    $('erreurCle').textContent = err.message; $('erreurCle').hidden = false;
+    memoire('oublier');
+  }
+}
+$('deconnexion').addEventListener('click', () => { memoire('oublier'); location.reload(); });
+
+/* ---------- Remplissage du formulaire ---------- */
+function remplir() {
+  const g = R.reglages;
+  $('message').value = g.message; majCompteur();
+  $('pause').value = g.rotation.pause;
+  document.querySelector('input[name=theme][value=' + g.theme.mode + ']').checked = true;
+  $('nuitDebut').value = g.theme.nuitDebut; $('nuitFin').value = g.theme.nuitFin; majHeures();
+  $('prenomMoi').value = g.agenda.personnes.moi; $('prenomFlo').value = g.agenda.personnes.flo;
+  dessinerSlides(); dessinerLignes(); dessinerAgendas();
+  $('lumieres').innerHTML = $('modes').innerHTML = '<p class="vide">Lecture de Home Assistant…</p>';
+}
+function majCompteur() { $('compteur').textContent = $('message').value.length; }
+function majHeures() { $('heuresNuit').hidden = R.reglages.theme.mode !== 'auto'; }
+
+function dessinerSlides() {
+  const L = R.reglages.rotation.slides;
+  $('slides').innerHTML = L.map((s, i) => `
+    <div class="ligne">
+      <div class="fleches">
+        <button type="button" data-monter="${i}" ${i === 0 ? 'disabled' : ''} aria-label="Monter ${NOMS_SLIDES[s.id]}">↑</button>
+        <button type="button" data-descendre="${i}" ${i === L.length - 1 ? 'disabled' : ''} aria-label="Descendre ${NOMS_SLIDES[s.id]}">↓</button>
+      </div>
+      <div class="nom">${NOMS_SLIDES[s.id]}</div>
+      <label class="interrupteur"><input type="checkbox" data-actif="${i}" ${s.actif ? 'checked' : ''}> Affichée</label>
+      <input type="number" min="5" max="600" data-duree="${i}" value="${s.duree}" aria-label="Durée de ${NOMS_SLIDES[s.id]}"> <span>s</span>
+    </div>`).join('');
+}
+$('slides').addEventListener('click', e => {
+  const L = R.reglages.rotation.slides, m = e.target.dataset.monter, d = e.target.dataset.descendre;
+  if (m !== undefined) { const i = +m; [L[i - 1], L[i]] = [L[i], L[i - 1]]; dessinerSlides(); aChange(); }
+  if (d !== undefined) { const i = +d; [L[i + 1], L[i]] = [L[i], L[i + 1]]; dessinerSlides(); aChange(); }
+});
+$('slides').addEventListener('change', e => {
+  const L = R.reglages.rotation.slides, t = e.target;
+  if (t.dataset.actif !== undefined) {
+    L[+t.dataset.actif].actif = t.checked;
+    if (!L.some(s => s.actif)) { t.checked = true; L[+t.dataset.actif].actif = true; alerteEtat('Il faut garder au moins une page.'); return; }
+  }
+  if (t.dataset.duree !== undefined) L[+t.dataset.duree].duree = +t.value;
+  aChange();
+});
+
+function dessinerLignes() {
+  const T = R.reglages.transports;
+  $('lignes').innerHTML = ['A', '2'].map(l => `
+    <div class="ligne">
+      <div class="nom">${LIGNES[l]}</div>
+      <label class="interrupteur"><input type="checkbox" data-ligne-actif="${l}" ${T[l].actif ? 'checked' : ''}> Affichée</label>
+      <input type="number" min="0" max="60" data-marche="${l}" value="${T[l].marche}" aria-label="Minutes à pied jusqu'à ${LIGNES[l]}"> <span>min à pied</span>
+    </div>`).join('');
+}
+$('lignes').addEventListener('change', e => {
+  const T = R.reglages.transports, t = e.target;
+  if (t.dataset.ligneActif !== undefined) T[t.dataset.ligneActif].actif = t.checked;
+  if (t.dataset.marche !== undefined) T[t.dataset.marche].marche = +t.value;
+  aChange();
+});
+
+function dessinerAgendas() {
+  const A = R.reglages.agenda.agendas;
+  const cles = [...new Set([...agendasConnus.map(a => a.cle), ...Object.keys(A)])].sort();
+  const nomDe = c => (agendasConnus.find(a => a.cle === c) || {}).nom;
+  if (!cles.length) { $('agendas').innerHTML = '<p class="vide">Aucun agenda trouvé.</p>'; return; }
+  const p = R.reglages.agenda.personnes;
+  $('agendas').innerHTML = cles.map(c => `
+    <div class="ligne">
+      <div class="nom">${nomDe(c) ? 'Agenda « ' + echapper(nomDe(c)) + ' »' : 'Agenda'} <span class="petit">${c}</span></div>
+      <select data-agenda="${c}" aria-label="Propriétaire de ${c}">
+        <option value="moi" ${A[c] === 'moi' ? 'selected' : ''}>${echapper(p.moi)}</option>
+        <option value="flo" ${A[c] === 'flo' ? 'selected' : ''}>${echapper(p.flo)}</option>
+        <option value="nous" ${A[c] === 'nous' ? 'selected' : ''}>Ensemble</option>
+      </select>
+    </div>`).join('');
+}
+$('agendas').addEventListener('change', e => { if (e.target.dataset.agenda) { R.reglages.agenda.agendas[e.target.dataset.agenda] = e.target.value; aChange(); } });
+
+/* ---------- Listes choisies (lumières, modes) : ajout, ordre, retrait ---------- */
+function dessinerChoix(zone, choisis, dispo, max, vide, noms) {
+  const nom = id => (dispo.find(x => x.id === id) || { nom: id }).nom;
+  const restants = dispo.filter(x => !choisis.includes(x.id));
+  zone.innerHTML =
+    (choisis.length ? choisis.map((id, i) => `
+      <div class="ligne">
+        <div class="fleches">
+          <button type="button" data-haut="${i}" ${i === 0 ? 'disabled' : ''} aria-label="Monter">↑</button>
+          <button type="button" data-bas="${i}" ${i === choisis.length - 1 ? 'disabled' : ''} aria-label="Descendre">↓</button>
+        </div>
+        <div class="nom">${noms ? `<input type="text" maxlength="24" data-renommer="${id}" value="${echapper(noms[id] || '')}" placeholder="${echapper(nom(id))}" aria-label="Nom affiché pour ${echapper(nom(id))}" style="width:100%;max-width:220px">` : echapper(nom(id))} <span class="petit">${noms ? echapper(nom(id)) + ' · ' : ''}${id}</span></div>
+        <button type="button" data-retirer="${i}">Retirer</button>
+      </div>`).join('') : '<p class="vide">' + vide + '</p>') +
+    (choisis.length < max && restants.length ? `
+      <div class="rang" style="margin-top:12px">
+        <select data-ajout style="flex:1">${restants.map(x => `<option value="${x.id}">${echapper(x.nom)}${x.type ? ' · ' + x.type : ''}${x.dispo === false ? ' (indisponible)' : ''}${x.segment ? ' (segment)' : ''}</option>`).join('')}</select>
+        <button type="button" data-ajouter>Ajouter</button>
+      </div>` : '');
+}
+function brancherChoix(zone, liste, redessiner) {
+  zone.addEventListener('click', e => {
+    const d = e.target.dataset, L = liste();
+    if (d.haut !== undefined) { const i = +d.haut; [L[i - 1], L[i]] = [L[i], L[i - 1]]; }
+    else if (d.bas !== undefined) { const i = +d.bas; [L[i + 1], L[i]] = [L[i], L[i + 1]]; }
+    else if (d.retirer !== undefined) L.splice(+d.retirer, 1);
+    else if (d.ajouter !== undefined) L.push(zone.querySelector('[data-ajout]').value);
+    else return;
+    redessiner(); aChange();
+  });
+}
+function dessinerMaison() {
+  if (!catalogue) return;
+  const M = R.reglages.maison;
+  dessinerChoix($('lumieres'), M.lumieres, catalogue.lumieres, 8, 'Choix automatique (toutes les lumières sauf les segments).');
+  M.noms = M.noms || {};
+  dessinerChoix($('modes'), M.modes, catalogue.modes, 5, 'Aucun bouton de mode.', M.noms);
+}
+$('modes').addEventListener('input', e => {
+  const id = e.target.dataset.renommer;
+  if (id) { R.reglages.maison.noms[id] = e.target.value; aChange(); }
+});
+brancherChoix($('lumieres'), () => R.reglages.maison.lumieres, dessinerMaison);
+brancherChoix($('modes'), () => R.reglages.maison.modes, dessinerMaison);
+
+/* ---------- Champs simples ---------- */
+$('message').addEventListener('input', () => { R.reglages.message = $('message').value; majCompteur(); aChange(); });
+$('pause').addEventListener('change', () => { R.reglages.rotation.pause = +$('pause').value; aChange(); });
+document.querySelectorAll('input[name=theme]').forEach(r => r.addEventListener('change', () => { R.reglages.theme.mode = r.value; majHeures(); aChange(); }));
+$('nuitDebut').addEventListener('change', () => { R.reglages.theme.nuitDebut = +$('nuitDebut').value; aChange(); });
+$('nuitFin').addEventListener('change', () => { R.reglages.theme.nuitFin = +$('nuitFin').value; aChange(); });
+['prenomMoi', 'prenomFlo'].forEach(id => $(id).addEventListener('input', () => {
+  R.reglages.agenda.personnes[id === 'prenomMoi' ? 'moi' : 'flo'] = $(id).value; aChange(); dessinerAgendas();
+}));
+
+/* ---------- Enregistrement ---------- */
+function aChange() { modifie = true; $('enregistrer').disabled = !R.stockage; $('etat').textContent = 'Modifications non enregistrées'; $('etat').style.color = 'var(--warn)'; }
+function alerteEtat(t) { $('etat').textContent = t; $('etat').style.color = 'var(--warn)'; }
+$('enregistrer').addEventListener('click', async () => {
+  $('enregistrer').disabled = true; $('etat').textContent = 'Enregistrement…'; $('etat').style.color = '';
+  try {
+    const j = await appel('/reglages', { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(R.reglages) });
+    R.reglages = j.reglages; R.maj = j.maj; modifie = false;
+    remplir(); dessinerMaison();
+    $('etat').textContent = 'Enregistré à ' + new Date(j.maj).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) + '. L\'écran se met à jour d\'ici 2 minutes.';
+    $('etat').style.color = 'var(--ok)';
+  } catch (err) {
+    alerteEtat('Échec : ' + err.message); $('enregistrer').disabled = false;
+  }
+});
+window.addEventListener('beforeunload', e => { if (modifie) { e.preventDefault(); e.returnValue = ''; } });
+
+/* ---------- Démarrage : reconnexion automatique si la clé est mémorisée ---------- */
+const memorisee = memoire('lire');
+if (memorisee) { $('souvenir').checked = true; $('cle').value = memorisee; connecter(memorisee); }
+</script>
+</body>
+</html>
