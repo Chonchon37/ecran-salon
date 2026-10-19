@@ -44,7 +44,7 @@ button:disabled{opacity:.45;cursor:default}
 .fleches button{padding:6px 10px;min-width:38px}
 .interrupteur{display:inline-flex;align-items:center;gap:8px;font-weight:500;cursor:pointer}
 .interrupteur input{width:20px;height:20px;accent-color:var(--accent)}
-.segment{display:inline-flex;background:var(--bg);border-radius:12px;padding:4px;gap:4px}
+.segment{display:inline-flex;flex-wrap:wrap;background:var(--bg);border-radius:12px;padding:4px;gap:4px}
 .segment label{padding:7px 14px;border-radius:9px;cursor:pointer;font-weight:600}
 .segment input{position:absolute;opacity:0;pointer-events:none}
 .segment input:checked + span{color:var(--accent-ink)}
@@ -117,11 +117,13 @@ input[type=time]{font:inherit;color:var(--ink);background:var(--bg);border:1.5px
       <h2>Thème</h2>
       <div class="rang">
         <div class="segment" role="radiogroup" aria-label="Thème">
-          <label><input type="radio" name="theme" value="auto"><span>Automatique</span></label>
+          <label><input type="radio" name="theme" value="auto"><span>Selon des heures</span></label>
+          <label><input type="radio" name="theme" value="soleil"><span>Selon le soleil</span></label>
           <label><input type="radio" name="theme" value="jour"><span>Toujours clair</span></label>
           <label><input type="radio" name="theme" value="nuit"><span>Toujours sombre</span></label>
         </div>
       </div>
+      <p class="aide" id="infoSoleil" style="margin:14px 0 0"></p>
       <div class="rang" id="heuresNuit">
         <label for="nuitDebut">Sombre de</label>
         <input type="number" id="nuitDebut" min="0" max="23"> <span>h à</span>
@@ -250,7 +252,30 @@ $('veilleDebut').addEventListener('change', () => { R.reglages.veille.debut = $(
 $('veilleFin').addEventListener('change', () => { R.reglages.veille.fin = $('veilleFin').value; aChange(); });
 $('reveil').addEventListener('change', () => { R.reglages.veille.reveil = +$('reveil').value; aChange(); });
 function majCompteur() { $('compteur').textContent = $('message').value.length; }
-function majHeures() { $('heuresNuit').hidden = R.reglages.theme.mode !== 'auto'; }
+// Lever / coucher du soleil (formules NOAA), en minutes depuis minuit, heure locale
+function soleil(date, lat, lon){
+  var rad = Math.PI / 180;
+  var debutAn = new Date(date.getFullYear(), 0, 0), n = Math.floor((date - debutAn) / 86400000);
+  var g = 2 * Math.PI / 365 * (n - 1);
+  var eq = 229.18 * (0.000075 + 0.001868 * Math.cos(g) - 0.032077 * Math.sin(g) - 0.014615 * Math.cos(2 * g) - 0.040849 * Math.sin(2 * g));
+  var decl = 0.006918 - 0.399912 * Math.cos(g) + 0.070257 * Math.sin(g) - 0.006758 * Math.cos(2 * g) + 0.000907 * Math.sin(2 * g) - 0.002697 * Math.cos(3 * g) + 0.00148 * Math.sin(3 * g);
+  var x = Math.cos(90.833 * rad) / (Math.cos(lat * rad) * Math.cos(decl)) - Math.tan(lat * rad) * Math.tan(decl);
+  x = Math.max(-1, Math.min(1, x));
+  var ha = Math.acos(x) / rad;
+  var midi = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 12);
+  var tz = -midi.getTimezoneOffset();
+  return { lever: Math.round(720 - 4 * (lon + ha) - eq + tz), coucher: Math.round(720 - 4 * (lon - ha) - eq + tz) };
+}
+function majHeures() {
+  const mode = R.reglages.theme.mode;
+  $('heuresNuit').hidden = mode !== 'auto';
+  $('infoSoleil').hidden = mode !== 'soleil';
+  if (mode === 'soleil') {
+    const f = m => String(Math.floor(m / 60)).padStart(2, '0') + ' h ' + String(m % 60).padStart(2, '0');
+    const s = soleil(new Date(), 47.418, 0.688);
+    $('infoSoleil').textContent = 'Aujourd\'hui à Tours : clair de ' + f(s.lever) + ' (lever) à ' + f(s.coucher) + ' (coucher), sombre le reste du temps. Les heures suivent les saisons automatiquement.';
+  }
+}
 
 function dessinerSlides() {
   const L = R.reglages.rotation.slides;

@@ -27,7 +27,7 @@ const ORIGINE_AUTORISEE = '*';   // tu pourras mettre 'https://chonchon37.github
 const FLUX_TR = 'https://data.filbleu.fr/ws-tr/gtfs-rt/opendata/trip-updates';
 const FLUX_ALERTES = 'https://data.filbleu.fr/ws-tr/gtfs-rt/opendata/service-alerts';
 const CACHE_SECONDES = 20;
-const VERSION = '9';   // à changer à chaque mise à jour du code : vide les caches
+const VERSION = '10';   // à changer à chaque mise à jour du code : vide les caches
 
 // Horaires prévus, format compact : "jours" = n° de grille pour chaque jour depuis "debut",
 // chaque ligne "g=" = minutes depuis minuit, écrites en écarts successifs.
@@ -529,7 +529,7 @@ function nettoyerReglages(r) {
   res.rotation = { pause: entier(rot.pause, 10, 600, D.rotation.pause), slides: slides, plages: plages };
   const th = r.theme || {};
   res.theme = {
-    mode: ['auto', 'jour', 'nuit'].indexOf(th.mode) >= 0 ? th.mode : 'auto',
+    mode: ['auto', 'soleil', 'jour', 'nuit'].indexOf(th.mode) >= 0 ? th.mode : 'auto',
     nuitDebut: entier(th.nuitDebut, 0, 23, D.theme.nuitDebut), nuitFin: entier(th.nuitFin, 0, 23, D.theme.nuitFin)
   };
   const ve = r.veille || {};
