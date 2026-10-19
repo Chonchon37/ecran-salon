@@ -496,7 +496,7 @@ const REGLAGES_DEFAUT = {
   theme: { mode: 'auto', nuitDebut: 19, nuitFin: 7 },
   veille: { actif: true, debut: '23:00', fin: '07:00', reveil: 120 },
   transports: { A: { actif: true, marche: 7 }, '2': { actif: true, marche: 9 } },
-  agenda: { personnes: { moi: 'Chonchon', flo: 'Flo' }, agendas: { GOOGLE_ICS1: 'flo', GOOGLE_ICS2: 'moi', GOOGLE_ICS3: 'nous' } },
+  agenda: { personnes: { moi: 'Nico', flo: 'Flo' }, agendas: { GOOGLE_ICS1: 'flo', GOOGLE_ICS2: 'moi', GOOGLE_ICS3: 'nous' } },
   maison: { lumieres: [], modes: ['automation.apero', 'automation.all_cine', 'special.tout_eteindre'], noms: { 'automation.apero': 'Apéro', 'automation.all_cine': 'Ciné' } },
   message: ''
 };
