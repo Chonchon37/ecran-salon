@@ -166,7 +166,7 @@ function carte(cfg, D){
       '<div class="hero-d">' + (P.length ? Nom + ' de ' + hm(P[0].heure) + ' · rien d\'autre d\'annoncé dans les 2 h' : 'Aucun passage dans les 2 prochaines heures') + '</div></div>';
   } else {
     var p = P[cible], marge = minutesAvant(p.heure) - cfg.marche, vite = marge <= 1;
-    html += '<div class="hero' + (vite ? ' vite' : '') + '"><div class="hero-l">Pars dans</div>' +
+    html += '<div class="hero' + (vite ? ' vite' : '') + '"><div class="hero-l">' + (vite ? 'Pars' : 'Pars dans') + '</div>' +
       (vite ? '<div class="hero-n mot h">Maintenant</div>' : '<div class="hero-n h">' + marge + '<small>min</small></div>') +
       '<div class="hero-d"><span class="pt ' + (p.tempsReel ? 'live' : 'prevu') + '"></span>' + Nom + ' de ' + hm(p.heure) + ' · dans ' + enMin(minutesAvant(p.heure)) + (p.tempsReel ? '' : ' (horaire prévu)') + '</div></div>';
   }
