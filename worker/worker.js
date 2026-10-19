@@ -8,7 +8,7 @@
  *
  * Réglages à saisir dans Cloudflare (Settings → Variables and Secrets) :
  *  ECRAN_CLE   (secret) mot de passe de l'écran, ajouté à l'adresse du cadre : ?cle=…
- *  GOOGLE_ICS  (secret) adresse secrète au format iCal de ton Google Agenda
+ *  GOOGLE_ICS1, GOOGLE_ICS2… (secrets) adresses secrètes au format iCal de tes Google Agenda
  *  HA_URL      (texte)  https://ha.petitgeranium.duckdns.org
  *  HA_TOKEN    (secret) jeton d'accès longue durée Home Assistant
  */
@@ -405,13 +405,17 @@ function minuitParis(ms) {
 }
 
 async function construireAgenda(env) {
-  if (!env.GOOGLE_ICS) throw new Error('GOOGLE_ICS manquant dans les réglages du Worker');
-  const r = await fetch(env.GOOGLE_ICS, { cf: { cacheTtl: 300 } });
-  if (!r.ok) throw new Error('Google Agenda a répondu ' + r.status);
-  const ics = await r.text();
+  // Tous les agendas déclarés : GOOGLE_ICS, GOOGLE_ICS1, GOOGLE_ICS2… (autant que tu veux)
+  const adresses = Object.keys(env).filter(k => /^GOOGLE_ICS\d*$/.test(k)).sort().map(k => env[k]).filter(Boolean);
+  if (!adresses.length) throw new Error('Aucun agenda : ajoute GOOGLE_ICS1 dans les réglages du Worker');
+  const reponses = await Promise.allSettled(adresses.map(u => fetch(u, { cf: { cacheTtl: 300 } }).then(r => { if (!r.ok) throw new Error('Google Agenda a répondu ' + r.status); return r.text(); })));
+  const textes = reponses.filter(x => x.status === 'fulfilled').map(x => x.value);
+  if (!textes.length) throw new Error(String(reponses[0].reason && reponses[0].reason.message || 'agendas illisibles'));
+  const agendasEnErreur = reponses.length - textes.length;
   const maintenant = Date.now(), aujourdhui = minuitParis(maintenant);
   const finAgenda = aujourdhui + 8 * 86400000, finAnniv = aujourdhui + 367 * 86400000;
-  const evts = lireEvenements(ics, ymdParis(aujourdhui - 40 * 86400000));
+  let evts = [];
+  for (const ics of textes) evts = evts.concat(lireEvenements(ics, ymdParis(aujourdhui - 40 * 86400000)));
 
   // Occurrences modifiées (RECURRENCE-ID) : elles remplacent l'occurrence d'origine
   const remplacees = {};
@@ -437,11 +441,14 @@ async function construireAgenda(env) {
     }
   }
   agenda.sort((a, b) => a.debut - b.debut);
+  // même événement présent dans deux agendas (invitation partagée) : on ne le garde qu'une fois
+  const dejaVu = new Set();
+  for (let i = agenda.length - 1; i >= 0; i--) { const k = agenda[i].debut + '|' + agenda[i].titre; if (dejaVu.has(k)) agenda.splice(i, 1); else dejaVu.add(k); }
   anniversaires.sort((a, b) => a.date - b.date);
   // un anniversaire n'apparaît qu'une fois (le prochain)
   const vus = new Set(), annivUniques = [];
   for (const a of anniversaires) { if (vus.has(a.nom)) continue; vus.add(a.nom); annivUniques.push(a); }
-  return { maj: maintenant, aujourdhui: aujourdhui, evenements: agenda.slice(0, 80), anniversaires: annivUniques.slice(0, 12) };
+  return { maj: maintenant, aujourdhui: aujourdhui, agendas: adresses.length, agendasEnErreur: agendasEnErreur, evenements: agenda.slice(0, 80), anniversaires: annivUniques.slice(0, 12) };
 }
 
 /* =====================================================================
