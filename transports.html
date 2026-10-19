@@ -7,14 +7,16 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700&family=Figtree:wght@400;500;600;700&display=swap">
 <style>
 :root{
-  --bg:#E8ECE3; --card:#F6F7F2; --card2:#DEE4D7; --ink:#1E2A23; --muted:#5E6B62; --line:#CBD3C4;
-  --accent:#587A57; --ok:#4C8758; --ok-soft:#D5E6D3; --warn:#BC6430; --warn-soft:#F2DCCB;
+  --bg:#E8ECE3; --card:#F7F8F4; --card2:#E3E8DD; --ink:#16201A; --muted:#55615A; --line:#D3DACE;
+  --ok:#2E7346; --warn:#B4501B; --warn-soft:#F6E0D2;
+  --go-bg:#2E7346; --go-ink:#FFFFFF; --hurry-bg:#B9501A; --hurry-ink:#FFFFFF; --none-bg:#E3E8DD; --none-ink:#55615A;
   --tram:#BD074E; --bus:#004488; --badge-ink:#FFFFFF;
 }
 html.nuit{
-  --bg:#0F151C; --card:#18212A; --card2:#222D38; --ink:#E3E8E1; --muted:#8E9B95; --line:#2B3743;
-  --accent:#92B28E; --ok:#7CBA87; --ok-soft:#1E3324; --warn:#E38A52; --warn-soft:#3A2619;
-  --tram:#D0326A; --bus:#2F6FB0; --badge-ink:#FFFFFF;
+  --bg:#0E1216; --card:#1A1F25; --card2:#252C34; --ink:#F2F5F3; --muted:#A8B2AC; --line:#323A43;
+  --ok:#5FD08A; --warn:#FF9A5C; --warn-soft:#3B2417;
+  --go-bg:#2B8A4F; --go-ink:#FFFFFF; --hurry-bg:#D9622A; --hurry-ink:#FFFFFF; --none-bg:#252C34; --none-ink:#C3CBC6;
+  --tram:#E0306F; --bus:#3D7FD1; --badge-ink:#FFFFFF;
 }
 html,body{margin:0;width:1280px;height:728px;overflow:hidden;background:var(--bg)}
 body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased;transition:background-color .8s,color .8s}
@@ -25,63 +27,54 @@ body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;fon
 .demo{margin-left:10px;font-size:12px;letter-spacing:.06em;padding:3px 9px;border-radius:20px;background:var(--warn-soft);color:var(--warn)}
 
 .top{display:flex;align-items:center;justify-content:space-between;height:28px;margin-bottom:16px}
-.upd{font-size:17px;color:var(--muted);display:flex;align-items:center}
+.upd{font-size:17px;color:var(--muted)}
 .upd.vieux{color:var(--warn);font-weight:700}
 .lines{flex:1;display:flex;min-height:0}
 .line{flex:1;display:flex;flex-direction:column;min-width:0}
 .line + .line{margin-left:16px}
 
+/* En-tête : ligne, arrêt, direction et temps de marche */
 .ln-head{display:flex;align-items:center}
-.badge{width:60px;height:60px;display:flex;align-items:center;justify-content:center;font-family:"Bricolage Grotesque",Figtree,Arial,sans-serif;font-size:34px;font-weight:700;color:var(--badge-ink);margin-right:18px;flex:none}
+.badge{width:62px;height:62px;display:flex;align-items:center;justify-content:center;font-family:"Bricolage Grotesque",Figtree,Arial,sans-serif;font-size:36px;font-weight:700;color:var(--badge-ink);margin-right:18px;flex:none}
 .badge.tram{background:var(--tram);border-radius:50%}
 .badge.bus{background:var(--bus);border-radius:14px}
-.ln-stop{font-size:30px;font-weight:600;line-height:1.1}
-.ln-dir{font-size:20px;color:var(--muted);margin-top:3px}
-.ln-status{margin-left:auto;font-size:16px;font-weight:700;padding:7px 13px;border-radius:16px;background:var(--ok-soft);color:var(--ok);align-self:flex-start;white-space:nowrap}
+.ln-txt{min-width:0}
+.ln-stop{font-size:32px;font-weight:600;line-height:1.1}
+.ln-sub{font-size:20px;color:var(--muted);margin-top:4px;display:flex;align-items:center;white-space:nowrap}
+.ln-sub svg{width:20px;height:20px;margin:0 4px 0 2px;flex:none}
+.ln-sub .sep{margin:0 8px}
+.ln-status{margin-left:auto;font-size:16px;font-weight:700;padding:7px 13px;border-radius:16px;background:var(--card2);color:var(--ok);align-self:flex-start;white-space:nowrap}
 .ln-status.pb{background:var(--warn-soft);color:var(--warn)}
 .alerte{margin-top:14px;padding:12px 16px;border-radius:14px;background:var(--warn-soft);color:var(--warn);font-size:19px;font-weight:600;line-height:1.3}
 
-/* Bloc principal : quand partir */
-.hero{margin-top:22px;padding:18px 22px;border-radius:18px;background:var(--ok-soft);color:var(--ok);display:flex;align-items:center}
-.hero.vite{background:var(--warn-soft);color:var(--warn)}
-.hero.rien{background:var(--card2);color:var(--muted)}
-.hero-g{flex:none;margin-right:24px}
-.hero-l{font-size:17px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
-.hero-n{font-size:104px;font-weight:600;line-height:.95;letter-spacing:-.03em}
-.hero-n small{font-size:36px;font-weight:600;letter-spacing:0;margin-left:6px}
-.hero-n.mot{font-size:54px;line-height:1.1;letter-spacing:-.01em}
-.hero-d{color:var(--ink);font-size:24px;font-weight:600;line-height:1.35;min-width:0}
-.hero-d span{display:block;font-size:19px;font-weight:500;color:var(--muted)}
-.tag{display:inline-flex;align-items:center;font-size:16px;font-weight:700;margin-top:6px}
-.tag.live{color:var(--ok)}
-.tag.prevu{color:var(--muted)}
-.tag i{width:10px;height:10px;border-radius:50%;margin-right:7px;background:currentColor}
-.tag.live i{-webkit-animation:pulse 1.6s infinite;animation:pulse 1.6s infinite}
-.tag.prevu i{background:transparent;border:2px solid currentColor;width:6px;height:6px}
+/* Bloc principal : quand partir, lisible de loin */
+.hero{flex:1;margin-top:20px;border-radius:22px;background:var(--go-bg);color:var(--go-ink);display:flex;flex-direction:column;justify-content:center;padding:18px 30px;min-height:0}
+.hero.vite{background:var(--hurry-bg);color:var(--hurry-ink)}
+.hero.rien{background:var(--none-bg);color:var(--none-ink)}
+.hero-l{font-size:22px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;opacity:.92}
+.hero-n{font-size:168px;font-weight:600;line-height:.92;letter-spacing:-.04em;margin-top:6px}
+.hero-n small{font-size:52px;font-weight:600;letter-spacing:0;margin-left:10px}
+.hero-n.mot{font-size:84px;line-height:1;letter-spacing:-.02em}
+.hero-d{font-size:22px;font-weight:500;margin-top:12px;opacity:.9;display:flex;align-items:center}
+.hero-d .pt{width:10px;height:10px;border-radius:50%;background:currentColor;margin-right:9px;flex:none}
+.hero-d .pt.prevu{background:transparent;border:2px solid currentColor;width:6px;height:6px}
+.hero-d .pt.live{-webkit-animation:pulse 1.6s infinite;animation:pulse 1.6s infinite}
 @-webkit-keyframes pulse{50%{opacity:.25}}
 @keyframes pulse{50%{opacity:.25}}
-.rate{margin-top:10px;font-size:17px;color:var(--muted)}
 
-/* Frise des 60 prochaines minutes */
-.frise{position:relative;height:96px;margin-top:auto}
-.fr-titre{position:absolute;left:0;top:0;font-size:16px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
-.fr-track{position:absolute;left:0;right:0;top:44px;height:8px;border-radius:4px;background:var(--card2)}
-.fr-walk{position:absolute;left:0;top:44px;height:8px;border-radius:4px 0 0 4px;background:repeating-linear-gradient(135deg,var(--warn) 0 6px,transparent 6px 11px);opacity:.75}
-.fr-dot{position:absolute;top:36px;width:24px;height:24px;margin-left:-12px;border-radius:50%;box-sizing:border-box;border:4px solid;background:var(--card)}
-.fr-dot.passe{opacity:.35}
-.fr-lab{position:absolute;top:70px;white-space:nowrap;font-size:17px;color:var(--muted);-webkit-transform:translateX(-50%);transform:translateX(-50%)}
-.fr-lab.g{-webkit-transform:none;transform:none}
-.fr-lab.d{-webkit-transform:translateX(-100%);transform:translateX(-100%)}
+/* Badge « trop tard à pied » */
+.rate{align-self:flex-start;margin-top:12px;display:inline-flex;align-items:center;padding:7px 14px;border-radius:12px;background:var(--warn-soft);color:var(--warn);font-size:18px;font-weight:700}
+.rate svg{width:20px;height:20px;margin-right:8px;flex:none}
 
-/* Passages suivants */
-.ln-list{margin-top:18px;display:flex;border-top:2px solid var(--line);padding-top:16px}
-.dep{flex:1}
-.dep-h{font-size:32px;font-weight:600}
-.dep-m{font-size:18px;color:var(--muted);margin-top:2px;display:flex;align-items:center}
-.dep-m i{width:9px;height:9px;border-radius:50%;margin-right:7px;background:var(--ok)}
-.dep-m i.p{background:transparent;border:2px solid var(--muted);width:5px;height:5px}
-.foot{margin-top:12px;font-size:17px;color:var(--muted);display:flex;align-items:center}
-.foot svg{width:20px;height:20px;margin-right:8px}
+/* Départs suivants, sur une ligne */
+.ensuite{margin-top:16px;display:flex;align-items:baseline;border-top:2px solid var(--line);padding-top:14px}
+.ens-l{font-size:16px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-right:18px}
+.dep{display:flex;align-items:baseline;font-size:30px;font-weight:600}
+.dep small{font-size:19px;color:var(--muted);font-weight:500;margin-left:7px}
+.dep + .dep{margin-left:16px;padding-left:16px;border-left:2px solid var(--line)}
+.dep i{width:9px;height:9px;border-radius:50%;background:var(--ok);margin-right:8px;align-self:center;flex:none}
+.dep i.p{background:transparent;border:2px solid var(--muted);width:5px;height:5px}
+.ens-vide{font-size:19px;color:var(--muted)}
 </style>
 </head>
 <body>
@@ -151,59 +144,46 @@ function donneesDemo(){
 /* ---------- Affichage ---------- */
 function minutesAvant(ms){ return Math.floor((ms - Date.now()) / 60000); }
 function enMin(m){ return m < 1 ? 'moins d\'1 min' : m + ' min'; }
-function tag(p){ return p.tempsReel ? '<div class="tag live"><i></i>temps réel</div>' : '<div class="tag prevu"><i></i>horaire prévu</div>'; }
+var ATTENTION = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5 2.8 19.5h18.4z"/><path d="M12 10v4.5M12 17.2v.1"/></svg>';
 function carte(cfg, D){
   var P = (D ? D.passages : []).filter(function(p){ return p.heure > Date.now() - 30000; });
   var html = '<div class="card line"><div class="ln-head">' +
     '<div class="badge ' + cfg.type + '">' + cfg.ligne + '</div>' +
-    '<div><div class="ln-stop h">' + cfg.arret + '</div><div class="ln-dir">vers ' + cfg.direction + '</div></div>' +
+    '<div class="ln-txt"><div class="ln-stop h">' + cfg.arret + '</div>' +
+    '<div class="ln-sub">vers ' + cfg.direction + '<span class="sep">·</span>' + PIETON + cfg.marche + ' min à pied</div></div>' +
     (D && D.perturbation ? '<div class="ln-status pb">Perturbé</div>' : '<div class="ln-status">Trafic normal</div>') +
     '</div>';
   if (D && D.perturbation) html += '<div class="alerte">' + D.perturbation.replace(/</g, '&lt;') + '</div>';
 
-  // 1) Premier passage qu'on peut encore attraper à pied
+  // Premier passage qu'on peut encore attraper à pied
   var cible = -1;
   for (var i = 0; i < P.length; i++) if (minutesAvant(P[i].heure) - cfg.marche >= 0) { cible = i; break; }
+  var Nom = cfg.nom.charAt(0).toUpperCase() + cfg.nom.slice(1);
 
   if (cible < 0) {
-    html += '<div class="hero rien"><div class="hero-g"><div class="hero-l">Prochain départ</div><div class="hero-n mot h">' + (P.length ? 'Trop juste' : 'Aucun') + '</div></div>' +
-      '<div class="hero-d">' + (P.length ? 'Le ' + cfg.nom + ' de ' + hm(P[0].heure) + ' arrive avant toi.<span>Rien d\'autre d\'annoncé dans les 2 h.</span>' : 'Aucun passage dans les 2 prochaines heures.<span>Fin de service, ou données indisponibles.</span>') + '</div></div>';
+    html += '<div class="hero rien"><div class="hero-l">Prochain départ</div>' +
+      '<div class="hero-n mot h">' + (P.length ? 'Trop tard' : 'Aucun') + '</div>' +
+      '<div class="hero-d">' + (P.length ? Nom + ' de ' + hm(P[0].heure) + ' · rien d\'autre d\'annoncé dans les 2 h' : 'Aucun passage dans les 2 prochaines heures') + '</div></div>';
   } else {
     var p = P[cible], marge = minutesAvant(p.heure) - cfg.marche, vite = marge <= 1;
-    html += '<div class="hero' + (vite ? ' vite' : '') + '"><div class="hero-g"><div class="hero-l">Pars dans</div>' +
-      (vite ? '<div class="hero-n mot h">Maintenant</div>' : '<div class="hero-n h">' + marge + '<small>min</small></div>') + '</div>' +
-      '<div class="hero-d">pour le ' + cfg.nom + ' de ' + hm(p.heure) + '<span>il passe dans ' + enMin(minutesAvant(p.heure)) + '</span>' + tag(p) + '</div></div>';
-    if (cible > 0) html += '<div class="rate">Celui de ' + hm(P[cible - 1].heure) + ' (dans ' + enMin(minutesAvant(P[cible - 1].heure)) + ') est trop proche pour y aller à pied.</div>';
+    html += '<div class="hero' + (vite ? ' vite' : '') + '"><div class="hero-l">Pars dans</div>' +
+      (vite ? '<div class="hero-n mot h">Maintenant</div>' : '<div class="hero-n h">' + marge + '<small>min</small></div>') +
+      '<div class="hero-d"><span class="pt ' + (p.tempsReel ? 'live' : 'prevu') + '"></span>' + Nom + ' de ' + hm(p.heure) + ' · dans ' + enMin(minutesAvant(p.heure)) + (p.tempsReel ? '' : ' (horaire prévu)') + '</div></div>';
   }
+  // Badge compact pour le passage qu'on ne peut plus attraper
+  var rate = cible > 0 ? P[cible - 1] : null;
+  if (rate) html += '<div class="rate">' + ATTENTION + hm(rate.heure) + ' — trop tard à pied</div>';
 
-  // 2) Frise des 60 prochaines minutes ; la zone hachurée = temps de marche
-  var coul = cfg.type === 'tram' ? 'var(--tram)' : 'var(--bus)';
-  html += '<div class="frise"><div class="fr-titre">Prochaine heure</div><div class="fr-track"></div>' +
-    '<div class="fr-walk" style="width:' + (Math.min(cfg.marche, 60) / 60 * 100).toFixed(1) + '%"></div>';
-  for (var f = 0; f < P.length; f++) {
-    var mf = (P[f].heure - Date.now()) / 60000;
-    if (mf < 0 || mf > 60) continue;
-    html += '<div class="fr-dot' + (mf < cfg.marche ? ' passe' : '') + '" style="left:' + (mf / 60 * 100).toFixed(1) + '%;border-color:' + coul + (P[f].tempsReel ? ';background:' + coul : '') + '"></div>';
+  // Les 2 départs suivants, sur une ligne
+  var debut = cible < 0 ? P.length : cible + 1, suivants = P.slice(debut, debut + 2);
+  html += '<div class="ensuite"><span class="ens-l">Ensuite</span>';
+  if (!suivants.length) html += '<span class="ens-vide">rien d\'annoncé</span>';
+  for (var k = 0; k < suivants.length; k++) {
+    html += '<div class="dep"><i' + (suivants[k].tempsReel ? '' : ' class="p"') + '></i>' + hm(suivants[k].heure) + '<small>(+' + minutesAvant(suivants[k].heure) + ' min)</small></div>';
   }
-  var reperes = [0, 15, 30, 45, 60];
-  for (var r = 0; r < reperes.length; r++) {
-    html += '<div class="fr-lab' + (r === 0 ? ' g' : (r === 4 ? ' d' : '')) + '" style="left:' + (reperes[r] / 60 * 100) + '%">' + (r === 0 ? 'maint.' : '+' + reperes[r]) + '</div>';
-  }
-  html += '</div>';
-
-  // 3) Les passages suivants
-  var suivants = P.slice(cible < 0 ? P.length : cible + 1, (cible < 0 ? P.length : cible + 1) + 3);
-  if (suivants.length) {
-    html += '<div class="ln-list">';
-    for (var k = 0; k < suivants.length; k++) {
-      html += '<div class="dep"><div class="dep-h">' + hm(suivants[k].heure) + '</div><div class="dep-m"><i' + (suivants[k].tempsReel ? '' : ' class="p"') + '></i>dans ' + minutesAvant(suivants[k].heure) + ' min</div></div>';
-    }
-    html += '</div>';
-  }
-  html += '<div class="foot">' + PIETON + cfg.marche + ' min à pied jusqu\'à l\'arrêt</div></div>';
+  html += '</div></div>';
   return html;
 }
-var derniereMaj = 0;
 var tempsReelOk = true;
 function afficher(D){
   var html = '';
