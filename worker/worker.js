@@ -406,16 +406,22 @@ function minuitParis(ms) {
 
 async function construireAgenda(env) {
   // Tous les agendas déclarés : GOOGLE_ICS, GOOGLE_ICS1, GOOGLE_ICS2… (autant que tu veux)
-  const adresses = Object.keys(env).filter(k => /^GOOGLE_ICS\d*$/.test(k)).sort().map(k => env[k]).filter(Boolean);
+  const cles = Object.keys(env).filter(k => /^GOOGLE_ICS\d*$/.test(k) && env[k]).sort();
+  const adresses = cles.map(k => env[k]);
   if (!adresses.length) throw new Error('Aucun agenda : ajoute GOOGLE_ICS1 dans les réglages du Worker');
   const reponses = await Promise.allSettled(adresses.map(u => fetch(u, { cf: { cacheTtl: 300 } }).then(r => { if (!r.ok) throw new Error('Google Agenda a répondu ' + r.status); return r.text(); })));
-  const textes = reponses.filter(x => x.status === 'fulfilled').map(x => x.value);
-  if (!textes.length) throw new Error(String(reponses[0].reason && reponses[0].reason.message || 'agendas illisibles'));
-  const agendasEnErreur = reponses.length - textes.length;
+  const sources = [];
+  reponses.forEach((x, i) => { if (x.status === 'fulfilled') sources.push({ cle: cles[i], texte: x.value, nom: ((/X-WR-CALNAME:(.*)/.exec(x.value) || [])[1] || '').trim() }); });
+  if (!sources.length) throw new Error(String(reponses[0].reason && reponses[0].reason.message || 'agendas illisibles'));
+  const agendasEnErreur = reponses.length - sources.length;
   const maintenant = Date.now(), aujourdhui = minuitParis(maintenant);
   const finAgenda = aujourdhui + 8 * 86400000, finAnniv = aujourdhui + 367 * 86400000;
   let evts = [];
-  for (const ics of textes) evts = evts.concat(lireEvenements(ics, ymdParis(aujourdhui - 40 * 86400000)));
+  for (const src of sources) {
+    const liste = lireEvenements(src.texte, ymdParis(aujourdhui - 40 * 86400000));
+    for (const e of liste) e.agenda = src.cle;
+    evts = evts.concat(liste);
+  }
 
   // Occurrences modifiées (RECURRENCE-ID) : elles remplacent l'occurrence d'origine
   const remplacees = {};
@@ -436,19 +442,24 @@ async function construireAgenda(env) {
         nom = nom.replace(/\(?\b(19\d\d|20\d\d)\b\)?/, '').replace(/\s{2,}/g, ' ').trim();
         anniversaires.push({ nom: nom, date: t, annee: an ? +an[1] : 0 });
       } else {
-        agenda.push({ debut: t, fin: t + e.dureeMs, journee: !!e.debut.jour, titre: titre });
+        agenda.push({ debut: t, fin: t + e.dureeMs, journee: !!e.debut.jour, titre: titre, agenda: e.agenda });
       }
     }
   }
   agenda.sort((a, b) => a.debut - b.debut);
   // même événement présent dans deux agendas (invitation partagée) : on ne le garde qu'une fois
-  const dejaVu = new Set();
-  for (let i = agenda.length - 1; i >= 0; i--) { const k = agenda[i].debut + '|' + agenda[i].titre; if (dejaVu.has(k)) agenda.splice(i, 1); else dejaVu.add(k); }
+  // (s'il est dans deux agendas différents, il est marqué « commun »)
+  const dejaVu = new Map();
+  for (let i = agenda.length - 1; i >= 0; i--) {
+    const k = agenda[i].debut + '|' + agenda[i].titre, autre = dejaVu.get(k);
+    if (autre) { if (autre.agenda !== agenda[i].agenda) autre.agenda = 'commun'; agenda.splice(i, 1); }
+    else dejaVu.set(k, agenda[i]);
+  }
   anniversaires.sort((a, b) => a.date - b.date);
   // un anniversaire n'apparaît qu'une fois (le prochain)
   const vus = new Set(), annivUniques = [];
   for (const a of anniversaires) { if (vus.has(a.nom)) continue; vus.add(a.nom); annivUniques.push(a); }
-  return { maj: maintenant, aujourdhui: aujourdhui, agendas: adresses.length, agendasEnErreur: agendasEnErreur, evenements: agenda.slice(0, 80), anniversaires: annivUniques.slice(0, 12) };
+  return { maj: maintenant, aujourdhui: aujourdhui, agendas: sources.map(x => ({ cle: x.cle, nom: x.nom })), agendasEnErreur: agendasEnErreur, evenements: agenda.slice(0, 80), anniversaires: annivUniques.slice(0, 12) };
 }
 
 /* =====================================================================

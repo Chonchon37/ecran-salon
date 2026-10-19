@@ -89,7 +89,6 @@ body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;fon
     <div class="hello">
       <div class="greet h" id="greet"></div>
       <div class="date" id="date"></div>
-      <div class="fete" id="fete"></div>
     </div>
     <div class="card wx">
       <div class="label">Météo · Tours Nord</div>
@@ -197,7 +196,7 @@ var DEMO_AG = [
   { j: 1, debut: '12:30', titre: 'Déjeuner avec Marc', qui: 'moi' },
   { j: 1, debut: '18:30', titre: 'Yoga Flo', qui: 'flo' }
 ];
-var COULEURS = { moi: 'var(--accent)', flo: 'var(--p2)' };
+var COULEURS = { moi: 'var(--accent)', flo: 'var(--p2)', nous: 'var(--nous)' };
 var DEMO_ANNIV = { nom: 'Lucie', jour: 22, mois: 10, annee: 1995 };
 var lumieres = 3, sceneActive = 'soiree';
 
@@ -303,7 +302,8 @@ function chargerAgenda(){ if (prive()) lireJson(CONFIG.WORKER + '/agenda?cle=' +
 function chargerMaison(){ if (prive()) lireJson(CONFIG.WORKER + '/maison?cle=' + encodeURIComponent(CLE), function(j){ maisonReelle = j; afficherMaison(); }); }
 chargerAgenda(); setInterval(chargerAgenda, 5 * 60000);
 chargerMaison(); setInterval(chargerMaison, 30000);
-function quiPour(titre){ return titre.toLowerCase().indexOf('flo') >= 0 ? 'flo' : 'moi'; }
+var AGENDAS = { GOOGLE_ICS1: 'moi', GOOGLE_ICS2: 'flo', commun: 'nous' };   // même réglage que agenda.html
+function quiPour(e){ return AGENDAS[e.agenda] || 'moi'; }
 
 /* ---------- Affichage ---------- */
 function afficher(){
@@ -312,7 +312,7 @@ function afficher(){
   // Bonjour
   $('greet').innerHTML = h < 5 ? 'Bonne nuit' : (h < 12 ? 'Bonjour' : (h < 18 ? 'Bon après-midi' : 'Bonsoir'));
   $('date').innerHTML = majuscule(JOURS[now.getDay()]) + ' ' + now.getDate() + ' ' + MOIS[now.getMonth()];
-  $('fete').innerHTML = prive() ? '' : '<span class="demo">agenda, maison et anniversaires : données d\'exemple</span>';
+  $('date').innerHTML += prive() ? '' : ' <span class="demo" style="vertical-align:middle">exemple</span>';
 
   // Météo
   afficherMeteo();
@@ -369,7 +369,7 @@ function afficher(){
     var demain0 = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).getTime(), demain1 = demain0 + 86400000;
     for (var e = 0; e < agendaReel.evenements.length; e++) {
       var E = agendaReel.evenements[e], dd = new Date(E.debut);
-      var item = { debut: E.journee ? null : pad(dd.getHours()) + ':' + pad(dd.getMinutes()), titre: E.titre, qui: quiPour(E.titre) };
+      var item = { debut: E.journee ? null : pad(dd.getHours()) + ':' + pad(dd.getMinutes()), titre: E.titre, qui: quiPour(E) };
       if (E.debut < demain0 && E.fin > now.getTime()) { if (E.debut < auj.getTime()) item.debut = null; restAuj.push(item); }
       else if (E.debut >= demain0 && E.debut < demain1) demain.push(item);
       else if (E.journee && E.debut < demain0 && E.fin > demain0) demain.push(item);

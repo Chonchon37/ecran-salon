@@ -60,13 +60,12 @@ var CONFIG = {
   WORKER: 'https://ecran-salon.nico-michon37.workers.dev/agenda',
   RAFRAICHIR_MIN: 5,
   PERSONNES: {
-    moi: { nom: 'Chonchon', couleur: 'var(--accent)' },
-    flo: { nom: 'Flo',      couleur: 'var(--p2)' }
+    moi:  { nom: 'Chonchon', couleur: 'var(--accent)' },
+    flo:  { nom: 'Flo',      couleur: 'var(--p2)' },
+    nous: { nom: 'Ensemble', couleur: 'var(--nous)' }
   },
-  // Qui est concerné ? Le premier mot trouvé dans le titre décide (sinon : moi)
-  REGLES: [
-    { mot: 'flo', qui: 'flo' }
-  ]
+  // À qui appartient chaque agenda (noms des réglages du Worker)
+  AGENDAS: { GOOGLE_ICS1: 'moi', GOOGLE_ICS2: 'flo', commun: 'nous' }
 };
 /* ==================================================== */
 
@@ -83,11 +82,7 @@ function $(id){ return document.getElementById(id); }
 var JOURS_COURTS = ['Dim.', 'Lun.', 'Mar.', 'Mer.', 'Jeu.', 'Ven.', 'Sam.'];
 var CLE = param('cle');
 function echapper(t){ return String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
-function quiPour(titre){
-  var t = titre.toLowerCase();
-  for (var i = 0; i < CONFIG.REGLES.length; i++) if (t.indexOf(CONFIG.REGLES[i].mot) >= 0) return CONFIG.REGLES[i].qui;
-  return 'moi';
-}
+function quiPour(e){ return CONFIG.AGENDAS[e.agenda] || 'moi'; }
 // Événements du Worker → { j, debut 'HH:MM' ou null, titre, qui } pour chacun des 7 jours qu'ils touchent
 function convertir(evts){
   var now = new Date(), res = [];
@@ -98,7 +93,7 @@ function convertir(evts){
       var e = evts[k], fin = Math.max(e.fin, e.debut + 1);
       if (e.debut >= d1 || fin <= d0) continue;
       var dd = new Date(e.debut);
-      res.push({ j: j, debut: (!e.journee && e.debut >= d0) ? pad(dd.getHours()) + ':' + pad(dd.getMinutes()) : null, titre: e.titre, qui: quiPour(e.titre) });
+      res.push({ j: j, debut: (!e.journee && e.debut >= d0) ? pad(dd.getHours()) + ':' + pad(dd.getMinutes()) : null, titre: e.titre, qui: quiPour(e) });
     }
   }
   return res;
@@ -108,7 +103,7 @@ function convertir(evts){
 function donneesDemo(){
   return [
     { j: 0, debut: '08:30', titre: 'Point d\'équipe', qui: 'moi' },
-    { j: 0, debut: '20:30', titre: 'Cinéma avec Flo', qui: 'flo' },
+    { j: 0, debut: '20:30', titre: 'Cinéma', qui: 'nous' },
     { j: 1, debut: '12:30', titre: 'Déjeuner avec Marc', qui: 'moi' },
     { j: 1, debut: '18:30', titre: 'Yoga Flo', qui: 'flo' },
     { j: 3, debut: '17:30', titre: 'Récupérer le colis', qui: 'moi' },
