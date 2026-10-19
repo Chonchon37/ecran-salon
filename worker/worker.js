@@ -27,7 +27,7 @@ const ORIGINE_AUTORISEE = '*';   // tu pourras mettre 'https://chonchon37.github
 const FLUX_TR = 'https://data.filbleu.fr/ws-tr/gtfs-rt/opendata/trip-updates';
 const FLUX_ALERTES = 'https://data.filbleu.fr/ws-tr/gtfs-rt/opendata/service-alerts';
 const CACHE_SECONDES = 20;
-const VERSION = '10';   // à changer à chaque mise à jour du code : vide les caches
+const VERSION = '11';   // à changer à chaque mise à jour du code : vide les caches
 
 // Horaires prévus, format compact : "jours" = n° de grille pour chaque jour depuis "debut",
 // chaque ligne "g=" = minutes depuis minuit, écrites en écarts successifs.
@@ -496,7 +496,7 @@ const REGLAGES_DEFAUT = {
   theme: { mode: 'auto', nuitDebut: 19, nuitFin: 7 },
   veille: { actif: true, debut: '23:00', fin: '07:00', reveil: 120 },
   transports: { A: { actif: true, marche: 7 }, '2': { actif: true, marche: 9 } },
-  agenda: { personnes: { moi: 'Chonchon', flo: 'Flo' }, agendas: { GOOGLE_ICS1: 'flo', GOOGLE_ICS2: 'moi' } },
+  agenda: { personnes: { moi: 'Chonchon', flo: 'Flo' }, agendas: { GOOGLE_ICS1: 'flo', GOOGLE_ICS2: 'moi', GOOGLE_ICS3: 'nous' } },
   maison: { lumieres: [], modes: ['automation.apero', 'automation.all_cine', 'special.tout_eteindre'], noms: { 'automation.apero': 'Apéro', 'automation.all_cine': 'Ciné' } },
   message: ''
 };
@@ -549,9 +549,9 @@ function nettoyerReglages(r) {
   const ag = r.agenda || {}, pers = ag.personnes || {};
   res.agenda = {
     personnes: { moi: texte(pers.moi, 20) || D.agenda.personnes.moi, flo: texte(pers.flo, 20) || D.agenda.personnes.flo },
-    agendas: {}
+    agendas: Object.assign({}, D.agenda.agendas)
   };
-  const agd = ag.agendas && typeof ag.agendas === 'object' ? ag.agendas : D.agenda.agendas;
+  const agd = ag.agendas && typeof ag.agendas === 'object' ? ag.agendas : {};
   for (const k of Object.keys(agd)) if (/^GOOGLE_ICS\d*$/.test(k) && ['moi', 'flo', 'nous'].indexOf(agd[k]) >= 0) res.agenda.agendas[k] = agd[k];
   const ma = r.maison || {};
   res.maison = {

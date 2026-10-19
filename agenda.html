@@ -8,11 +8,11 @@
 <style>
 :root{
   --bg:#E8ECE3; --card:#F6F7F2; --card2:#DEE4D7; --ink:#1E2A23; --muted:#5E6B62; --line:#CBD3C4;
-  --accent:#587A57; --p2:#94679A; --nous:#C98622; --warn:#BC6430; --warn-soft:#F2DCCB;
+  --accent:#587A57; --p2:#94679A; --nous:#2F6FB8; --warn:#BC6430; --warn-soft:#F2DCCB;
 }
 html.nuit{
   --bg:#0F151C; --card:#18212A; --card2:#222D38; --ink:#E3E8E1; --muted:#8E9B95; --line:#2B3743;
-  --accent:#92B28E; --p2:#C49BCB; --nous:#E0A847; --warn:#E38A52; --warn-soft:#3A2619;
+  --accent:#92B28E; --p2:#C49BCB; --nous:#6EA6E6; --warn:#E38A52; --warn-soft:#3A2619;
 }
 html,body{margin:0;width:1280px;height:728px;overflow:hidden;background:var(--bg)}
 body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased;transition:background-color .8s,color .8s}
@@ -65,7 +65,7 @@ var CONFIG = {
     nous: { nom: 'Ensemble', couleur: 'var(--nous)' }
   },
   // À qui appartient chaque agenda (noms des réglages du Worker)
-  AGENDAS: { GOOGLE_ICS1: 'flo', GOOGLE_ICS2: 'moi', commun: 'nous' }   // ICS1 = agenda « Flo », ICS2 = agenda « Nico »
+  AGENDAS: { GOOGLE_ICS1: 'flo', GOOGLE_ICS2: 'moi', GOOGLE_ICS3: 'nous', commun: 'nous' }   // ICS1 = agenda « Flo », ICS2 = agenda « Nico »
 };
 /* ==================================================== */
 
@@ -161,8 +161,7 @@ window.addEventListener('message', function(e){
   if (!e.data || e.data.type !== 'reglages' || !e.data.value || !e.data.value.agenda) return;
   var A = e.data.value.agenda;
   CONFIG.PERSONNES.moi.nom = A.personnes.moi; CONFIG.PERSONNES.flo.nom = A.personnes.flo;
-  CONFIG.AGENDAS = { commun: 'nous' };
-  for (var k in A.agendas) CONFIG.AGENDAS[k] = A.agendas[k];
+  for (var k in A.agendas) CONFIG.AGENDAS[k] = A.agendas[k];   // garde les valeurs par défaut non réglées
   if (dernieres) afficher(convertir(dernieres)); else if (enDemo()) afficher(donneesDemo());
 });
 charger();

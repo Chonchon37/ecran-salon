@@ -8,13 +8,13 @@
 <style>
 :root{
   --bg:#E8ECE3; --card:#F6F7F2; --card2:#DEE4D7; --ink:#1E2A23; --muted:#5E6B62; --line:#CBD3C4;
-  --accent:#587A57; --on-ink:#F6F7F2; --p2:#94679A; --nous:#C98622; --fete:#C98622; --fete-soft:#F4E4C6;
+  --accent:#587A57; --on-ink:#F6F7F2; --p2:#94679A; --nous:#2F6FB8; --fete:#C98622; --fete-soft:#F4E4C6;
   --sun:#D8962A; --moon:#9AA6BF; --cloud:#B4BFBA; --rain:#3B74A6; --rain-soft:#D3E2EE;
   --ok:#4C8758; --warn:#BC6430; --warn-soft:#F2DCCB; --tram:#BD074E; --bus:#004488; --badge-ink:#FFFFFF;
 }
 html.nuit{
   --bg:#0F151C; --card:#18212A; --card2:#222D38; --ink:#E3E8E1; --muted:#8E9B95; --line:#2B3743;
-  --accent:#92B28E; --on-ink:#0F151C; --p2:#C49BCB; --nous:#E0A847; --fete:#E0A847; --fete-soft:#33280F;
+  --accent:#92B28E; --on-ink:#0F151C; --p2:#C49BCB; --nous:#6EA6E6; --fete:#E0A847; --fete-soft:#33280F;
   --sun:#E6AE48; --moon:#D8D0A4; --cloud:#5A6977; --rain:#6EA5D5; --rain-soft:#1C3246;
   --ok:#7CBA87; --warn:#E38A52; --warn-soft:#3A2619; --tram:#D0326A; --bus:#2F6FB0; --badge-ink:#FFFFFF;
 }
@@ -304,7 +304,7 @@ function chargerAgenda(){ if (prive()) lireJson(CONFIG.WORKER + '/agenda?cle=' +
 function chargerMaison(){ if (prive()) lireJson(CONFIG.WORKER + '/maison?cle=' + encodeURIComponent(CLE), function(j){ maisonReelle = j; afficherMaison(); }); }
 chargerAgenda(); setInterval(chargerAgenda, 5 * 60000);
 chargerMaison(); setInterval(chargerMaison, 30000);
-var AGENDAS = { GOOGLE_ICS1: 'flo', GOOGLE_ICS2: 'moi', commun: 'nous' };   // même réglage que agenda.html
+var AGENDAS = { GOOGLE_ICS1: 'flo', GOOGLE_ICS2: 'moi', GOOGLE_ICS3: 'nous', commun: 'nous' };   // même réglage que agenda.html
 function quiPour(e){ return AGENDAS[e.agenda] || 'moi'; }
 
 /* ---------- Affichage ---------- */
@@ -452,7 +452,7 @@ window.addEventListener('message', function(e){
   if (!e.data || e.data.type !== 'reglages' || !e.data.value) return;
   var g = e.data.value, k;
   if (g.transports) for (k = 0; k < DEMO_TR.length; k++) { var t = g.transports[DEMO_TR[k].ligne]; if (t) { DEMO_TR[k].marche = t.marche; DEMO_TR[k].actif = t.actif; } }
-  if (g.agenda) { AGENDAS = { commun: 'nous' }; for (k in g.agenda.agendas) AGENDAS[k] = g.agenda.agendas[k]; }
+  if (g.agenda) { for (k in g.agenda.agendas) AGENDAS[k] = g.agenda.agendas[k]; }
   MESSAGE = g.message || '';
   afficher();
 });
