@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1280">
+<title>Anniversaires</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700&family=Figtree:wght@400;500;600;700&display=swap">
+<style>
+:root{
+  --bg:#E8ECE3; --card:#F6F7F2; --card2:#DEE4D7; --ink:#1E2A23; --muted:#5E6B62; --line:#CBD3C4;
+  --accent:#587A57; --fete:#C98622; --fete-soft:#F4E4C6; --warn:#BC6430; --warn-soft:#F2DCCB;
+}
+html.nuit{
+  --bg:#0F151C; --card:#18212A; --card2:#222D38; --ink:#E3E8E1; --muted:#8E9B95; --line:#2B3743;
+  --accent:#92B28E; --fete:#E0A847; --fete-soft:#33280F; --warn:#E38A52; --warn-soft:#3A2619;
+}
+html,body{margin:0;width:1280px;height:728px;overflow:hidden;background:var(--bg)}
+body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased;transition:background-color .8s,color .8s}
+.h{font-family:"Bricolage Grotesque",Figtree,Arial,sans-serif}
+.wrap{box-sizing:border-box;width:1280px;height:728px;padding:24px 36px;display:flex;flex-direction:column}
+.card{background:var(--card);border-radius:20px;box-sizing:border-box;padding:28px 34px;transition:background-color .8s}
+.label{font-size:15px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);display:flex;align-items:center}
+.demo{margin-left:10px;font-size:12px;letter-spacing:.06em;padding:3px 9px;border-radius:20px;background:var(--warn-soft);color:var(--warn)}
+
+.main{flex:1;display:flex;margin-top:16px;min-height:0}
+.hero{flex:1;margin-right:16px;display:flex;flex-direction:column}
+.cake{width:96px;height:96px;border-radius:28px;background:var(--fete-soft);color:var(--fete);display:flex;align-items:center;justify-content:center}
+.cake svg{width:56px;height:56px}
+.qui{font-size:104px;font-weight:600;line-height:.95;letter-spacing:-.03em;margin-top:auto}
+.quand{font-size:46px;font-weight:600;color:var(--fete);margin-top:14px;line-height:1.05}
+.detail{font-size:24px;color:var(--muted);margin-top:12px}
+.tag{display:inline-block;font-size:17px;font-weight:700;padding:6px 14px;border-radius:16px;background:var(--fete-soft);color:var(--fete);margin-top:22px;align-self:flex-start}
+
+.list{flex:1.15;display:flex;flex-direction:column;padding:24px 30px}
+.rows{flex:1;display:flex;flex-direction:column;justify-content:space-between;margin-top:14px}
+.row{display:flex;align-items:center;padding:6px 0}
+.cal{width:62px;height:62px;border-radius:14px;background:var(--card2);display:flex;flex-direction:column;align-items:center;justify-content:center;margin-right:20px;flex:none}
+.cal b{font-family:"Bricolage Grotesque",Figtree,Arial,sans-serif;font-size:26px;line-height:1}
+.cal span{font-size:13px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-top:2px}
+.r-n{font-size:24px;font-weight:600}
+.r-a{font-size:17px;color:var(--muted);margin-top:2px}
+.r-j{margin-left:auto;font-size:20px;font-weight:600;color:var(--muted)}
+.row.proche .r-j{color:var(--fete)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="label">Anniversaires<span class="demo" id="demo">exemple</span></div>
+  <div class="main">
+    <div class="card hero" id="hero"></div>
+    <div class="card list"><div class="label">Ensuite</div><div class="rows" id="rows"></div></div>
+  </div>
+</div>
+
+<script>
+/* ===================== RÉGLAGES ===================== */
+var CONFIG = {
+  DEMO: true,
+  // Liste d'exemple : jour/mois, année de naissance (0 si inconnue)
+  PERSONNES: [
+    { nom: 'Lucie',        jour: 22, mois: 10, annee: 1995 },
+    { nom: 'Maman',        jour: 3,  mois: 11, annee: 1962 },
+    { nom: 'Thomas',       jour: 14, mois: 11, annee: 1990 },
+    { nom: 'Mamie Jeanne', jour: 29, mois: 11, annee: 1938 },
+    { nom: 'Karim',        jour: 8,  mois: 12, annee: 1988 },
+    { nom: 'Élodie',       jour: 21, mois: 12, annee: 0 },
+    { nom: 'Papa',         jour: 5,  mois: 1,  annee: 1960 },
+    { nom: 'Nina',         jour: 17, mois: 1,  annee: 2019 }
+  ]
+};
+/* ==================================================== */
+
+function param(n){ var m = new RegExp('[?&]' + n + '=([^&#]*)').exec(location.search); return m ? decodeURIComponent(m[1]) : null; }
+function themeAuto(){ var h = new Date().getHours(); return (h >= 19 || h < 7) ? 'nuit' : 'jour'; }
+function appliquerTheme(t){ if (!t || t === 'auto') t = themeAuto(); document.documentElement.className = t === 'nuit' ? 'nuit' : ''; }
+appliquerTheme(param('theme'));
+window.addEventListener('message', function(e){ if (e.data && e.data.type === 'theme') appliquerTheme(e.data.value); });
+function signalerToucher(){ if (window.parent !== window) { try { window.parent.postMessage({ type: 'interaction' }, '*'); } catch (err) {} } }
+document.addEventListener('touchstart', signalerToucher, true);
+document.addEventListener('mousedown', signalerToucher, true);
+function $(id){ return document.getElementById(id); }
+var JOURS = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
+var MOIS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
+var MOIS_COURTS = ['janv', 'févr', 'mars', 'avr', 'mai', 'juin', 'juil', 'août', 'sept', 'oct', 'nov', 'déc'];
+var GATEAU = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21h16M5.5 21v-8h13v8"/><path d="M5.5 16.5c2 1.3 3.3 1.3 4.6 0s2.6-1.3 3.9 0 2.6 1.3 4.5 0"/><path d="M12 13V9.5"/><path d="M12 7c-.9-.9-.9-2 0-3 .9 1 .9 2.1 0 3z"/></svg>';
+
+function prochains(liste){
+  var now = new Date(), auj = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  var res = liste.map(function(p){
+    var d = new Date(auj.getFullYear(), p.mois - 1, p.jour);
+    if (d < auj) d = new Date(auj.getFullYear() + 1, p.mois - 1, p.jour);
+    return { nom: p.nom, date: d, jours: Math.round((d - auj) / 86400000), age: p.annee ? d.getFullYear() - p.annee : 0 };
+  });
+  res.sort(function(a, b){ return a.jours - b.jours; });
+  return res;
+}
+function dans(n){ return n === 0 ? 'Aujourd\'hui' : (n === 1 ? 'Demain' : 'Dans ' + n + ' jours'); }
+
+function afficher(){
+  var L = prochains(CONFIG.PERSONNES), p = L[0];
+  $('hero').innerHTML =
+    '<div class="cake">' + GATEAU + '</div>' +
+    '<div class="qui h">' + p.nom + '</div>' +
+    '<div class="quand h">' + dans(p.jours) + '</div>' +
+    '<div class="detail">' + JOURS[p.date.getDay()] + ' ' + p.date.getDate() + ' ' + MOIS[p.date.getMonth()] + (p.age ? ' · ' + p.age + ' ans' : '') + '</div>' +
+    (p.jours === 0 ? '<div class="tag">Pense à appeler !</div>' : (p.jours <= 7 ? '<div class="tag">Cette semaine</div>' : ''));
+  var html = '';
+  for (var i = 1; i < Math.min(L.length, 7); i++) {
+    var q = L[i];
+    html += '<div class="row' + (q.jours <= 14 ? ' proche' : '') + '"><div class="cal"><b>' + q.date.getDate() + '</b><span>' + MOIS_COURTS[q.date.getMonth()] + '</span></div>' +
+      '<div><div class="r-n">' + q.nom + '</div><div class="r-a">' + JOURS[q.date.getDay()] + (q.age ? ' · ' + q.age + ' ans' : '') + '</div></div>' +
+      '<div class="r-j">' + (q.jours === 1 ? 'demain' : 'dans ' + q.jours + ' j') + '</div></div>';
+  }
+  $('rows').innerHTML = html;
+  $('demo').style.display = CONFIG.DEMO ? '' : 'none';
+}
+afficher();
+setInterval(afficher, 30 * 60000);
+</script>
+</body>
+</html>

@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1280">
+<title>Agenda</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700&family=Figtree:wght@400;500;600;700&display=swap">
+<style>
+:root{
+  --bg:#E8ECE3; --card:#F6F7F2; --card2:#DEE4D7; --ink:#1E2A23; --muted:#5E6B62; --line:#CBD3C4;
+  --accent:#587A57; --p2:#94679A; --nous:#C98622; --warn:#BC6430; --warn-soft:#F2DCCB;
+}
+html.nuit{
+  --bg:#0F151C; --card:#18212A; --card2:#222D38; --ink:#E3E8E1; --muted:#8E9B95; --line:#2B3743;
+  --accent:#92B28E; --p2:#C49BCB; --nous:#E0A847; --warn:#E38A52; --warn-soft:#3A2619;
+}
+html,body{margin:0;width:1280px;height:728px;overflow:hidden;background:var(--bg)}
+body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased;transition:background-color .8s,color .8s}
+.h{font-family:"Bricolage Grotesque",Figtree,Arial,sans-serif}
+.wrap{box-sizing:border-box;width:1280px;height:728px;padding:24px 36px;display:flex;flex-direction:column}
+.label{font-size:15px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);display:flex;align-items:center}
+.demo{margin-left:10px;font-size:12px;letter-spacing:.06em;padding:3px 9px;border-radius:20px;background:var(--warn-soft);color:var(--warn)}
+
+.top{display:flex;align-items:center;justify-content:space-between;height:28px;margin-bottom:16px}
+.legend{display:flex;font-size:17px;font-weight:600;color:var(--muted)}
+.legend span{display:flex;align-items:center;margin-left:22px}
+.legend i{width:12px;height:12px;border-radius:50%;margin-right:8px}
+
+.week{flex:1;display:flex;min-height:0}
+.day{flex:1;display:flex;flex-direction:column;padding:16px 12px;border-radius:20px;margin-right:8px;min-width:0;overflow:hidden}
+.day:last-child{margin-right:0}
+.day.today{background:var(--card);flex:1.45;padding:16px 16px}
+.day-h{display:flex;align-items:baseline;margin-bottom:14px;padding:0 4px}
+.day-n{font-size:17px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-right:8px}
+.day-d{font-size:34px;font-weight:600;line-height:1}
+.today .day-n{color:var(--accent)}
+.we .day-n{color:var(--ink)}
+.ev{background:var(--card);border-radius:14px;padding:11px 13px;margin-bottom:9px}
+.today .ev{background:var(--card2)}
+.ev.passe{opacity:.45}
+.ev-t{display:flex;align-items:center;font-size:16px;font-weight:700;color:var(--muted)}
+.ev-t i{width:10px;height:10px;border-radius:50%;margin-right:7px;flex:none}
+.ev-n{font-size:20px;font-weight:600;line-height:1.2;margin-top:4px}
+.today .ev-n{font-size:23px}
+.vide{font-size:17px;color:var(--muted);padding:4px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div class="label">Agenda · 7 prochains jours<span class="demo" id="demo">exemple</span></div>
+    <div class="legend" id="legend"></div>
+  </div>
+  <div class="week" id="week"></div>
+</div>
+
+<script>
+/* ===================== RÉGLAGES ===================== */
+var CONFIG = {
+  DEMO: true,
+  RAFRAICHIR_MIN: 10,
+  PERSONNES: {
+    moi:  { nom: 'Chonchon',  couleur: 'var(--accent)' },
+    elle: { nom: 'Ma moitié', couleur: 'var(--p2)' },
+    nous: { nom: 'Ensemble',  couleur: 'var(--nous)' }
+  }
+};
+/* ==================================================== */
+
+function param(n){ var m = new RegExp('[?&]' + n + '=([^&#]*)').exec(location.search); return m ? decodeURIComponent(m[1]) : null; }
+function pad(n){ return (n < 10 ? '0' : '') + n; }
+function themeAuto(){ var h = new Date().getHours(); return (h >= 19 || h < 7) ? 'nuit' : 'jour'; }
+function appliquerTheme(t){ if (!t || t === 'auto') t = themeAuto(); document.documentElement.className = t === 'nuit' ? 'nuit' : ''; }
+appliquerTheme(param('theme'));
+window.addEventListener('message', function(e){ if (e.data && e.data.type === 'theme') appliquerTheme(e.data.value); });
+function signalerToucher(){ if (window.parent !== window) { try { window.parent.postMessage({ type: 'interaction' }, '*'); } catch (err) {} } }
+document.addEventListener('touchstart', signalerToucher, true);
+document.addEventListener('mousedown', signalerToucher, true);
+function $(id){ return document.getElementById(id); }
+var JOURS_COURTS = ['Dim.', 'Lun.', 'Mar.', 'Mer.', 'Jeu.', 'Ven.', 'Sam.'];
+
+/* ---------- Données d'exemple (j = décalage en jours depuis aujourd'hui) ---------- */
+function donneesDemo(){
+  return [
+    { j: 0, debut: '08:30', titre: 'Point d\'équipe', qui: 'moi' },
+    { j: 0, debut: '20:30', titre: 'Cinéma', qui: 'nous' },
+    { j: 1, debut: '12:30', titre: 'Déjeuner avec Marc', qui: 'moi' },
+    { j: 1, debut: '18:30', titre: 'Yoga', qui: 'elle' },
+    { j: 2, debut: '09:00', titre: 'Dentiste', qui: 'elle' },
+    { j: 2, debut: '20:00', titre: 'Dîner chez Paul et Julie', qui: 'nous' },
+    { j: 3, debut: '17:30', titre: 'Récupérer le colis', qui: 'moi' },
+    { j: 4, debut: '19:00', titre: 'Apéro sur la terrasse', qui: 'nous' },
+    { j: 5, debut: '10:00', titre: 'Marché des Halles', qui: 'nous' },
+    { j: 5, debut: '15:00', titre: 'Coiffeur', qui: 'elle' },
+    { j: 6, debut: null,    titre: 'Déjeuner en famille', qui: 'nous' }
+  ];
+}
+
+/* ---------- Affichage ---------- */
+function afficher(evts){
+  var now = new Date(), minNow = now.getHours() * 60 + now.getMinutes(), html = '';
+  for (var j = 0; j < 7; j++) {
+    var d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + j);
+    var jour = evts.filter(function(e){ return e.j === j; });
+    jour.sort(function(a, b){ return (a.debut || '00:00') < (b.debut || '00:00') ? -1 : 1; });
+    var we = d.getDay() === 0 || d.getDay() === 6;
+    html += '<div class="day' + (j === 0 ? ' today' : '') + (we ? ' we' : '') + '">' +
+      '<div class="day-h"><span class="day-n">' + (j === 0 ? 'Auj.' : JOURS_COURTS[d.getDay()]) + '</span>' +
+      '<span class="day-d h">' + d.getDate() + '</span></div>';
+    if (!jour.length) html += '<div class="vide">Rien de prévu</div>';
+    for (var k = 0; k < jour.length; k++) {
+      var e = jour[k], p = CONFIG.PERSONNES[e.qui] || CONFIG.PERSONNES.nous;
+      var passe = false;
+      if (j === 0 && e.debut) { var hm = e.debut.split(':'); passe = parseInt(hm[0], 10) * 60 + parseInt(hm[1], 10) + 60 < minNow; }
+      html += '<div class="ev' + (passe ? ' passe' : '') + '"><div class="ev-t"><i style="background:' + p.couleur + '"></i>' +
+        (e.debut ? e.debut.replace(':', ' h ') : 'Journée') + '</div><div class="ev-n">' + e.titre + '</div></div>';
+    }
+    html += '</div>';
+  }
+  $('week').innerHTML = html;
+
+  var leg = '';
+  for (var cle in CONFIG.PERSONNES) leg += '<span><i style="background:' + CONFIG.PERSONNES[cle].couleur + '"></i>' + CONFIG.PERSONNES[cle].nom + '</span>';
+  $('legend').innerHTML = leg;
+  $('demo').style.display = CONFIG.DEMO ? '' : 'none';
+}
+function charger(){
+  if (CONFIG.DEMO) { afficher(donneesDemo()); return; }
+  // Étape suivante : Worker Cloudflare qui lit tes Google Agenda (adresse iCal secrète)
+}
+charger();
+setInterval(charger, CONFIG.RAFRAICHIR_MIN * 60000);
+</script>
+</body>
+</html>

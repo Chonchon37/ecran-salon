@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1280">
+<title>Transports</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700&family=Figtree:wght@400;500;600;700&display=swap">
+<style>
+:root{
+  --bg:#E8ECE3; --card:#F6F7F2; --card2:#DEE4D7; --ink:#1E2A23; --muted:#5E6B62; --line:#CBD3C4;
+  --accent:#587A57; --ok:#4C8758; --ok-soft:#D5E6D3; --warn:#BC6430; --warn-soft:#F2DCCB;
+  --tram:#B8325A; --bus:#2F6DB5; --badge-ink:#FFFFFF;
+}
+html.nuit{
+  --bg:#0F151C; --card:#18212A; --card2:#222D38; --ink:#E3E8E1; --muted:#8E9B95; --line:#2B3743;
+  --accent:#92B28E; --ok:#7CBA87; --ok-soft:#1E3324; --warn:#E38A52; --warn-soft:#3A2619;
+  --tram:#C9476D; --bus:#4683CB; --badge-ink:#FFFFFF;
+}
+html,body{margin:0;width:1280px;height:728px;overflow:hidden;background:var(--bg)}
+body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased;transition:background-color .8s,color .8s}
+.h{font-family:"Bricolage Grotesque",Figtree,Arial,sans-serif}
+.wrap{box-sizing:border-box;width:1280px;height:728px;padding:24px 36px;display:flex;flex-direction:column}
+.card{background:var(--card);border-radius:20px;box-sizing:border-box;padding:24px 30px;transition:background-color .8s}
+.label{font-size:15px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);display:flex;align-items:center}
+.demo{margin-left:10px;font-size:12px;letter-spacing:.06em;padding:3px 9px;border-radius:20px;background:var(--warn-soft);color:var(--warn)}
+
+.top{display:flex;align-items:center;justify-content:space-between;height:28px;margin-bottom:16px}
+.upd{font-size:16px;color:var(--muted)}
+.lines{flex:1;display:flex}
+.line{flex:1;display:flex;flex-direction:column}
+.line:first-child{margin-right:16px}
+
+.ln-head{display:flex;align-items:center}
+.badge{width:62px;height:62px;display:flex;align-items:center;justify-content:center;font-family:"Bricolage Grotesque",Figtree,Arial,sans-serif;font-size:36px;font-weight:700;color:var(--badge-ink);margin-right:18px;flex:none}
+.badge.tram{background:var(--tram);border-radius:50%}
+.badge.bus{background:var(--bus);border-radius:14px}
+.ln-stop{font-size:30px;font-weight:600;line-height:1.1}
+.ln-dir{font-size:19px;color:var(--muted);margin-top:3px}
+.ln-status{margin-left:auto;font-size:15px;font-weight:700;padding:6px 12px;border-radius:16px;background:var(--ok-soft);color:var(--ok);align-self:flex-start}
+.ln-status.pb{background:var(--warn-soft);color:var(--warn)}
+
+.ln-next{display:flex;align-items:flex-end;margin-top:26px}
+.big{font-size:132px;font-weight:600;line-height:.9;letter-spacing:-.03em}
+.big small{font-size:40px;font-weight:600;letter-spacing:0;margin-left:8px}
+.ln-meta{font-size:19px;color:var(--muted);margin:0 0 10px 22px;line-height:1.5}
+.live{display:inline-flex;align-items:center;color:var(--ok);font-weight:700}
+.live i{width:9px;height:9px;border-radius:50%;background:var(--ok);margin-right:7px;-webkit-animation:pulse 1.6s infinite;animation:pulse 1.6s infinite}
+@-webkit-keyframes pulse{50%{opacity:.25}}
+@keyframes pulse{50%{opacity:.25}}
+
+.leave{margin-top:24px;display:flex;align-items:center;font-size:22px;font-weight:600;padding:14px 18px;border-radius:14px;background:var(--ok-soft);color:var(--ok)}
+.leave.vite{background:var(--warn-soft);color:var(--warn)}
+.leave svg{width:26px;height:26px;margin-right:12px;flex:none}
+
+.frise{position:relative;height:92px;margin-top:30px}
+.fr-track{position:absolute;left:0;right:0;top:32px;height:6px;border-radius:3px;background:var(--card2)}
+.fr-walk{position:absolute;left:0;top:32px;height:6px;border-radius:3px;background:var(--warn);opacity:.6}
+.fr-wl{position:absolute;left:0;top:4px;font-size:15px;font-weight:700;color:var(--warn)}
+.fr-dot{position:absolute;top:24px;width:22px;height:22px;margin-left:-11px;border-radius:50%;box-sizing:border-box;border:4px solid;background:var(--card)}
+.fr-lab{position:absolute;top:58px;white-space:nowrap;font-size:15px;color:var(--muted);-webkit-transform:translateX(-50%);transform:translateX(-50%)}
+.fr-lab.g{-webkit-transform:none;transform:none}
+.fr-lab.d{-webkit-transform:translateX(-100%);transform:translateX(-100%)}
+.ln-list{margin-top:auto;display:flex;border-top:2px solid var(--line);padding-top:18px}
+.dep{flex:1}
+.dep-m{font-size:34px;font-weight:600}
+.dep-m small{font-size:18px;color:var(--muted);font-weight:600;margin-left:4px}
+.dep-h{font-size:17px;color:var(--muted);margin-top:2px}
+.foot{margin-top:14px;font-size:16px;color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div class="label">Transports · Fil Bleu<span class="demo" id="demo">exemple</span></div>
+    <div class="upd" id="upd"></div>
+  </div>
+  <div class="lines" id="lines"></div>
+</div>
+
+<script>
+/* ===================== RÉGLAGES ===================== */
+var CONFIG = {
+  DEMO: true,
+  RAFRAICHIR_SEC: 30,
+  LIGNES: [
+    { ligne: 'A', type: 'tram', arret: 'Monconseil',    direction: 'Jean Monnet',   marche: 6 },
+    { ligne: '2', type: 'bus',  arret: 'Maréchal Juin', direction: 'CHU Trousseau', marche: 4 }
+  ]
+  // marche = minutes à pied de chez toi jusqu'à l'arrêt (à ajuster)
+};
+/* ==================================================== */
+
+function param(n){ var m = new RegExp('[?&]' + n + '=([^&#]*)').exec(location.search); return m ? decodeURIComponent(m[1]) : null; }
+function pad(n){ return (n < 10 ? '0' : '') + n; }
+function themeAuto(){ var h = new Date().getHours(); return (h >= 19 || h < 7) ? 'nuit' : 'jour'; }
+function appliquerTheme(t){ if (!t || t === 'auto') t = themeAuto(); document.documentElement.className = t === 'nuit' ? 'nuit' : ''; }
+appliquerTheme(param('theme'));
+window.addEventListener('message', function(e){ if (e.data && e.data.type === 'theme') appliquerTheme(e.data.value); });
+function signalerToucher(){ if (window.parent !== window) { try { window.parent.postMessage({ type: 'interaction' }, '*'); } catch (err) {} } }
+document.addEventListener('touchstart', signalerToucher, true);
+document.addEventListener('mousedown', signalerToucher, true);
+function $(id){ return document.getElementById(id); }
+function hm(ms){ var d = new Date(ms); return pad(d.getHours()) + ':' + pad(d.getMinutes()); }
+
+var PIETON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13" cy="4.5" r="1.8"/><path d="M10 21l2-6 3 3v3M9 12l2-4 4 2 2 3M11 8l-2 4"/></svg>';
+
+/* ---------- Données d'exemple : passages qui défilent vraiment ---------- */
+var demo = null;
+function initDemo(){
+  var t = Date.now();
+  demo = {
+    A: { intervalle: 8.5, passages: [3.6, 11.2, 19.4, 27.8].map(function(m){ return t + m * 60000; }) },
+    '2': { intervalle: 14, passages: [7.3, 21.5, 35.2].map(function(m){ return t + m * 60000; }) }
+  };
+}
+function donneesDemo(){
+  if (!demo) initDemo();
+  var t = Date.now(), res = {};
+  for (var cle in demo) {
+    var L = demo[cle];
+    while (L.passages.length && L.passages[0] < t - 20000) L.passages.shift();
+    while (L.passages.length < 5) {
+      var dernier = L.passages.length ? L.passages[L.passages.length - 1] : t;
+      L.passages.push(dernier + L.intervalle * 60000 * (0.9 + Math.random() * 0.2));
+    }
+    res[cle] = {
+      passages: L.passages.map(function(p, i){ return { heure: p, tempsReel: i < 2 }; }),
+      perturbation: null
+    };
+  }
+  return res;
+}
+
+/* ---------- Affichage ---------- */
+function minutesAvant(ms){ return Math.floor((ms - Date.now()) / 60000); }
+function carte(cfg, D){
+  var P = D ? D.passages : [], html = '';
+  html += '<div class="card line"><div class="ln-head">' +
+    '<div class="badge ' + cfg.type + '">' + cfg.ligne + '</div>' +
+    '<div><div class="ln-stop h">' + cfg.arret + '</div><div class="ln-dir">vers ' + cfg.direction + '</div></div>' +
+    (D && D.perturbation ? '<div class="ln-status pb">Perturbé</div>' : '<div class="ln-status">Trafic normal</div>') +
+    '</div>';
+  if (!P.length) return html + '<div class="ln-next"><div class="ln-meta">Aucun passage annoncé</div></div></div>';
+
+  var m = minutesAvant(P[0].heure);
+  html += '<div class="ln-next"><div class="big h">' + (m < 1 ? '&lt;1' : m) + '<small>min</small></div>' +
+    '<div class="ln-meta">à ' + hm(P[0].heure) + '<br>' +
+    (P[0].tempsReel ? '<span class="live"><i></i>temps réel</span>' : 'horaire prévu') + '</div></div>';
+
+  // Quand partir ? On cherche le premier passage qu'on peut encore attraper à pied
+  for (var i = 0; i < P.length; i++) {
+    var marge = minutesAvant(P[i].heure) - cfg.marche;
+    if (marge >= 0) {
+      var vise = i === 0 ? '' : ' pour celui de ' + hm(P[i].heure);
+      html += marge <= 1
+        ? '<div class="leave vite">' + PIETON + 'Pars maintenant' + vise + '</div>'
+        : '<div class="leave">' + PIETON + 'Pars dans ' + marge + ' min' + vise + '</div>';
+      break;
+    }
+  }
+
+  // Frise des 60 prochaines minutes
+  var coul = cfg.type === 'tram' ? 'var(--tram)' : 'var(--bus)';
+  html += '<div class="frise"><div class="fr-track"></div>' +
+    '<div class="fr-walk" style="width:' + (cfg.marche / 60 * 100).toFixed(1) + '%"></div>' +
+    '<div class="fr-wl">à pied</div>';
+  for (var f = 0; f < P.length; f++) {
+    var mf = (P[f].heure - Date.now()) / 60000;
+    if (mf < 0 || mf > 60) continue;
+    html += '<div class="fr-dot" style="left:' + (mf / 60 * 100).toFixed(1) + '%;border-color:' + coul + (P[f].tempsReel ? ';background:' + coul : '') + '"></div>';
+  }
+  var reperes = [0, 15, 30, 45, 60];
+  for (var r = 0; r < reperes.length; r++) {
+    html += '<div class="fr-lab' + (r === 0 ? ' g' : (r === 4 ? ' d' : '')) + '" style="left:' + (reperes[r] / 60 * 100) + '%">' + (r === 0 ? 'maint.' : '+' + reperes[r] + ' min') + '</div>';
+  }
+  html += '</div>';
+
+  html += '<div class="ln-list">';
+  for (var k = 1; k < Math.min(P.length, 4); k++) {
+    html += '<div class="dep"><div class="dep-m">' + minutesAvant(P[k].heure) + '<small>min</small></div><div class="dep-h">' + hm(P[k].heure) + (P[k].tempsReel ? '' : ' · prévu') + '</div></div>';
+  }
+  html += '</div><div class="foot">À ' + cfg.marche + ' min à pied</div></div>';
+  return html;
+}
+var derniereMaj = 0;
+function afficher(D){
+  var html = '';
+  for (var i = 0; i < CONFIG.LIGNES.length; i++) html += carte(CONFIG.LIGNES[i], D[CONFIG.LIGNES[i].ligne]);
+  $('lines').innerHTML = html;
+  $('demo').style.display = CONFIG.DEMO ? '' : 'none';
+}
+function majTexte(){
+  var s = Math.round((Date.now() - derniereMaj) / 1000);
+  $('upd').innerHTML = s < 10 ? 'À jour' : 'Mis à jour il y a ' + (s < 60 ? s + ' s' : Math.floor(s / 60) + ' min');
+}
+var dernieresDonnees = null;
+function charger(){
+  if (CONFIG.DEMO) { dernieresDonnees = donneesDemo(); derniereMaj = Date.now(); afficher(dernieresDonnees); majTexte(); return; }
+  // Étape suivante : appel du Worker Cloudflare qui lit le temps réel Fil Bleu
+}
+charger();
+setInterval(charger, CONFIG.RAFRAICHIR_SEC * 1000);
+// Entre deux chargements, on recalcule les minutes restantes chaque 10 s
+setInterval(function(){ if (dernieresDonnees) afficher(dernieresDonnees); majTexte(); }, 10000);
+</script>
+</body>
+</html>

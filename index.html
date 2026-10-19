@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<title>Écran du salon</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700&family=Figtree:wght@400;500;600;700&display=swap">
+<style>
+/* ============================================================
+   COQUILLE (shell) : affiche les slides en plein écran,
+   barre d'onglets tactile, rotation auto, horloge, mode nuit.
+   Mise en page pensée pour 1280×800, mise à l'échelle auto.
+   ============================================================ */
+:root{
+  --bg:#E8ECE3; --card:#F6F7F2; --card2:#DEE4D7; --ink:#1E2A23; --muted:#5E6B62;
+  --line:#CBD3C4; --accent:#587A57; --warn:#BC6430; --warn-soft:#F2DCCB;
+}
+html.nuit{
+  --bg:#0F151C; --card:#18212A; --card2:#222D38; --ink:#E3E8E1; --muted:#8E9B95;
+  --line:#2B3743; --accent:#92B28E; --warn:#E38A52; --warn-soft:#3A2619;
+}
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:var(--bg)}
+body{
+  font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;color:var(--ink);
+  -webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;
+  transition:background-color .8s;
+}
+#stage{
+  position:absolute;left:0;top:0;width:1280px;height:800px;overflow:hidden;
+  -webkit-transform-origin:0 0;transform-origin:0 0;background:var(--bg);
+  transition:background-color .8s;
+}
+#slides{position:relative;width:1280px;height:728px}
+#slides iframe{
+  position:absolute;left:0;top:0;width:1280px;height:728px;border:0;
+  opacity:0;visibility:hidden;transition:opacity .6s ease,visibility 0s linear .6s;
+}
+#slides iframe.on{opacity:1;visibility:visible;transition:opacity .6s ease,visibility 0s}
+#nav{
+  position:relative;height:72px;box-sizing:border-box;padding:0 30px 6px 22px;
+  display:flex;align-items:center;
+}
+#bar{position:absolute;left:36px;right:36px;top:0;height:3px;border-radius:2px;background:var(--line);overflow:hidden}
+#barFill{height:100%;width:0;background:var(--accent)}
+#tabs{display:flex;align-items:center}
+.tab{
+  display:flex;align-items:center;height:50px;padding:0 18px;margin-right:4px;border-radius:25px;
+  font-size:18px;font-weight:600;color:var(--muted);cursor:pointer;transition:background-color .3s,color .3s;
+}
+.tab svg{width:24px;height:24px;margin-right:9px;flex:none}
+.tab.on{background:var(--card);color:var(--ink)}
+.tab.on svg{color:var(--accent)}
+#right{margin-left:auto;display:flex;align-items:center}
+#pause{
+  display:none;align-items:center;height:36px;padding:0 14px;margin-right:16px;border-radius:18px;
+  background:var(--warn-soft);color:var(--warn);font-size:15px;font-weight:700;cursor:pointer;
+}
+#pause svg{width:16px;height:16px;margin-right:6px}
+#pause.on{display:flex}
+#clock{
+  font-family:"Bricolage Grotesque",Figtree,Arial,sans-serif;font-size:30px;font-weight:600;
+  letter-spacing:-.01em;font-variant-numeric:tabular-nums;
+}
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="slides"></div>
+  <div id="nav">
+    <div id="bar"><div id="barFill"></div></div>
+    <div id="tabs"></div>
+    <div id="right">
+      <div id="pause" title="Reprendre la rotation">
+        <svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
+        <span>En pause</span>
+      </div>
+      <div id="clock">--:--</div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ===================== RÉGLAGES (à modifier) ===================== */
+var CONFIG = {
+  DUREE_DEFAUT: 30,          // secondes par slide
+  PAUSE_APRES_TOUCHER: 90,   // secondes de pause quand on touche l'écran
+  RECHARGEMENT_MIN: 60,      // rechargement complet de secours (minutes)
+  THEME: 'auto',             // 'auto', 'jour' ou 'nuit'
+  NUIT_DEBUT: 19,            // en auto : thème nuit à partir de 19 h…
+  NUIT_FIN: 7,               // …jusqu'à 7 h
+  SLIDES: [
+    { fichier: 'accueil.html',       nom: 'Accueil',       icone: 'accueil',  duree: 40 },
+    { fichier: 'meteo.html',         nom: 'Météo',         icone: 'meteo' },
+    { fichier: 'transports.html',    nom: 'Transports',    icone: 'tram' },
+    { fichier: 'agenda.html',        nom: 'Agenda',        icone: 'agenda' },
+    { fichier: 'maison.html',        nom: 'Maison',        icone: 'maison' },
+    { fichier: 'anniversaires.html', nom: 'Anniversaires', icone: 'gateau' }
+  ]
+};
+/* ================================================================= */
+
+var SVG_DEBUT = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">';
+var ICONES = {
+  accueil: '<path d="M3.5 11 12 4l8.5 7"/><path d="M6 9.5V20h12V9.5"/><path d="M10 20v-5h4v5"/>',
+  meteo:   '<circle cx="8" cy="8" r="3"/><path d="M8 2.5v1.2M2.5 8h1.2M4.1 4.1l.9.9M11.9 4.1l-.9.9"/><path d="M7.5 20h9.5a3.8 3.8 0 0 0 .3-7.6 5 5 0 0 0-9.6 1.1 3.3 3.3 0 0 0-.2 6.5z"/>',
+  tram:    '<rect x="5" y="5" width="14" height="12" rx="3"/><path d="M5 11h14M8 17l-2 4M16 17l2 4M9 2.5h6M12 2.5V5"/>',
+  agenda:  '<rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/>',
+  maison:  '<path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-3.6 10.8c.7.5 1.1 1.3 1.1 2.1V16h5v-.1c0-.8.4-1.6 1.1-2.1A6 6 0 0 0 12 3z"/>',
+  gateau:  '<path d="M4 21h16M5.5 21v-8h13v8"/><path d="M5.5 16.5c2 1.3 3.3 1.3 4.6 0s2.6-1.3 3.9 0 2.6 1.3 4.5 0"/><path d="M12 13V9.5"/><path d="M12 7c-.9-.9-.9-2 0-3 .9 1 .9 2.1 0 3z"/>'
+};
+
+function param(n){ var m = new RegExp('[?&]' + n + '=([^&#]*)').exec(location.search); return m ? decodeURIComponent(m[1]) : null; }
+function pad(n){ return (n < 10 ? '0' : '') + n; }
+
+/* ---------- Mise à l'échelle 1280×800 ---------- */
+var stage = document.getElementById('stage');
+function ajuster(){
+  var w = window.innerWidth, h = window.innerHeight;
+  var s = Math.min(w / 1280, h / 800);
+  var t = 'scale(' + s + ')';
+  stage.style.webkitTransform = t; stage.style.transform = t;
+  stage.style.left = Math.round((w - 1280 * s) / 2) + 'px';
+  stage.style.top = Math.round((h - 800 * s) / 2) + 'px';
+}
+window.addEventListener('resize', ajuster);
+ajuster();
+
+/* ---------- Thème jour / nuit ---------- */
+var themeForce = param('theme') || CONFIG.THEME;
+function calculerTheme(){
+  if (themeForce === 'jour' || themeForce === 'nuit') return themeForce;
+  var h = new Date().getHours();
+  return (h >= CONFIG.NUIT_DEBUT || h < CONFIG.NUIT_FIN) ? 'nuit' : 'jour';
+}
+var theme = calculerTheme();
+document.documentElement.className = theme === 'nuit' ? 'nuit' : '';
+
+/* ---------- Construction des slides et des onglets ---------- */
+var S = CONFIG.SLIDES, frames = [], tabs = [];
+var zoneSlides = document.getElementById('slides');
+var zoneTabs = document.getElementById('tabs');
+for (var i = 0; i < S.length; i++) {
+  var f = document.createElement('iframe');
+  f.src = S[i].fichier + '?theme=' + theme;
+  f.setAttribute('scrolling', 'no');
+  zoneSlides.appendChild(f);
+  frames.push(f);
+
+  var t = document.createElement('div');
+  t.className = 'tab';
+  t.innerHTML = SVG_DEBUT + ICONES[S[i].icone] + '</svg><span>' + S[i].nom + '</span>';
+  (function(index){
+    t.addEventListener('click', function(){ afficher(index); mettreEnPause(); });
+  })(i);
+  zoneTabs.appendChild(t);
+  tabs.push(t);
+}
+
+/* ---------- Rotation automatique ---------- */
+var actuel = -1, minuteur = null, pauseJusqua = 0;
+var barFill = document.getElementById('barFill');
+var zonePause = document.getElementById('pause');
+
+function lancerBarre(secondes){
+  barFill.style.webkitTransition = barFill.style.transition = 'none';
+  barFill.style.width = '0';
+  void barFill.offsetWidth; // force le navigateur à repartir de 0
+  if (secondes > 0) {
+    barFill.style.webkitTransition = barFill.style.transition = 'width ' + secondes + 's linear';
+    barFill.style.width = '100%';
+  }
+}
+function dureeSlide(){ return (S[actuel].duree || CONFIG.DUREE_DEFAUT); }
+
+function afficher(index){
+  if (index === actuel) return;
+  for (var j = 0; j < frames.length; j++) {
+    frames[j].className = (j === index) ? 'on' : '';
+    tabs[j].className = (j === index) ? 'tab on' : 'tab';
+  }
+  actuel = index;
+  programmer();
+}
+function programmer(){
+  clearTimeout(minuteur);
+  var maintenant = Date.now();
+  if (pauseJusqua > maintenant) {
+    lancerBarre(0);
+    minuteur = setTimeout(function(){ pauseJusqua = 0; majPause(); programmer(); }, pauseJusqua - maintenant);
+    return;
+  }
+  var d = dureeSlide();
+  lancerBarre(d);
+  minuteur = setTimeout(function(){ afficher((actuel + 1) % S.length); }, d * 1000);
+}
+function mettreEnPause(){
+  pauseJusqua = Date.now() + CONFIG.PAUSE_APRES_TOUCHER * 1000;
+  majPause();
+  programmer();
+}
+function majPause(){ zonePause.className = pauseJusqua > Date.now() ? 'on' : ''; }
+zonePause.addEventListener('click', function(){ pauseJusqua = 0; majPause(); programmer(); });
+
+// Un toucher à l'intérieur d'une slide (bouton domotique…) met aussi en pause
+window.addEventListener('message', function(e){
+  if (e.data && e.data.type === 'interaction') mettreEnPause();
+});
+
+/* ---------- Horloge + changement de thème ---------- */
+var horloge = document.getElementById('clock');
+function tic(){
+  var d = new Date();
+  horloge.innerHTML = pad(d.getHours()) + ':' + pad(d.getMinutes());
+  var nouveau = calculerTheme();
+  if (nouveau !== theme) {
+    theme = nouveau;
+    document.documentElement.className = theme === 'nuit' ? 'nuit' : '';
+    for (var k = 0; k < frames.length; k++) {
+      try { frames[k].contentWindow.postMessage({ type: 'theme', value: theme }, '*'); } catch (err) {}
+    }
+  }
+}
+tic();
+setInterval(tic, 5000);
+
+/* ---------- Rechargement de secours ---------- */
+function rechargerSiEnLigne(){
+  if (navigator.onLine === false) { setTimeout(rechargerSiEnLigne, 60000); return; }
+  location.reload();
+}
+setTimeout(rechargerSiEnLigne, CONFIG.RECHARGEMENT_MIN * 60000);
+
+afficher(0);
+</script>
+</body>
+</html>

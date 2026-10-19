@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1280">
+<title>Maison</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700&family=Figtree:wght@400;500;600;700&display=swap">
+<style>
+:root{
+  --bg:#E8ECE3; --card:#F6F7F2; --card2:#DEE4D7; --ink:#1E2A23; --muted:#5E6B62; --line:#CBD3C4;
+  --accent:#587A57; --on-ink:#F6F7F2; --glow:#F0C567; --glow-ink:#5A3E08; --warn:#BC6430; --warn-soft:#F2DCCB;
+}
+html.nuit{
+  --bg:#0F151C; --card:#18212A; --card2:#222D38; --ink:#E3E8E1; --muted:#8E9B95; --line:#2B3743;
+  --accent:#92B28E; --on-ink:#0F151C; --glow:#E6B451; --glow-ink:#2A1C04; --warn:#E38A52; --warn-soft:#3A2619;
+}
+html,body{margin:0;width:1280px;height:728px;overflow:hidden;background:var(--bg)}
+body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;transition:background-color .8s,color .8s}
+.h{font-family:"Bricolage Grotesque",Figtree,Arial,sans-serif}
+.wrap{box-sizing:border-box;width:1280px;height:728px;padding:24px 36px;display:flex;flex-direction:column}
+.label{font-size:15px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);display:flex;align-items:center}
+.demo{margin-left:10px;font-size:12px;letter-spacing:.06em;padding:3px 9px;border-radius:20px;background:var(--warn-soft);color:var(--warn)}
+
+.top{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:18px}
+.sum{font-size:40px;font-weight:600;margin-top:6px}
+.note{font-size:16px;color:var(--muted);margin-bottom:6px}
+
+.scenes{display:flex;height:118px;margin-bottom:24px}
+.scene{flex:1;margin-right:12px;border-radius:20px;background:var(--card);display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;transition:background-color .3s,color .3s,transform .15s}
+.scene:last-child{margin-right:0}
+.scene svg{width:38px;height:38px;margin-bottom:10px}
+.scene span{font-size:21px;font-weight:600}
+.scene.on{background:var(--accent);color:var(--on-ink)}
+.scene:active,.tile:active{-webkit-transform:scale(.97);transform:scale(.97)}
+
+.lights{flex:1;display:flex;flex-wrap:wrap;align-content:space-between;margin-top:12px}
+.tile{box-sizing:border-box;width:290px;height:182px;margin-right:16px;border-radius:20px;background:var(--card);padding:20px 22px;display:flex;flex-direction:column;cursor:pointer;transition:background-color .3s}
+.tile:nth-child(4n){margin-right:0}
+.tile.off{background:var(--card2)}
+.t-top{display:flex;justify-content:space-between;align-items:flex-start}
+.bulb{width:58px;height:58px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--glow);color:var(--glow-ink);transition:background-color .3s}
+.bulb svg{width:30px;height:30px}
+.off .bulb{background:var(--card);color:var(--muted)}
+.sw{width:56px;height:32px;border-radius:16px;background:var(--accent);position:relative;transition:background-color .3s}
+.sw i{position:absolute;top:4px;left:28px;width:24px;height:24px;border-radius:50%;background:var(--on-ink);transition:left .2s}
+.off .sw{background:var(--line)}
+.off .sw i{left:4px;background:var(--card)}
+.t-name{font-size:22px;font-weight:600;margin-top:auto;line-height:1.2}
+.t-state{font-size:17px;color:var(--muted);margin-top:4px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div>
+      <div class="label">Maison<span class="demo" id="demo">exemple, rien n'est piloté</span></div>
+      <div class="sum h" id="sum"></div>
+    </div>
+    <div class="note">Touche une scène ou une lampe</div>
+  </div>
+  <div class="label">Scènes</div>
+  <div class="scenes" id="scenes" style="margin-top:12px"></div>
+  <div class="label">Lumières</div>
+  <div class="lights" id="lights"></div>
+</div>
+
+<script>
+/* ===================== RÉGLAGES ===================== */
+var CONFIG = {
+  DEMO: true,
+  RAFRAICHIR_SEC: 20,
+  // entity_id = identifiant Home Assistant (on les remplira à l'étape domotique)
+  LUMIERES: [
+    { id: 'light.salon_plafonnier', nom: 'Salon · plafonnier' },
+    { id: 'light.lampe_canape',     nom: 'Salon · lampe canapé' },
+    { id: 'light.salle_a_manger',   nom: 'Salle à manger' },
+    { id: 'light.cuisine_ruban',    nom: 'Cuisine · ruban LED' },
+    { id: 'light.chambre',          nom: 'Chambre' },
+    { id: 'light.bureau',           nom: 'Bureau' },
+    { id: 'light.entree',           nom: 'Entrée' },
+    { id: 'light.guirlande',        nom: 'Terrasse · guirlande' }
+  ],
+  SCENES: [
+    { id: 'scene.bonjour', nom: 'Bonjour',       icone: 'soleil' },
+    { id: 'scene.soiree',  nom: 'Soirée cosy',   icone: 'lune' },
+    { id: 'scene.film',    nom: 'Film',          icone: 'tele' },
+    { id: 'scene.diner',   nom: 'Dîner',         icone: 'couverts' },
+    { id: 'scene.eteindre',nom: 'Tout éteindre', icone: 'off' }
+  ]
+};
+/* ==================================================== */
+
+function param(n){ var m = new RegExp('[?&]' + n + '=([^&#]*)').exec(location.search); return m ? decodeURIComponent(m[1]) : null; }
+function themeAuto(){ var h = new Date().getHours(); return (h >= 19 || h < 7) ? 'nuit' : 'jour'; }
+function appliquerTheme(t){ if (!t || t === 'auto') t = themeAuto(); document.documentElement.className = t === 'nuit' ? 'nuit' : ''; }
+appliquerTheme(param('theme'));
+window.addEventListener('message', function(e){ if (e.data && e.data.type === 'theme') appliquerTheme(e.data.value); });
+function signalerToucher(){ if (window.parent !== window) { try { window.parent.postMessage({ type: 'interaction' }, '*'); } catch (err) {} } }
+document.addEventListener('touchstart', signalerToucher, true);
+document.addEventListener('mousedown', signalerToucher, true);
+function $(id){ return document.getElementById(id); }
+
+var SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">';
+var ICONES = {
+  soleil: '<circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4"/>',
+  lune: '<path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a6.8 6.8 0 0 0 10.5 10.5z"/>',
+  tele: '<rect x="3" y="5" width="18" height="12" rx="2"/><path d="M8 21h8M12 17v4"/>',
+  couverts: '<path d="M7 3v18M4.5 3v5a2.5 2.5 0 0 0 5 0V3M17 21V3c-2.2 1.8-3 4.5-3 8h3"/>',
+  off: '<path d="M12 3v8"/><path d="M6.3 6.8a8 8 0 1 0 11.4 0"/>',
+  ampoule: '<path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-3.6 10.8c.7.5 1.1 1.3 1.1 2.1V16h5v-.1c0-.8.4-1.6 1.1-2.1A6 6 0 0 0 12 3z"/>'
+};
+
+/* ---------- Données d'exemple ---------- */
+// état = luminosité en % (0 = éteinte)
+var etat = { 'light.lampe_canape': 60, 'light.cuisine_ruban': 40, 'light.guirlande': 100 };
+var sceneActive = 'scene.soiree';
+var REGLAGES_SCENES = {
+  'scene.bonjour':  { 'light.salon_plafonnier': 100, 'light.cuisine_ruban': 100, 'light.entree': 80 },
+  'scene.soiree':   { 'light.lampe_canape': 60, 'light.cuisine_ruban': 40, 'light.guirlande': 100 },
+  'scene.film':     { 'light.lampe_canape': 20 },
+  'scene.diner':    { 'light.salle_a_manger': 80, 'light.cuisine_ruban': 60, 'light.guirlande': 100 },
+  'scene.eteindre': {}
+};
+
+/* ---------- Affichage ---------- */
+function afficher(){
+  var allumees = 0, html = '', i;
+  for (i = 0; i < CONFIG.LUMIERES.length; i++) {
+    var L = CONFIG.LUMIERES[i], v = etat[L.id] || 0;
+    if (v > 0) allumees++;
+    html += '<div class="tile' + (v > 0 ? '' : ' off') + '" data-id="' + L.id + '">' +
+      '<div class="t-top"><div class="bulb">' + SVG + ICONES.ampoule + '</svg></div><div class="sw"><i></i></div></div>' +
+      '<div class="t-name">' + L.nom + '</div>' +
+      '<div class="t-state">' + (v > 0 ? 'Allumée · ' + v + ' %' : 'Éteinte') + '</div></div>';
+  }
+  $('lights').innerHTML = html;
+  $('sum').innerHTML = allumees === 0 ? 'Tout est éteint' : allumees + (allumees > 1 ? ' lumières allumées' : ' lumière allumée');
+
+  var sc = '';
+  for (i = 0; i < CONFIG.SCENES.length; i++) {
+    var S = CONFIG.SCENES[i];
+    sc += '<div class="scene' + (S.id === sceneActive ? ' on' : '') + '" data-id="' + S.id + '">' + SVG + ICONES[S.icone] + '</svg><span>' + S.nom + '</span></div>';
+  }
+  $('scenes').innerHTML = sc;
+  $('demo').style.display = CONFIG.DEMO ? '' : 'none';
+}
+
+/* ---------- Actions ---------- */
+function cible(e, classe){
+  var el = e.target;
+  while (el && el !== document.body) { if (el.className && (' ' + el.className + ' ').indexOf(' ' + classe + ' ') >= 0) return el; el = el.parentNode; }
+  return null;
+}
+$('lights').addEventListener('click', function(e){
+  var t = cible(e, 'tile'); if (!t) return;
+  var id = t.getAttribute('data-id');
+  if (CONFIG.DEMO) { etat[id] = (etat[id] || 0) > 0 ? 0 : 80; sceneActive = null; afficher(); return; }
+  // Étape suivante : appel du Worker → Home Assistant (light.toggle)
+});
+$('scenes').addEventListener('click', function(e){
+  var t = cible(e, 'scene'); if (!t) return;
+  var id = t.getAttribute('data-id');
+  if (CONFIG.DEMO) {
+    var r = REGLAGES_SCENES[id] || {}; etat = {};
+    for (var k in r) etat[k] = r[k];
+    sceneActive = id; afficher(); return;
+  }
+  // Étape suivante : appel du Worker → Home Assistant (scene.turn_on)
+});
+
+afficher();
+</script>
+</body>
+</html>
