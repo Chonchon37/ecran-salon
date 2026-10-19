@@ -92,6 +92,7 @@ body{
 
 <script>
 /* ===================== RÉGLAGES (à modifier) ===================== */
+var CHARGE = Date.now(); // sert à contourner le cache du cadre
 var CONFIG = {
   DUREE_DEFAUT: 30,          // secondes par slide
   PAUSE_APRES_TOUCHER: 90,   // secondes de pause quand on touche l'écran
@@ -220,7 +221,7 @@ function construire(){
   S = CONFIG.SLIDES;
   for (var i = 0; i < S.length; i++) {
     var f = document.createElement('iframe');
-    f.src = S[i].fichier + '?theme=' + theme + (CLE ? '&cle=' + encodeURIComponent(CLE) : '');
+    f.src = S[i].fichier + '?theme=' + theme + (CLE ? '&cle=' + encodeURIComponent(CLE) : '') + '&v=' + CHARGE;
     f.setAttribute('scrolling', 'no');
     (function(cadre){ cadre.addEventListener('load', function(){ envoyerReglages(cadre); }); })(f);
     zoneSlides.appendChild(f);
@@ -388,17 +389,23 @@ function tic(){
     }
   }
 }
+/* ---------- Recharger sans cache : vide le cache de Fully et change le paramètre v ---------- */
+function recharger(){
+  try { if (typeof fully !== 'undefined' && fully.clearCache) fully.clearCache(); } catch (e) {}
+  var u = location.href.replace(/([?&])v=\d+&?/, '$1').replace(/[?&]$/, '');
+  location.replace(u + (u.indexOf('?') < 0 ? '?' : '&') + 'v=' + Date.now());
+}
 /* ---------- Si les réglages changent dans la page admin : on recharge l'écran ---------- */
 function surveillerReglages(){
   lireReglages(function(R){
-    if (R && R.maj && REGLAGES_MAJ && R.maj !== REGLAGES_MAJ && navigator.onLine !== false) location.reload();
+    if (R && R.maj && REGLAGES_MAJ && R.maj !== REGLAGES_MAJ && navigator.onLine !== false) recharger();
   });
 }
 
 /* ---------- Rechargement de secours ---------- */
 function rechargerSiEnLigne(){
   if (navigator.onLine === false) { setTimeout(rechargerSiEnLigne, 60000); return; }
-  location.reload();
+  recharger();
 }
 setTimeout(rechargerSiEnLigne, CONFIG.RECHARGEMENT_MIN * 60000);
 
