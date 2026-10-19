@@ -22,6 +22,7 @@ const ORIGINE_AUTORISEE = '*';   // tu pourras mettre 'https://chonchon37.github
 const FLUX_TR = 'https://data.filbleu.fr/ws-tr/gtfs-rt/opendata/trip-updates';
 const FLUX_ALERTES = 'https://data.filbleu.fr/ws-tr/gtfs-rt/opendata/service-alerts';
 const CACHE_SECONDES = 20;
+const VERSION = '4';   // à changer à chaque mise à jour du code : vide les caches
 
 // Horaires prévus, format compact : "jours" = n° de grille pour chaque jour depuis "debut",
 // chaque ligne "g=" = minutes depuis minuit, écrites en écarts successifs.
@@ -514,7 +515,7 @@ function repondre(objet, statut, entetes) {
   return new Response(JSON.stringify(objet), { status: statut || 200, headers: entetes });
 }
 async function avecCache(cle, secondes, fabriquer, entetes, ctx) {
-  const cache = caches.default, req = new Request('https://cache.ecran-salon.local/' + cle);
+  const cache = caches.default, req = new Request('https://cache.ecran-salon.local/v' + VERSION + '/' + cle);
   const enCache = await cache.match(req);
   if (enCache) return new Response(enCache.body, { headers: entetes });
   const corps = JSON.stringify(await fabriquer());
