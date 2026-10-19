@@ -22,7 +22,7 @@ const ORIGINE_AUTORISEE = '*';   // tu pourras mettre 'https://chonchon37.github
 const FLUX_TR = 'https://data.filbleu.fr/ws-tr/gtfs-rt/opendata/trip-updates';
 const FLUX_ALERTES = 'https://data.filbleu.fr/ws-tr/gtfs-rt/opendata/service-alerts';
 const CACHE_SECONDES = 20;
-const VERSION = '4';   // à changer à chaque mise à jour du code : vide les caches
+const VERSION = '5';   // à changer à chaque mise à jour du code : vide les caches
 
 // Horaires prévus, format compact : "jours" = n° de grille pour chaque jour depuis "debut",
 // chaque ligne "g=" = minutes depuis minuit, écrites en écarts successifs.
@@ -472,6 +472,13 @@ function haUrl(env, chemin) {
 }
 // Lumières à ne pas afficher (ici les « segments » des rubans LED)
 const LUMIERES_MASQUEES = /segment/i;
+// Boutons « modes » : les mêmes que sur ton tableau Home Assistant « Gestion du Salon »
+// (ce sont des automatisations déclenchées, comme dans Home Assistant)
+const MODES = [
+  { id: 'automation.apero',    nom: 'Apéro' },
+  { id: 'automation.all_cine', nom: 'Ciné' },
+  { id: 'special.tout_eteindre', nom: 'Tout éteindre' }
+];
 
 async function construireMaison(env) {
   const r = await fetch(haUrl(env, '/api/states'), { headers: { Authorization: 'Bearer ' + env.HA_TOKEN } });
@@ -484,12 +491,17 @@ async function construireMaison(env) {
       if (LUMIERES_MASQUEES.test(nom)) continue;
       const b = e.attributes && e.attributes.brightness;
       lumieres.push({ id: e.entity_id, nom: nom, allumee: e.state === 'on', dispo: e.state !== 'unavailable', luminosite: e.state === 'on' && b ? Math.round(b / 2.55) : null });
-    } else if (e.entity_id.startsWith('scene.')) {
-      scenes.push({ id: e.entity_id, nom: nom, derniere: e.state && e.state !== 'unknown' ? Date.parse(e.state) || null : null });
     }
   }
+  // Modes : on garde l'ordre ci-dessus ; « derniere » = dernier déclenchement de l'automatisation
+  const parId = {}; for (const e of etats) parId[e.entity_id] = e;
+  for (const m of MODES) {
+    const e = parId[m.id];
+    if (!e && !m.id.startsWith('special.')) continue;
+    const t = e && e.attributes && e.attributes.last_triggered;
+    scenes.push({ id: m.id, nom: m.nom, derniere: t ? Date.parse(t) || null : null });
+  }
   const tri = (a, b) => a.nom.localeCompare(b.nom, 'fr');
-  scenes.sort(tri).push({ id: 'special.tout_eteindre', nom: 'Tout éteindre', derniere: null });
   return { maj: Date.now(), lumieres: lumieres.sort(tri), scenes: scenes };
 }
 async function actionMaison(env, corps) {
@@ -497,6 +509,7 @@ async function actionMaison(env, corps) {
   let service, donnees = { entity_id: id };
   if (corps.action === 'scene' && id === 'special.tout_eteindre') { service = '/api/services/light/turn_off'; donnees = { entity_id: 'all' }; }
   else if (corps.action === 'basculer' && /^light\.[a-z0-9_]+$/.test(id)) service = '/api/services/light/toggle';
+  else if (corps.action === 'scene' && MODES.some(m => m.id === id) && id.startsWith('automation.')) { service = '/api/services/automation/trigger'; donnees = { entity_id: id, skip_condition: true }; }
   else if (corps.action === 'scene' && /^scene\.[a-z0-9_]+$/.test(id)) service = '/api/services/scene/turn_on';
   else throw new Error('Action refusée');
   const r = await fetch(haUrl(env, service), {

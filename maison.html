@@ -96,6 +96,7 @@ var ICONES = {
   lune: '<path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a6.8 6.8 0 0 0 10.5 10.5z"/>',
   tele: '<rect x="3" y="5" width="18" height="12" rx="2"/><path d="M8 21h8M12 17v4"/>',
   couverts: '<path d="M7 3v18M4.5 3v5a2.5 2.5 0 0 0 5 0V3M17 21V3c-2.2 1.8-3 4.5-3 8h3"/>',
+  verre: '<path d="M9 2.5h6l-.6 7.5a2.4 2.4 0 0 1-4.8 0z"/><path d="M12 12.5v8M8.5 21h7M9.3 6h5.4"/>',
   off: '<path d="M12 3v8"/><path d="M6.3 6.8a8 8 0 1 0 11.4 0"/>',
   lit: '<path d="M3 18v-7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v7M3 14h18M3 18v2M21 18v2M7 9V6h4v3"/>',
   etoile: '<path d="M12 3l2.6 5.5 6 .8-4.4 4.1 1.1 5.9L12 16.4 6.7 19.3l1.1-5.9L3.4 9.3l6-.8z"/>',
@@ -106,7 +107,8 @@ function iconeScene(nom){
   var n = nom.toLowerCase();
   if (/éteind|eteind|off|dodo|nuit|coucher|départ|depart|absent/.test(n)) return /nuit|dodo|coucher/.test(n) ? 'lit' : 'off';
   if (/film|ciné|cine|télé|tele|tv|série|serie/.test(n)) return 'tele';
-  if (/dîner|diner|repas|déjeuner|dejeuner|cuisine|apéro|apero/.test(n)) return 'couverts';
+  if (/apéro|apero|verre|fête|fete/.test(n)) return 'verre';
+  if (/dîner|diner|repas|déjeuner|dejeuner|cuisine/.test(n)) return 'couverts';
   if (/soir|cosy|détente|detente|calme|tamis/.test(n)) return 'lune';
   if (/matin|bonjour|réveil|reveil|jour|lumineux|travail/.test(n)) return 'soleil';
   return 'etoile';
