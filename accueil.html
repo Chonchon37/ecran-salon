@@ -24,6 +24,9 @@ body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;fon
 .wrap{box-sizing:border-box;width:1280px;height:728px;padding:24px 36px;display:flex}
 .card{background:var(--card);border-radius:20px;box-sizing:border-box;padding:20px 24px;transition:background-color .8s}
 .label{font-size:15px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);display:flex;align-items:center}
+.lien{cursor:pointer;transition:transform .15s}
+.lien:active{-webkit-transform:scale(.985);transform:scale(.985)}
+.voir{margin-left:auto;font-size:30px;line-height:.6;font-weight:600;color:var(--muted);letter-spacing:0}
 .demo{font-size:12px;letter-spacing:.06em;padding:3px 9px;border-radius:20px;background:var(--warn-soft);color:var(--warn);font-weight:700;text-transform:uppercase;display:inline-block}
 
 /* Colonne gauche : bonjour + météo */
@@ -41,7 +44,9 @@ body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;fon
 .alert{display:flex;align-items:center;margin-top:16px;padding:11px 14px;border-radius:14px;background:var(--rain-soft);color:var(--rain);font-size:19px;font-weight:700}
 .alert svg{width:24px;height:24px;margin-right:10px;flex:none}
 .alert.sec{background:var(--card2);color:var(--muted)}
-.mini-h{display:flex;margin-top:auto;border-top:2px solid var(--line);padding-top:12px}
+.mini{margin-top:auto;border-top:2px solid var(--line);padding-top:10px}
+.mini-t{font-size:14px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+.mini-h{display:flex}
 .mh{flex:1;display:flex;flex-direction:column;align-items:center}
 .mh-t{font-size:16px;font-weight:600;color:var(--muted)}
 .mh-v{font-size:21px;font-weight:600}
@@ -68,10 +73,13 @@ body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;fon
 
 .ag{flex:1;margin-bottom:16px;display:flex;flex-direction:column;min-height:0}
 .ev{display:flex;align-items:center;margin-top:12px}
-.ev-h{width:94px;font-size:21px;font-weight:700;flex:none}
+.ev-h{width:86px;font-size:20px;font-weight:700;flex:none}
 .ev i{width:12px;height:12px;border-radius:50%;margin-right:14px;flex:none}
-.ev-n{font-size:23px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.ev-sub{font-size:15px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-top:14px}
+.ev-n{font-size:21px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.ev-sub{font-size:15px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-top:12px}
+.ag-cols{flex:1;display:flex;min-height:0}
+.ag-col{flex:1;min-width:0;overflow:hidden}
+.ag-col + .ag-col{margin-left:22px;padding-left:22px;border-left:2px solid var(--line)}
 .vide{font-size:20px;color:var(--muted);margin-top:14px}
 
 .home{height:166px;display:flex;flex-direction:column}
@@ -92,21 +100,21 @@ body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;fon
       <div class="date" id="date"></div>
       <div class="msg" id="msg" hidden></div>
     </div>
-    <div class="card wx">
-      <div class="label">Météo · Tours Nord</div>
+    <div class="card wx lien" data-page="meteo">
+      <div class="label">Météo · Tours Nord<span class="voir">›</span></div>
       <div class="wx-main"><div id="wxIcon"></div><div class="wx-temp h" id="wxTemp"></div></div>
       <div class="wx-cond" id="wxCond"></div>
       <div class="wx-hl" id="wxHL"></div>
       <div id="wxAlert"></div>
-      <div class="mini-h" id="wxHours"></div>
+      <div class="mini"><div class="mini-t" id="wxHoursTitre"></div><div class="mini-h" id="wxHours"></div></div>
     </div>
   </div>
   <div class="right">
     <div class="row">
-      <div class="card tr"><div class="label">Prochains départs</div><div id="tr"></div></div>
-      <div class="card bd" id="bd"></div>
+      <div class="card tr lien" data-page="transports"><div class="label">Prochains départs<span class="voir">›</span></div><div id="tr"></div></div>
+      <div class="card bd lien" id="bd" data-page="anniversaires"></div>
     </div>
-    <div class="card ag" id="ag"></div>
+    <div class="card ag lien" id="ag" data-page="agenda"></div>
     <div class="card home">
       <div class="home-top"><div class="label">Maison</div><div class="home-s" id="homeS"></div></div>
       <div class="sc" id="sc"></div>
@@ -210,8 +218,8 @@ function chargerMeteo(){
   if (!CONFIG.METEO_REELLE) return;
   var xhr = new XMLHttpRequest();
   xhr.open('GET', 'https://api.open-meteo.com/v1/forecast?latitude=' + CONFIG.LAT + '&longitude=' + CONFIG.LON +
-    '&current=temperature_2m,weather_code,is_day&minutely_15=precipitation&forecast_minutely_15=8' +
-    '&hourly=temperature_2m,weather_code,is_day&forecast_hours=13' +
+    '&current=temperature_2m,weather_code,is_day&minutely_15=precipitation&forecast_minutely_15=26' +
+    '&hourly=temperature_2m,weather_code,is_day,precipitation&forecast_hours=24' +
     '&daily=temperature_2m_max,temperature_2m_min&timezone=Europe%2FParis&forecast_days=1', true);
   xhr.timeout = 20000;
   xhr.onload = function(){
@@ -234,6 +242,7 @@ function afficherMeteo(){
       var hh = (h + i * 2) % 24;
       mh += '<div class="mh"><div class="mh-t">' + hh + ' h</div>' + iconeMeteo(mockCode(hh), jourA(hh), 40) + '<div class="mh-v">' + mockTemp(hh) + '°</div></div>';
     }
+    $('wxHoursTitre').innerHTML = 'Prochaines heures';
     $('wxHours').innerHTML = mh;
     return;
   }
@@ -242,29 +251,68 @@ function afficherMeteo(){
   $('wxTemp').innerHTML = Math.round(c.temperature_2m) + '°';
   $('wxCond').innerHTML = libelleMeteo(c.weather_code, c.is_day === 1);
   $('wxHL').innerHTML = 'Max ' + Math.round(meteo.daily.temperature_2m_max[0]) + '° · Min ' + Math.round(meteo.daily.temperature_2m_min[0]) + '°';
-  // Pluie dans l'heure
-  var debut = null, M = meteo.minutely_15, vus = 0;
-  for (i = 0; i < M.time.length && vus < 4; i++) {
-    var fin = lireDate(M.time[i]);
-    if (fin <= now) continue;
-    vus++;
-    if ((M.precipitation[i] || 0) >= 0.05) { debut = new Date(Math.max(now.getTime(), fin.getTime() - 15 * 60000)); break; }
-  }
-  if (debut) {
-    debut.setMinutes(Math.ceil(debut.getMinutes() / 5) * 5);
-    $('wxAlert').innerHTML = '<div class="alert">' + PARAPLUIE + (debut - now < 10 * 60000 ? 'Il pleut en ce moment' : 'Pluie vers ' + debut.getHours() + ' h ' + pad(debut.getMinutes())) + '</div>';
-  } else {
-    $('wxAlert').innerHTML = '<div class="alert sec">' + PARAPLUIE + 'Pas de pluie dans l\'heure</div>';
-  }
-  // Mini prévisions : toutes les 2 heures
+  // Pluie : combien de temps il pleut, ou quand ça commence
+  $('wxAlert').innerHTML = textePluieReel(now);
+
+  // Mini prévisions : le soir, on montre déjà demain (7 h → 15 h)
   var H = meteo.hourly, debutHeure = new Date(now.getTime()); debutHeure.setMinutes(0, 0, 0);
-  var liste = [];
-  for (i = 0; i < H.time.length; i++) if (lireDate(H.time[i]) >= debutHeure) liste.push(i);
-  for (var k = 2; k < liste.length && k <= 10; k += 2) {
-    var j = liste[k];
+  var liste = [], titre = '';
+  if (h >= 20 || h < 5) {
+    var cible = new Date(now.getFullYear(), now.getMonth(), now.getDate() + (h >= 20 ? 1 : 0));
+    titre = h >= 20 ? 'Demain' : 'Ce matin';
+    for (i = 0; i < H.time.length; i++) {
+      var dt = lireDate(H.time[i]);
+      if (dt.getDate() === cible.getDate() && dt.getHours() >= 7 && dt.getHours() <= 15 && (dt.getHours() - 7) % 2 === 0) liste.push(i);
+    }
+  } else {
+    titre = 'Prochaines heures';
+    var avenir = [];
+    for (i = 0; i < H.time.length; i++) if (lireDate(H.time[i]) >= debutHeure) avenir.push(i);
+    for (var k = 2; k < avenir.length && k <= 10; k += 2) liste.push(avenir[k]);
+  }
+  for (var n = 0; n < liste.length && n < 5; n++) {
+    var j = liste[n];
     mh += '<div class="mh"><div class="mh-t">' + lireDate(H.time[j]).getHours() + ' h</div>' + iconeMeteo(H.weather_code[j], H.is_day[j] === 1, 40) + '<div class="mh-v">' + Math.round(H.temperature_2m[j]) + '°</div></div>';
   }
+  $('wxHoursTitre').innerHTML = titre;
   $('wxHours').innerHTML = mh;
+}
+function duree(min){
+  min = Math.max(15, Math.round(min / 15) * 15);
+  if (min < 60) return min + ' min';
+  return Math.floor(min / 60) + ' h' + (min % 60 ? ' ' + pad(min % 60) : '');
+}
+function hh(d){ return d.getHours() + ' h ' + pad(d.getMinutes()); }
+// Série « pluie oui/non » : quarts d'heure sur 6 h, puis heures jusqu'à 24 h
+function textePluieReel(now){
+  var serie = [], M = meteo.minutely_15, H = meteo.hourly, i, finQuarts = now.getTime();
+  for (i = 0; i < M.time.length; i++) {
+    var fin = lireDate(M.time[i]).getTime();
+    if (fin <= now.getTime()) continue;
+    serie.push({ debut: Math.max(now.getTime(), fin - 15 * 60000), fin: fin, pluie: (M.precipitation[i] || 0) >= 0.05 });
+    finQuarts = fin;
+  }
+  for (i = 0; i < H.time.length; i++) {
+    var fh = lireDate(H.time[i]).getTime() + 3600000;     // cumul de l'heure qui commence
+    if (fh <= finQuarts) continue;
+    serie.push({ debut: fh - 3600000, fin: fh, pluie: (H.precipitation[i] || 0) >= 0.1 });
+  }
+  if (!serie.length) return '';
+  var limite = serie[serie.length - 1].fin;
+  var arrondi = function(t){ var d = new Date(t); d.setMinutes(Math.round(d.getMinutes() / 5) * 5, 0, 0); return d; };
+  if (serie[0].pluie) {
+    for (i = 1; i < serie.length; i++) if (!serie[i].pluie) break;
+    if (i >= serie.length) return '<div class="alert">' + PARAPLUIE + 'Pluie au moins jusqu\'à ' + new Date(limite).getHours() + ' h</div>';
+    var fin1 = arrondi(serie[i].debut);
+    return '<div class="alert">' + PARAPLUIE + 'Pluie encore ' + duree((fin1 - now) / 60000) + ' · fin vers ' + hh(fin1) + '</div>';
+  }
+  for (i = 0; i < serie.length; i++) if (serie[i].pluie) break;
+  if (i >= serie.length) return '<div class="alert sec">' + PARAPLUIE + (limite - now > 18 * 3600000 ? 'Pas de pluie prévue dans les 24 h' : 'Pas de pluie prévue d\'ici ' + new Date(limite).getHours() + ' h') + '</div>';
+  var deb = arrondi(serie[i].debut);
+  for (var k = i + 1; k < serie.length; k++) if (!serie[k].pluie) break;
+  var dureeTxt = k >= serie.length ? 'un bon moment' : '~' + duree((serie[k].debut - serie[i].debut) / 60000);
+  if (deb - now > 3 * 3600000) return '<div class="alert sec">' + PARAPLUIE + 'Sec jusqu\'à ' + deb.getHours() + ' h, puis pluie</div>';
+  return '<div class="alert">' + PARAPLUIE + 'Pluie vers ' + hh(deb) + ', pendant ' + dureeTxt + '</div>';
 }
 chargerMeteo();
 setInterval(chargerMeteo, 15 * 60000);
@@ -359,16 +407,16 @@ function afficher(){
   }
   if (A) {
     var nj = Math.round((A.date - auj) / 86400000);
-    $('bd').innerHTML = '<div class="label">Prochain anniversaire</div>' +
+    $('bd').innerHTML = '<div class="label">Prochain anniversaire<span class="voir">›</span></div>' +
       '<div class="bd-q h">' + echapper(A.nom) + '</div>' +
       '<div class="bd-j">' + (nj === 0 ? 'Aujourd\'hui !' : (nj === 1 ? 'Demain' : 'Dans ' + nj + ' jours')) + '</div>' +
       '<div class="bd-d">' + JOURS[A.date.getDay()] + ' ' + A.date.getDate() + ' ' + MOIS[A.date.getMonth()] + (A.age ? ' · ' + A.age + ' ans' : '') + '</div>';
   } else {
-    $('bd').innerHTML = '<div class="label">Prochain anniversaire</div><div class="bd-d" style="margin-top:auto">' + (prive() && !agendaReel ? 'Chargement…' : 'Aucun 🎂 dans l\'agenda') + '</div>';
+    $('bd').innerHTML = '<div class="label">Prochain anniversaire<span class="voir">›</span></div><div class="bd-d" style="margin-top:auto">' + (prive() && !agendaReel ? 'Chargement…' : 'Aucun 🎂 dans l\'agenda') + '</div>';
   }
 
   // Agenda : ce qui reste aujourd'hui, puis demain
-  var ag = '<div class="label">À venir</div>', restAuj = [], demain = [];
+  var ag = '<div class="label">À venir<span class="voir">›</span></div>', restAuj = [], demain = [];
   if (agendaReel && agendaReel.evenements) {
     var demain0 = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).getTime(), demain1 = demain0 + 86400000;
     for (var e = 0; e < agendaReel.evenements.length; e++) {
@@ -386,10 +434,16 @@ function afficher(){
     }
   }
   function ligneEv(x){ return '<div class="ev"><div class="ev-h">' + (x.debut ? x.debut.replace(':', ' h ') : 'Journée') + '</div><i style="background:' + (COULEURS[x.qui] || COULEURS.moi) + '"></i><div class="ev-n">' + echapper(x.titre) + '</div></div>'; }
-  ag += '<div class="ev-sub">Aujourd\'hui</div>';
+  var MAX = 4;
+  ag += '<div class="ag-cols"><div class="ag-col"><div class="ev-sub">Aujourd\'hui</div>';
   if (!restAuj.length) ag += '<div class="vide">' + (prive() && !agendaReel ? 'Chargement…' : 'Plus rien de prévu') + '</div>';
-  for (var r1 = 0; r1 < restAuj.length && r1 < 2; r1++) ag += ligneEv(restAuj[r1]);
-  if (demain.length) { ag += '<div class="ev-sub">Demain</div>'; for (var r2 = 0; r2 < demain.length && r2 < 2; r2++) ag += ligneEv(demain[r2]); }
+  for (var r1 = 0; r1 < restAuj.length && r1 < MAX; r1++) ag += ligneEv(restAuj[r1]);
+  if (restAuj.length > MAX) ag += '<div class="vide">+ ' + (restAuj.length - MAX) + ' autre' + (restAuj.length - MAX > 1 ? 's' : '') + '</div>';
+  ag += '</div><div class="ag-col"><div class="ev-sub">Demain</div>';
+  if (!demain.length) ag += '<div class="vide">' + (prive() && !agendaReel ? '' : 'Rien de prévu') + '</div>';
+  for (var r2 = 0; r2 < demain.length && r2 < MAX; r2++) ag += ligneEv(demain[r2]);
+  if (demain.length > MAX) ag += '<div class="vide">+ ' + (demain.length - MAX) + ' autre' + (demain.length - MAX > 1 ? 's' : '') + '</div>';
+  ag += '</div></div>';
   $('ag').innerHTML = ag;
 
   afficherMaison();
@@ -455,6 +509,18 @@ window.addEventListener('message', function(e){
   if (g.agenda) { for (k in g.agenda.agendas) AGENDAS[k] = g.agenda.agendas[k]; }
   MESSAGE = g.message || '';
   afficher();
+});
+
+// Toucher une carte ouvre la page détaillée correspondante
+document.addEventListener('click', function(e){
+  var el = e.target;
+  while (el && el !== document.body) {
+    if (el.getAttribute && el.getAttribute('data-page')) {
+      if (window.parent !== window) { try { window.parent.postMessage({ type: 'aller', page: el.getAttribute('data-page') }, '*'); } catch (err) {} }
+      return;
+    }
+    el = el.parentNode;
+  }
 });
 
 afficher();

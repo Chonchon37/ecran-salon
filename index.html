@@ -321,7 +321,15 @@ zonePause.addEventListener('click', function(){ pauseJusqua = 0; majPause(); pro
 
 // Un toucher à l'intérieur d'une slide (bouton domotique…) met aussi en pause
 window.addEventListener('message', function(e){
-  if (e.data && e.data.type === 'interaction') mettreEnPause();
+  if (!e.data) return;
+  if (e.data.type === 'interaction') mettreEnPause();
+  if (e.data.type === 'aller') {                       // une carte de l'accueil demande sa page détaillée
+    for (var k = 0; k < S.length; k++) if (S[k].id === e.data.page) {
+      pauseJusqua = Date.now() + CONFIG.PAUSE_APRES_TOUCHER * 1000; majPause();
+      if (k === actuel) programmer(); else afficher(k);
+      return;
+    }
+  }
 });
 
 /* ---------- Veille : écran noir la nuit, réveil au toucher ---------- */
