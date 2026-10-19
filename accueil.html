@@ -302,7 +302,7 @@ function chargerAgenda(){ if (prive()) lireJson(CONFIG.WORKER + '/agenda?cle=' +
 function chargerMaison(){ if (prive()) lireJson(CONFIG.WORKER + '/maison?cle=' + encodeURIComponent(CLE), function(j){ maisonReelle = j; afficherMaison(); }); }
 chargerAgenda(); setInterval(chargerAgenda, 5 * 60000);
 chargerMaison(); setInterval(chargerMaison, 30000);
-var AGENDAS = { GOOGLE_ICS1: 'moi', GOOGLE_ICS2: 'flo', commun: 'nous' };   // même réglage que agenda.html
+var AGENDAS = { GOOGLE_ICS1: 'flo', GOOGLE_ICS2: 'moi', commun: 'nous' };   // même réglage que agenda.html
 function quiPour(e){ return AGENDAS[e.agenda] || 'moi'; }
 
 /* ---------- Affichage ---------- */
