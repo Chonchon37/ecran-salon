@@ -55,8 +55,10 @@ body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;fon
 .hero-n{font-size:168px;font-weight:600;line-height:.92;letter-spacing:-.04em;margin-top:6px}
 .hero-n small{font-size:52px;font-weight:600;letter-spacing:0;margin-left:10px}
 .hero-n.mot{font-size:84px;line-height:1;letter-spacing:-.02em}
-.hero-d{font-size:22px;font-weight:500;margin-top:12px;opacity:.9;display:flex;align-items:center}
-.hero-d .pt{width:10px;height:10px;border-radius:50%;background:currentColor;margin-right:9px;flex:none}
+.hero-d{font-size:24px;font-weight:600;margin-top:14px;display:flex;align-items:baseline}
+.hero-h{font-size:56px;font-weight:600;letter-spacing:-.02em;line-height:1;margin-left:12px}
+.hero-x{margin-left:14px;font-size:22px;font-weight:500;opacity:.85}
+.hero-d .pt{width:10px;height:10px;border-radius:50%;background:currentColor;margin-right:9px;flex:none;align-self:center}
 .hero-d .pt.prevu{background:transparent;border:2px solid currentColor;width:6px;height:6px}
 .hero-d .pt.live{-webkit-animation:pulse 1.6s infinite;animation:pulse 1.6s infinite}
 @-webkit-keyframes pulse{50%{opacity:.25}}
@@ -179,7 +181,7 @@ function carte(cfg, D){
     var p = P[cible], marge = minutesAvant(p.heure) - cfg.marche, vite = marge <= 1;
     html += '<div class="hero' + (vite ? ' vite' : '') + '"><div class="hero-l">' + (vite ? 'Pars' : 'Pars dans') + '</div>' +
       (vite ? '<div class="hero-n mot h">Maintenant</div>' : '<div class="hero-n h">' + marge + '<small>min</small></div>') +
-      '<div class="hero-d"><span class="pt ' + (p.tempsReel ? 'live' : 'prevu') + '"></span>' + Nom + ' de ' + hm(p.heure) + ' · dans ' + enMin(minutesAvant(p.heure)) + (p.tempsReel ? '' : ' (horaire prévu)') + '</div></div>';
+      '<div class="hero-d"><span class="pt ' + (p.tempsReel ? 'live' : 'prevu') + '"></span>' + Nom + ' de <b class="hero-h h">' + hm(p.heure) + '</b><span class="hero-x">dans ' + enMin(minutesAvant(p.heure)) + (p.tempsReel ? '' : ' · prévu') + '</span></div></div>';
   }
   // Badge compact pour le passage qu'on ne peut plus attraper
   var rate = cible > 0 ? P[cible - 1] : null;

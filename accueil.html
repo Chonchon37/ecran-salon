@@ -54,19 +54,21 @@ body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;fon
 /* Colonne droite */
 .right{flex:1;display:flex;flex-direction:column;min-width:0}
 .row{display:flex;height:214px;margin-bottom:16px}
-.tr{flex:1.3;margin-right:16px;display:flex;flex-direction:column}
+.tr{flex:1.3;margin-right:16px;display:flex;flex-direction:column;min-width:0}
 .tl{display:flex;align-items:center;margin-top:14px}
 .badge{width:48px;height:48px;display:flex;align-items:center;justify-content:center;font-family:"Bricolage Grotesque",Figtree,Arial,sans-serif;font-size:27px;font-weight:700;color:var(--badge-ink);margin-right:14px;flex:none}
 .badge.tram{background:var(--tram);border-radius:50%}
 .badge.bus{background:var(--bus);border-radius:11px}
-.tl-s{font-size:21px;font-weight:600;line-height:1.15}
-.tl-d{font-size:16px;color:var(--muted)}
-.tl-m{margin-left:auto;text-align:right}
+.tl > div:nth-child(2){flex:1;min-width:0}
+.tl-s{font-size:21px;font-weight:600;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tl-d{font-size:16px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tl-m{margin-left:12px;text-align:right;flex:none}
 .tl-m b{font-family:"Bricolage Grotesque",Figtree,Arial,sans-serif;font-size:46px;font-weight:600;line-height:1}
 .tl-m small{font-size:18px;font-weight:600;margin-left:4px}
-.tl-n{font-size:16px;color:var(--ok);font-weight:700}
+.tl-m b{letter-spacing:-.02em}
+.tl-n{font-size:16px;color:var(--ok);font-weight:700;white-space:nowrap}
 .tl-n.vite{color:var(--warn)}
-.bd{flex:1;display:flex;flex-direction:column}
+.bd{flex:1;display:flex;flex-direction:column;min-width:0}
 .bd-q{font-size:30px;font-weight:600;margin-top:auto;line-height:1.05;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .bd-j{font-size:20px;font-weight:700;color:var(--fete);margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .bd-d{font-size:17px;color:var(--muted);margin-top:4px;font-weight:400}
@@ -149,6 +151,7 @@ document.addEventListener('touchstart', signalerToucher, true);
 document.addEventListener('mousedown', signalerToucher, true);
 function $(id){ return document.getElementById(id); }
 var JOURS = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
+function hhmm(ms){ var d = new Date(ms); return (d.getHours() < 10 ? '0' : '') + d.getHours() + ':' + (d.getMinutes() < 10 ? '0' : '') + d.getMinutes(); }
 var MOIS_C = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
 var MOIS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
 function majuscule(s){ return s.charAt(0).toUpperCase() + s.slice(1); }
@@ -377,11 +380,11 @@ function afficher(){
   // Transports
   var tr = '';
   for (var k = 0; k < DEMO_TR.length; k++) {
-    var L = DEMO_TR[k], restants = [];
+    var L = DEMO_TR[k], restants = [], heurePassage = 0;
     if (L.actif === false) continue;
     if (transportsReels) {
       var PR = transportsReels.lignes[L.ligne] ? transportsReels.lignes[L.ligne].passages : [];
-      for (var q = 0; q < PR.length; q++) { var mq = Math.floor((PR[q].t - Date.now()) / 60000); if (mq >= L.marche) restants.push(mq); }
+      for (var q = 0; q < PR.length; q++) { var mq = Math.floor((PR[q].t - Date.now()) / 60000); if (mq >= L.marche) { restants.push(mq); if (!heurePassage) heurePassage = PR[q].t; } }
     } else {
       for (var p = 0; p < L.passages.length; p++) {
         var m = Math.floor((t0 + L.passages[p] * 60000 - Date.now()) / 60000);
@@ -392,7 +395,7 @@ function afficher(){
     if (!restants.length) { tr += '<div class="tl"><div class="badge ' + L.type + '">' + L.ligne + '</div><div><div class="tl-s">' + L.arret + '</div><div class="tl-d">Aucun passage attrapable</div></div></div>'; continue; }
     tr += '<div class="tl"><div class="badge ' + L.type + '">' + L.ligne + '</div>' +
       '<div><div class="tl-s">' + L.arret + '</div><div class="tl-d">vers ' + L.direction + '</div></div>' +
-      '<div class="tl-m"><b>' + (restants[0] < 1 ? '&lt;1' : restants[0]) + '</b><small>min</small>' +
+      '<div class="tl-m"><b>' + hhmm(heurePassage || (Date.now() + restants[0] * 60000)) + '</b>' +
       '<div class="tl-n' + (restants[0] - L.marche <= 1 ? ' vite' : '') + '">' + (restants[0] - L.marche <= 1 ? 'pars maintenant' : 'pars dans ' + (restants[0] - L.marche) + ' min') + '</div></div></div>';
   }
   $('tr').innerHTML = tr;
@@ -419,7 +422,7 @@ function afficher(){
   if (AN.length) {
     var A = AN[0], bd = titreBd +
       '<div class="bd-q h">' + echapper(A.nom) + '</div>' +
-      '<div class="bd-j">' + dansJours(A.date) + '<span class="bd-d"> · ' + JOURS[A.date.getDay()].slice(0, 3) + '. ' + A.date.getDate() + ' ' + MOIS_C[A.date.getMonth()] + (A.age ? ' · ' + A.age + ' ans' : '') + '</span></div>';
+      '<div class="bd-j">' + dansJours(A.date) + '<span class="bd-d"> · ' + A.date.getDate() + ' ' + MOIS_C[A.date.getMonth()] + (A.age ? ' · ' + A.age + ' ans' : '') + '</span></div>';
     if (AN.length > 1) {
       bd += '<div class="bd-suite">';
       for (var k = 1; k < AN.length; k++) {
