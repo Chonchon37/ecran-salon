@@ -27,7 +27,7 @@ const ORIGINE_AUTORISEE = '*';   // tu pourras mettre 'https://chonchon37.github
 const FLUX_TR = 'https://data.filbleu.fr/ws-tr/gtfs-rt/opendata/trip-updates';
 const FLUX_ALERTES = 'https://data.filbleu.fr/ws-tr/gtfs-rt/opendata/service-alerts';
 const CACHE_SECONDES = 20;
-const VERSION = '7';   // à changer à chaque mise à jour du code : vide les caches
+const VERSION = '9';   // à changer à chaque mise à jour du code : vide les caches
 
 // Horaires prévus, format compact : "jours" = n° de grille pour chaque jour depuis "debut",
 // chaque ligne "g=" = minutes depuis minuit, écrites en écarts successifs.
@@ -489,9 +489,12 @@ const REGLAGES_DEFAUT = {
       { id: 'accueil', actif: true, duree: 40 }, { id: 'meteo', actif: true, duree: 30 },
       { id: 'transports', actif: true, duree: 30 }, { id: 'agenda', actif: true, duree: 30 },
       { id: 'maison', actif: true, duree: 30 }, { id: 'anniversaires', actif: true, duree: 30 }
-    ]
+    ],
+    // Écran fixe selon l'heure (jours : 0 = dimanche … 6 = samedi)
+    plages: [{ debut: '07:00', fin: '09:00', jours: [1, 2, 3, 4, 5], page: 'transports' }]
   },
   theme: { mode: 'auto', nuitDebut: 19, nuitFin: 7 },
+  veille: { actif: true, debut: '23:00', fin: '07:00', reveil: 120 },
   transports: { A: { actif: true, marche: 7 }, '2': { actif: true, marche: 9 } },
   agenda: { personnes: { moi: 'Chonchon', flo: 'Flo' }, agendas: { GOOGLE_ICS1: 'flo', GOOGLE_ICS2: 'moi' } },
   maison: { lumieres: [], modes: ['automation.apero', 'automation.all_cine', 'special.tout_eteindre'], noms: { 'automation.apero': 'Apéro', 'automation.all_cine': 'Ciné' } },
@@ -513,12 +516,30 @@ function nettoyerReglages(r) {
   }
   for (const s of D.rotation.slides) if (!vues.has(s.id)) slides.push(Object.assign({}, s));
   if (!slides.some(s => s.actif)) slides[0].actif = true;
-  res.rotation = { pause: entier(rot.pause, 10, 600, D.rotation.pause), slides: slides };
+  const heure = v => /^([01]\d|2[0-3]):[0-5]\d$/.test(String(v)) ? String(v) : null;
+  const plages = [];
+  for (const p of Array.isArray(rot.plages) ? rot.plages : (rot.plages === undefined ? D.rotation.plages : [])) {
+    if (!p || !SLIDES_CONNUES[p.page]) continue;
+    const debut = heure(p.debut), fin = heure(p.fin);
+    if (!debut || !fin || debut === fin) continue;
+    const jours = [...new Set((Array.isArray(p.jours) ? p.jours : []).map(Number).filter(j => j >= 0 && j <= 6 && Number.isInteger(j)))].sort();
+    if (jours.length) plages.push({ debut, fin, jours, page: p.page });
+    if (plages.length >= 8) break;
+  }
+  res.rotation = { pause: entier(rot.pause, 10, 600, D.rotation.pause), slides: slides, plages: plages };
   const th = r.theme || {};
   res.theme = {
     mode: ['auto', 'jour', 'nuit'].indexOf(th.mode) >= 0 ? th.mode : 'auto',
     nuitDebut: entier(th.nuitDebut, 0, 23, D.theme.nuitDebut), nuitFin: entier(th.nuitFin, 0, 23, D.theme.nuitFin)
   };
+  const ve = r.veille || {};
+  const hv = v => /^([01]\d|2[0-3]):[0-5]\d$/.test(String(v)) ? String(v) : null;
+  res.veille = {
+    actif: ve.actif === undefined ? D.veille.actif : !!ve.actif,
+    debut: hv(ve.debut) || D.veille.debut, fin: hv(ve.fin) || D.veille.fin,
+    reveil: entier(ve.reveil, 15, 1800, D.veille.reveil)
+  };
+  if (res.veille.debut === res.veille.fin) res.veille.actif = false;
   const tr = r.transports || {};
   res.transports = {};
   for (const l of Object.keys(D.transports)) {

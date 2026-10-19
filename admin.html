@@ -58,6 +58,14 @@ button:disabled{opacity:.45;cursor:default}
 .barre .dedans{max-width:760px;margin:0 auto;display:flex;align-items:center;gap:14px}
 .barre .etat{flex:1;color:var(--muted);font-size:14px;min-width:0}
 .vide{color:var(--muted);font-style:italic}
+input[type=time]{font:inherit;color:var(--ink);background:var(--bg);border:1.5px solid var(--line);border-radius:10px;padding:8px 10px}
+.plage{border-top:1px solid var(--line);padding:14px 0;display:flex;flex-direction:column;gap:10px}
+.plage:first-child{border-top:0;padding-top:4px}
+.jours{display:flex;gap:6px;flex-wrap:wrap}
+.jours label{width:42px;height:38px;display:flex;align-items:center;justify-content:center;border-radius:10px;background:var(--bg);cursor:pointer;font-weight:700}
+.jours input{position:absolute;opacity:0;pointer-events:none}
+.jours label:has(input:checked){background:var(--accent);color:var(--accent-ink)}
+.jours label:has(input:focus-visible){outline:2px solid var(--accent);outline-offset:2px}
 [hidden]{display:none!important}
 </style>
 </head>
@@ -99,6 +107,13 @@ button:disabled{opacity:.45;cursor:default}
     </section>
 
     <section>
+      <h2>Écran fixe selon l'heure</h2>
+      <p class="aide">Pendant ces plages, l'écran reste sur une seule page au lieu de tourner (ex. : Transports le matin). Un toucher permet toujours de naviguer ; l'écran y revient ensuite tout seul.</p>
+      <div id="plages"></div>
+      <button type="button" id="ajouterPlage" style="margin-top:12px">Ajouter une plage</button>
+    </section>
+
+    <section>
       <h2>Thème</h2>
       <div class="rang">
         <div class="segment" role="radiogroup" aria-label="Thème">
@@ -111,6 +126,22 @@ button:disabled{opacity:.45;cursor:default}
         <label for="nuitDebut">Sombre de</label>
         <input type="number" id="nuitDebut" min="0" max="23"> <span>h à</span>
         <input type="number" id="nuitFin" min="0" max="23"> <span>h</span>
+      </div>
+    </section>
+
+    <section>
+      <h2>Veille de nuit</h2>
+      <p class="aide">L'écran devient noir sur cette plage. Un toucher le rallume quelques minutes, puis il se rendort.</p>
+      <div class="rang">
+        <label class="interrupteur"><input type="checkbox" id="veilleActif"> Activer la veille</label>
+      </div>
+      <div class="rang" id="veilleDetails">
+        <label for="veilleDebut">Écran noir de</label><input type="time" id="veilleDebut">
+        <span>à</span><input type="time" id="veilleFin">
+      </div>
+      <div class="rang" id="veilleReveil">
+        <label for="reveil">Rallumé pendant</label>
+        <input type="number" id="reveil" min="15" max="1800"> <span>secondes après un toucher</span>
       </div>
     </section>
 
@@ -207,9 +238,17 @@ function remplir() {
   document.querySelector('input[name=theme][value=' + g.theme.mode + ']').checked = true;
   $('nuitDebut').value = g.theme.nuitDebut; $('nuitFin').value = g.theme.nuitFin; majHeures();
   $('prenomMoi').value = g.agenda.personnes.moi; $('prenomFlo').value = g.agenda.personnes.flo;
-  dessinerSlides(); dessinerLignes(); dessinerAgendas();
+  const V = g.veille;
+  $('veilleActif').checked = V.actif; $('veilleDebut').value = V.debut; $('veilleFin').value = V.fin; $('reveil').value = V.reveil;
+  majVeille();
+  dessinerSlides(); dessinerPlages(); dessinerLignes(); dessinerAgendas();
   $('lumieres').innerHTML = $('modes').innerHTML = '<p class="vide">Lecture de Home Assistant…</p>';
 }
+function majVeille() { $('veilleDetails').hidden = $('veilleReveil').hidden = !R.reglages.veille.actif; }
+$('veilleActif').addEventListener('change', () => { R.reglages.veille.actif = $('veilleActif').checked; majVeille(); aChange(); });
+$('veilleDebut').addEventListener('change', () => { R.reglages.veille.debut = $('veilleDebut').value; aChange(); });
+$('veilleFin').addEventListener('change', () => { R.reglages.veille.fin = $('veilleFin').value; aChange(); });
+$('reveil').addEventListener('change', () => { R.reglages.veille.reveil = +$('reveil').value; aChange(); });
 function majCompteur() { $('compteur').textContent = $('message').value.length; }
 function majHeures() { $('heuresNuit').hidden = R.reglages.theme.mode !== 'auto'; }
 
@@ -238,7 +277,50 @@ $('slides').addEventListener('change', e => {
     if (!L.some(s => s.actif)) { t.checked = true; L[+t.dataset.actif].actif = true; alerteEtat('Il faut garder au moins une page.'); return; }
   }
   if (t.dataset.duree !== undefined) L[+t.dataset.duree].duree = +t.value;
-  aChange();
+  dessinerPlages(); aChange();
+});
+
+const JOURS = [[1, 'L'], [2, 'M'], [3, 'M'], [4, 'J'], [5, 'V'], [6, 'S'], [0, 'D']];
+const NOMS_JOURS = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
+function dessinerPlages() {
+  const P = R.reglages.rotation.plages || (R.reglages.rotation.plages = []);
+  if (!P.length) { $('plages').innerHTML = '<p class="vide">Aucune plage : l\'écran tourne en permanence.</p>'; return; }
+  const masquee = id => !(R.reglages.rotation.slides.find(s => s.id === id) || {}).actif;
+  $('plages').innerHTML = P.map((p, i) => `
+    <div class="plage">
+      <div class="rang">
+        <select data-plage-page="${i}" aria-label="Page affichée">${Object.keys(NOMS_SLIDES).map(id => `<option value="${id}" ${p.page === id ? 'selected' : ''}>${NOMS_SLIDES[id]}</option>`).join('')}</select>
+        <span>de</span><input type="time" data-plage-debut="${i}" value="${p.debut}" aria-label="Début">
+        <span>à</span><input type="time" data-plage-fin="${i}" value="${p.fin}" aria-label="Fin">
+        <button type="button" data-plage-retirer="${i}" style="margin-left:auto">Retirer</button>
+      </div>
+      <div class="jours" role="group" aria-label="Jours">
+        ${JOURS.map(([j, l]) => `<label title="${NOMS_JOURS[j]}"><input type="checkbox" data-plage-jour="${i}" value="${j}" ${p.jours.includes(j) ? 'checked' : ''} aria-label="${NOMS_JOURS[j]}">${l}</label>`).join('')}
+      </div>
+      ${p.debut >= p.fin ? '<div class="petit" style="color:var(--muted);font-size:14px">Passe minuit : se termine le lendemain à ' + p.fin + '.</div>' : ''}
+      ${masquee(p.page) ? '<div style="color:var(--muted);font-size:14px">Cette page est masquée de la rotation : elle n\'apparaîtra que pendant cette plage.</div>' : ''}
+    </div>`).join('');
+}
+$('ajouterPlage').addEventListener('click', () => {
+  const P = R.reglages.rotation.plages || (R.reglages.rotation.plages = []);
+  if (P.length >= 8) { alerteEtat('8 plages au maximum.'); return; }
+  P.push({ debut: '07:00', fin: '09:00', jours: [1, 2, 3, 4, 5], page: 'transports' });
+  dessinerPlages(); aChange();
+});
+$('plages').addEventListener('click', e => {
+  const i = e.target.dataset.plageRetirer;
+  if (i !== undefined) { R.reglages.rotation.plages.splice(+i, 1); dessinerPlages(); aChange(); }
+});
+$('plages').addEventListener('change', e => {
+  const t = e.target, d = t.dataset, P = R.reglages.rotation.plages;
+  if (d.plagePage !== undefined) P[+d.plagePage].page = t.value;
+  else if (d.plageDebut !== undefined) P[+d.plageDebut].debut = t.value;
+  else if (d.plageFin !== undefined) P[+d.plageFin].fin = t.value;
+  else if (d.plageJour !== undefined) {
+    const p = P[+d.plageJour], j = +t.value;
+    p.jours = t.checked ? [...new Set([...p.jours, j])] : p.jours.filter(x => x !== j);
+  } else return;
+  dessinerPlages(); aChange();
 });
 
 function dessinerLignes() {
@@ -334,6 +416,8 @@ $('nuitFin').addEventListener('change', () => { R.reglages.theme.nuitFin = +$('n
 function aChange() { modifie = true; $('enregistrer').disabled = !R.stockage; $('etat').textContent = 'Modifications non enregistrées'; $('etat').style.color = 'var(--warn)'; }
 function alerteEtat(t) { $('etat').textContent = t; $('etat').style.color = 'var(--warn)'; }
 $('enregistrer').addEventListener('click', async () => {
+  const sansJour = (R.reglages.rotation.plages || []).findIndex(p => !p.jours.length || !p.debut || !p.fin || p.debut === p.fin);
+  if (sansJour >= 0) { alerteEtat('Plage ' + (sansJour + 1) + ' : choisis au moins un jour et deux heures différentes.'); return; }
   $('enregistrer').disabled = true; $('etat').textContent = 'Enregistrement…'; $('etat').style.color = '';
   try {
     const j = await appel('/reglages', { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(R.reglages) });

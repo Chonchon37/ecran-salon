@@ -57,6 +57,15 @@ body{
 }
 #pause svg{width:16px;height:16px;margin-right:6px}
 #pause.on{display:flex}
+#fixe{
+  display:none;align-items:center;height:36px;padding:0 14px;margin-right:16px;border-radius:18px;
+  background:var(--card);color:var(--accent);font-size:15px;font-weight:700;
+}
+#fixe svg{width:16px;height:16px;margin-right:6px}
+#fixe.on{display:flex}
+/* Veille : écran noir, réveil au toucher */
+#veille{position:fixed;left:0;top:0;right:0;bottom:0;background:#000;z-index:100;display:none;cursor:pointer}
+#veille.on{display:block}
 #clock{
   font-family:"Bricolage Grotesque",Figtree,Arial,sans-serif;font-size:30px;font-weight:600;
   letter-spacing:-.01em;font-variant-numeric:tabular-nums;
@@ -64,6 +73,7 @@ body{
 </style>
 </head>
 <body>
+<div id="veille" aria-hidden="true"></div>
 <div id="stage">
   <div id="slides"></div>
   <div id="nav">
@@ -74,6 +84,7 @@ body{
         <svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
         <span>En pause</span>
       </div>
+      <div id="fixe"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg><span id="fixeTexte"></span></div>
       <div id="clock">--:--</div>
     </div>
   </div>
@@ -90,6 +101,11 @@ var CONFIG = {
   THEME: 'auto',             // 'auto', 'jour' ou 'nuit'
   NUIT_DEBUT: 19,            // en auto : thème nuit à partir de 19 h…
   NUIT_FIN: 7,               // …jusqu'à 7 h
+  // Écran fixe selon l'heure : { debut: '07:00', fin: '09:00', jours: [1,2,3,4,5], page: 'transports' }
+  // (jours : 0 = dimanche … 6 = samedi) — modifiable depuis la page admin
+  PLAGES: [],
+  // Veille : écran noir sur cette plage, il se rallume au toucher pendant REVEIL secondes
+  VEILLE: { actif: true, debut: '23:00', fin: '07:00', reveil: 120 },
   SLIDES: [
     { id: 'accueil', fichier: 'accueil.html',       nom: 'Accueil',       icone: 'accueil',  duree: 40 },
     { id: 'meteo', fichier: 'meteo.html',         nom: 'Météo',         icone: 'meteo' },
@@ -147,12 +163,16 @@ function appliquerReglages(R){
   if (!R || !R.reglages) return;
   var g = R.reglages, parId = {}, i;
   for (i = 0; i < CONFIG.SLIDES.length; i++) parId[CONFIG.SLIDES[i].id] = CONFIG.SLIDES[i];
-  var liste = [];
+  var liste = [], plages = g.rotation.plages || [], fixes = {};
+  for (i = 0; i < plages.length; i++) fixes[plages[i].page] = true;
   for (i = 0; i < g.rotation.slides.length; i++) {
     var sl = g.rotation.slides[i], base = parId[sl.id];
-    if (base && sl.actif) liste.push({ id: base.id, fichier: base.fichier, nom: base.nom, icone: base.icone, duree: sl.duree });
+    // une page masquée mais utilisée par une plage fixe reste chargée (hors rotation)
+    if (base && (sl.actif || fixes[sl.id])) liste.push({ id: base.id, fichier: base.fichier, nom: base.nom, icone: base.icone, duree: sl.duree, horsRotation: !sl.actif });
   }
   if (liste.length) CONFIG.SLIDES = liste;
+  CONFIG.PLAGES = plages;
+  if (g.veille) CONFIG.VEILLE = g.veille;
   CONFIG.PAUSE_APRES_TOUCHER = g.rotation.pause;
   CONFIG.THEME = g.theme.mode; CONFIG.NUIT_DEBUT = g.theme.nuitDebut; CONFIG.NUIT_FIN = g.theme.nuitFin;
   REGLAGES = g; REGLAGES_MAJ = R.maj;
@@ -189,9 +209,14 @@ function construire(){
 
     var t = document.createElement('div');
     t.className = 'tab';
+    if (S[i].horsRotation) t.style.display = 'none';
     t.innerHTML = SVG_DEBUT + ICONES[S[i].icone] + '</svg><span>' + S[i].nom + '</span>';
     (function(index){
-      t.addEventListener('click', function(){ afficher(index); mettreEnPause(); });
+      t.addEventListener('click', function(){
+        pauseJusqua = Date.now() + CONFIG.PAUSE_APRES_TOUCHER * 1000;   // d'abord la pause, puis la page choisie
+        majPause();
+        if (index === actuel) programmer(); else afficher(index);
+      });
     })(i);
     zoneTabs.appendChild(t);
     tabs.push(t);
@@ -223,6 +248,28 @@ function afficher(index){
   actuel = index;
   programmer();
 }
+/* ---------- Écran fixe selon l'heure ---------- */
+function enMinutes(hhmm){ var p = String(hhmm).split(':'); return parseInt(p[0], 10) * 60 + parseInt(p[1], 10); }
+function plageActive(){
+  var d = new Date(), m = d.getHours() * 60 + d.getMinutes(), j = d.getDay(), veille = (j + 6) % 7;
+  for (var i = 0; i < CONFIG.PLAGES.length; i++) {
+    var P = CONFIG.PLAGES[i], a = enMinutes(P.debut), b = enMinutes(P.fin), jours = P.jours || [];
+    var dedans = a < b ? (jours.indexOf(j) >= 0 && m >= a && m < b)
+      : ((jours.indexOf(j) >= 0 && m >= a) || (jours.indexOf(veille) >= 0 && m < b));   // plage qui passe minuit
+    if (dedans) for (var k = 0; k < S.length; k++) if (S[k].id === P.page) return { index: k, fin: P.fin };
+  }
+  return null;
+}
+var etatFixe = '';
+function majFixe(P){
+  var z = document.getElementById('fixe');
+  z.className = P ? 'on' : '';
+  if (P) document.getElementById('fixeTexte').innerHTML = S[P.index].nom + ' jusqu\'à ' + P.fin.replace(':', ' h ');
+}
+function suivanteEnRotation(){
+  for (var n = 1; n <= S.length; n++) { var k = (actuel + n) % S.length; if (!S[k].horsRotation) return k; }
+  return actuel;
+}
 function programmer(){
   clearTimeout(minuteur);
   var maintenant = Date.now();
@@ -231,9 +278,19 @@ function programmer(){
     minuteur = setTimeout(function(){ pauseJusqua = 0; majPause(); programmer(); }, pauseJusqua - maintenant);
     return;
   }
+  var P = plageActive();
+  majFixe(P);
+  etatFixe = P ? P.index + '|' + P.fin : '';
+  if (P) {                                   // écran fixe : pas de rotation, on revérifie toutes les 30 s
+    lancerBarre(0);
+    if (actuel !== P.index) { afficher(P.index); return; }
+    minuteur = setTimeout(programmer, 30000);
+    return;
+  }
+  if (S[actuel] && S[actuel].horsRotation) { afficher(suivanteEnRotation()); return; }
   var d = dureeSlide();
   lancerBarre(d);
-  minuteur = setTimeout(function(){ afficher((actuel + 1) % S.length); }, d * 1000);
+  minuteur = setTimeout(function(){ afficher(suivanteEnRotation()); }, d * 1000);
 }
 function mettreEnPause(){
   pauseJusqua = Date.now() + CONFIG.PAUSE_APRES_TOUCHER * 1000;
@@ -248,11 +305,53 @@ window.addEventListener('message', function(e){
   if (e.data && e.data.type === 'interaction') mettreEnPause();
 });
 
+/* ---------- Veille : écran noir la nuit, réveil au toucher ---------- */
+var zoneVeille = document.getElementById('veille'), reveilJusqua = 0, enVeille = false;
+var luminositeAvant = null;
+function heureDeVeille(){
+  var V = CONFIG.VEILLE;
+  if (!V || !V.actif) return false;
+  var d = new Date(), m = d.getHours() * 60 + d.getMinutes(), a = enMinutes(V.debut), b = enMinutes(V.fin);
+  return a < b ? (m >= a && m < b) : (m >= a || m < b);
+}
+// Avec Fully Kiosk (interface JavaScript activée), on baisse aussi le rétroéclairage
+function luminosite(niveau){
+  try {
+    if (typeof fully === 'undefined' || !fully.setScreenBrightness) return;
+    if (niveau === null) { if (luminositeAvant !== null) fully.setScreenBrightness(luminositeAvant); }
+    else { if (luminositeAvant === null) luminositeAvant = parseInt(fully.getScreenBrightness(), 10); fully.setScreenBrightness(niveau); }
+  } catch (e) {}
+}
+function majVeille(){
+  var doit = heureDeVeille() && Date.now() > reveilJusqua;
+  if (doit === enVeille) return;
+  enVeille = doit;
+  zoneVeille.className = doit ? 'on' : '';
+  luminosite(doit ? 0 : null);
+}
+function reveiller(e){
+  if (!enVeille) return;
+  if (e) { e.preventDefault(); e.stopPropagation(); }   // ce toucher ne sert qu'à rallumer
+  reveilJusqua = Date.now() + (CONFIG.VEILLE.reveil || 120) * 1000;
+  majVeille();
+}
+zoneVeille.addEventListener('touchstart', reveiller);
+zoneVeille.addEventListener('mousedown', reveiller);
+// Tant qu'on se sert de l'écran, on repousse la mise en veille
+function prolongerReveil(){ if (heureDeVeille()) reveilJusqua = Math.max(reveilJusqua, Date.now() + (CONFIG.VEILLE.reveil || 120) * 1000); }
+document.addEventListener('touchstart', prolongerReveil, true);
+window.addEventListener('message', function(e){ if (e.data && e.data.type === 'interaction') prolongerReveil(); });
+
 /* ---------- Horloge + changement de thème ---------- */
 var horloge = document.getElementById('clock');
 function tic(){
+  majVeille();
   var d = new Date();
   horloge.innerHTML = pad(d.getHours()) + ':' + pad(d.getMinutes());
+  if (S && pauseJusqua <= Date.now()) {
+    var P = plageActive(), e = P ? P.index + '|' + P.fin : '';
+    if (e !== etatFixe) programmer();
+  }
   var nouveau = calculerTheme();
   if (nouveau !== theme) {
     theme = nouveau;
@@ -283,7 +382,8 @@ lireReglages(function(R){
   tic();
   setInterval(tic, 5000);
   setInterval(surveillerReglages, 120000);
-  afficher(0);
+  var P0 = plageActive();
+  afficher(P0 ? P0.index : 0);
 });
 </script>
 </body>

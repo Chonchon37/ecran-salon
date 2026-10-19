@@ -106,6 +106,7 @@ function pad(n){ return (n < 10 ? '0' : '') + n; }
 function themeAuto(){ var h = new Date().getHours(); return (h >= 19 || h < 7) ? 'nuit' : 'jour'; }
 function appliquerTheme(t){ if (!t || t === 'auto') t = themeAuto(); document.documentElement.className = t === 'nuit' ? 'nuit' : ''; }
 appliquerTheme(param('theme'));
+if (!CONFIG.DEMO) document.getElementById('demo').style.display = 'none';
 window.addEventListener('message', function(e){ if (e.data && e.data.type === 'theme') appliquerTheme(e.data.value); });
 function signalerToucher(){ if (window.parent !== window) { try { window.parent.postMessage({ type: 'interaction' }, '*'); } catch (err) {} } }
 document.addEventListener('touchstart', signalerToucher, true);
