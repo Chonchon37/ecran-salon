@@ -27,7 +27,11 @@ body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;fon
 .lien{cursor:pointer;transition:transform .15s}
 .lien:active{-webkit-transform:scale(.985);transform:scale(.985)}
 .voir{margin-left:auto;font-size:30px;line-height:.6;font-weight:600;color:var(--muted);letter-spacing:0}
-.voir.coin{position:absolute;top:30px;right:24px}
+.row.seul .tr{margin-right:0}
+.tr{justify-content:center}
+.tr .tl:first-child{margin-top:0}
+.home-top{justify-content:flex-start !important}
+.wx-cond:empty{display:none}
 .ag{position:relative}
 .demo{font-size:12px;letter-spacing:.06em;padding:3px 9px;border-radius:20px;background:var(--warn-soft);color:var(--warn);font-weight:700;text-transform:uppercase;display:inline-block}
 
@@ -70,8 +74,8 @@ body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;fon
 .tl-m b{letter-spacing:-.02em}
 .tl-n{font-size:16px;color:var(--ok);font-weight:700;white-space:nowrap}
 .tl-n.vite{color:var(--warn)}
-.bd{flex:1;display:flex;flex-direction:column;min-width:0}
-.bd-q{font-size:30px;font-weight:600;margin-top:auto;line-height:1.05;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bd{flex:1;display:flex;flex-direction:column;min-width:0;justify-content:center}
+.bd-q{font-size:30px;font-weight:600;line-height:1.05;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .bd-j{font-size:20px;font-weight:700;color:var(--fete);margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .bd-d{font-size:17px;color:var(--muted);margin-top:4px;font-weight:400}
 .bd-j .bd-d{margin-top:0}
@@ -118,7 +122,6 @@ body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;fon
       <div class="msg" id="msg" hidden></div>
     </div>
     <div class="card wx lien" data-page="meteo">
-      <div class="label">Météo · Tours Nord<span class="voir">›</span></div>
       <div class="wx-main"><div id="wxIcon"></div><div class="wx-temp h" id="wxTemp"></div></div>
       <div class="wx-cond" id="wxCond"></div>
       <div class="wx-hl" id="wxHL"></div>
@@ -129,12 +132,12 @@ body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;fon
   </div>
   <div class="right">
     <div class="row">
-      <div class="card tr lien" data-page="transports"><div class="label">Prochains départs<span class="voir">›</span></div><div id="tr"></div></div>
+      <div class="card tr lien" data-page="transports"><div id="tr"></div></div>
       <div class="card bd lien" id="bd" data-page="anniversaires"></div>
     </div>
     <div class="card ag lien" id="ag" data-page="agenda"></div>
     <div class="card home">
-      <div class="home-top"><div class="label">Maison</div><div class="home-s" id="homeS"></div></div>
+      <div class="home-top"><div class="home-s" id="homeS"></div></div>
       <div class="sc" id="sc"></div>
     </div>
   </div>
@@ -255,7 +258,7 @@ function afficherMeteo(){
     var code = mockCode(h);
     $('wxIcon').innerHTML = iconeMeteo(code, jourA(h), 112);
     $('wxTemp').innerHTML = mockTemp(h) + '°';
-    $('wxCond').innerHTML = libelleMeteo(code, jourA(h));
+    $('wxCond').innerHTML = '';
     $('wxHL').innerHTML = 'Max 16° · Min 9°';
     $('wxAlert').innerHTML = '<div class="alert">' + PARAPLUIE + textePluie() + '</div>';
     for (i = 1; i <= 5; i++) {
@@ -269,7 +272,7 @@ function afficherMeteo(){
   var c = meteo.current, now = new Date();
   $('wxIcon').innerHTML = iconeMeteo(c.weather_code, c.is_day === 1, 112);
   $('wxTemp').innerHTML = Math.round(c.temperature_2m) + '°';
-  $('wxCond').innerHTML = libelleMeteo(c.weather_code, c.is_day === 1);
+  $('wxCond').innerHTML = '';   // l'icône suffit
   $('wxHL').innerHTML = 'Max ' + Math.round(meteo.daily.temperature_2m_max[0]) + '° · Min ' + Math.round(meteo.daily.temperature_2m_min[0]) + '°';
   // Pluie : combien de temps il pleut, ou quand ça commence
   $('wxAlert').innerHTML = textePluieReel(now);
@@ -418,7 +421,7 @@ function afficher(){
     for (var b = 0; b < agendaReel.anniversaires.length && AN.length < 3; b++) {
       var x = agendaReel.anniversaires[b], dx = new Date(x.date);
       var dj = new Date(dx.getFullYear(), dx.getMonth(), dx.getDate());
-      if (dj >= auj) AN.push({ nom: x.nom, date: dj, age: x.annee ? dj.getFullYear() - x.annee : 0 });
+      if (dj >= auj && dj - auj <= 30 * 86400000) AN.push({ nom: x.nom, date: dj, age: x.annee ? dj.getFullYear() - x.annee : 0 });
     }
   } else if (!prive()) {
     for (var dm = 0; dm < DEMO_ANNIV.length; dm++) {
@@ -429,7 +432,11 @@ function afficher(){
     AN.sort(function(p, q){ return p.date - q.date; });
   }
   function dansJours(d){ var n = Math.round((d - auj) / 86400000); return n === 0 ? 'Aujourd\'hui !' : (n === 1 ? 'Demain' : 'Dans ' + n + ' jours'); }
-  var titreBd = '<div class="label">' + (AN.length > 1 ? 'Prochains anniversaires' : 'Prochain anniversaire') + '<span class="voir">›</span></div>';
+  var titreBd = '';
+  // Pas d'anniversaire dans les 30 jours : la tuile disparaît et les transports prennent toute la largeur
+  var sansAnniv = !AN.length && (!prive() || agendaReel);
+  $('bd').style.display = sansAnniv ? 'none' : '';
+  $('bd').parentNode.className = 'row' + (sansAnniv ? ' seul' : '');
   if (AN.length) {
     var A = AN[0], bd = titreBd +
       '<div class="bd-q h">' + echapper(A.nom) + '</div>' +
@@ -447,7 +454,7 @@ function afficher(){
   }
 
   // Agenda : ce qui reste aujourd'hui, puis demain
-  var ag = '<span class="voir coin">›</span>', restAuj = [], demain = [];
+  var ag = '', restAuj = [], demain = [];
   if (agendaReel && agendaReel.evenements) {
     var demain0 = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).getTime(), demain1 = demain0 + 86400000;
     for (var e = 0; e < agendaReel.evenements.length; e++) {
