@@ -67,6 +67,12 @@ body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;fon
 .mh{flex:1;display:flex;flex-direction:column;align-items:center;min-width:0}
 .mh-t{font-size:16px;font-weight:600;color:var(--muted)}
 .mh-v{font-size:21px;font-weight:600}
+.wx-haut{display:flex;align-items:center;flex:none}
+.wx-cote{flex:1;min-width:0;margin-left:28px;display:flex;flex-direction:column;justify-content:center}
+.wx-cote .alert,.wx-cote .vigi{margin-top:10px}
+.wx-puces{display:flex;flex-wrap:wrap;margin:-4px}
+.wx-puces span{margin:4px;padding:7px 12px;border-radius:12px;background:var(--card2);font-size:17px;font-weight:600;white-space:nowrap}
+.wx-puces b{color:var(--muted);font-weight:600;margin-right:3px}
 .jours-p{border-top:2px solid var(--line);margin-top:12px;padding-top:8px}
 .jp{display:flex;align-items:center;font-size:19px;line-height:1.9}
 .jp-n{width:70px;font-weight:600}
@@ -264,7 +270,7 @@ var meteo = null, transportsReels = null, agendaReel = null, maisonReelle = null
 function chargerMeteo(){
   if (!CONFIG.METEO_REELLE) return;
   lireJson('https://api.open-meteo.com/v1/forecast?latitude=' + CONFIG.LAT + '&longitude=' + CONFIG.LON +
-    '&current=temperature_2m,weather_code,is_day&minutely_15=precipitation&forecast_minutely_15=26' +
+    '&current=temperature_2m,weather_code,is_day,apparent_temperature,wind_speed_10m,wind_direction_10m,relative_humidity_2m&minutely_15=precipitation&forecast_minutely_15=26' +
     '&hourly=temperature_2m,weather_code,is_day,precipitation&forecast_hours=36' +
     '&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=Europe%2FParis&forecast_days=5', function(j){ meteo = j; afficher(); });
 }
@@ -426,8 +432,23 @@ function tuileMeteo(T, now, l, h){
         '<div class="jp-t">' + Math.round(meteo.daily.temperature_2m_min[d]) + '° · <b>' + Math.round(meteo.daily.temperature_2m_max[d]) + '°</b></div></div>';
     }
   }
-  var gauche = '<div class="wx-gauche"><div class="wx-main">' + iconeMeteo(code, jour, petit || large ? 84 : 112) + '<div class="wx-temp h">' + temp + '°</div></div>' +
-    '<div class="wx-hl">Max ' + max + '° · Min ' + min + '°</div>' + texteVigi() + '<div data-p="3">' + textePluie(now) + '</div></div>';
+  var gauche;
+  if (l >= 2 && h >= 2) {
+    // Grande tuile : à droite de la température, ressenti / vent / humidité, vigilance et pluie
+    var cur = meteo ? meteo.current : null, puces = '';
+    if (cur && cur.apparent_temperature != null) {
+      puces = '<div class="wx-puces">' +
+        '<span><b>Ressenti</b> ' + Math.round(cur.apparent_temperature) + '°</span>' +
+        '<span><b>Vent</b> ' + Math.round(cur.wind_speed_10m) + ' km/h ' + ['N', 'NE', 'E', 'SE', 'S', 'SO', 'O', 'NO'][Math.round(cur.wind_direction_10m / 45) % 8] + '</span>' +
+        '<span><b>Humidité</b> ' + Math.round(cur.relative_humidity_2m) + ' %</span></div>';
+    }
+    gauche = '<div class="wx-haut"><div class="wx-gauche"><div class="wx-main">' + iconeMeteo(code, jour, 112) + '<div class="wx-temp h">' + temp + '°</div></div>' +
+      '<div class="wx-hl">Max ' + max + '° · Min ' + min + '°</div></div>' +
+      '<div class="wx-cote">' + puces + texteVigi() + '<div data-p="3">' + textePluie(now) + '</div></div></div>';
+  } else {
+    gauche = '<div class="wx-gauche"><div class="wx-main">' + iconeMeteo(code, jour, petit || large ? 84 : 112) + '<div class="wx-temp h">' + temp + '°</div></div>' +
+      '<div class="wx-hl">Max ' + max + '° · Min ' + min + '°</div>' + texteVigi() + '<div data-p="3">' + textePluie(now) + '</div></div>';
+  }
   var mini = '<div class="mini" data-p="4"><div class="mini-t">' + P.titre + '</div><div class="mini-h">' + mh + '</div></div>';
   T.innerHTML = '<div class="wx-corps">' + gauche + (large ? '<div class="wx-droite">' + mini + '</div>' : mini + (jp ? '<div class="jours-p">' + jp + '</div>' : '')) + '</div>';
   if (!large && jp) { var m = T.querySelector('.mini'); m.style.marginTop = '14px'; T.querySelector('.jours-p').style.marginTop = 'auto'; }
