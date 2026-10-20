@@ -56,6 +56,11 @@ body{
   background:var(--warn-soft);color:var(--warn);font-size:15px;font-weight:700;cursor:pointer;
 }
 #pause svg{width:16px;height:16px;margin-right:6px}
+#pause{position:relative}
+/* Contour qui se vide au fil de la pause */
+#pause svg.tour{position:absolute;left:0;top:0;width:100%;height:100%;margin:0;overflow:visible;pointer-events:none}
+#pause svg.tour rect{fill:none;stroke:var(--warn);stroke-width:3;stroke-linecap:round;stroke-dasharray:100 100}
+#pause svg.tour rect.fond{stroke-dasharray:none;opacity:.22}
 #pause.on{display:flex}
 #fixe{
   display:none;align-items:center;height:36px;padding:0 14px;margin-right:16px;border-radius:18px;
@@ -83,6 +88,7 @@ body{
       <div id="pause" title="Reprendre la rotation">
         <svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
         <span>En pause</span>
+        <svg class="tour"><rect class="fond" x="1.5" y="1.5" width="100%" height="100%" rx="16.5" ry="16.5" style="width:calc(100% - 3px);height:calc(100% - 3px)"/><rect id="pauseTour" x="1.5" y="1.5" width="100%" height="100%" rx="16.5" ry="16.5" pathLength="100" style="width:calc(100% - 3px);height:calc(100% - 3px)"/></svg>
       </div>
       <div id="fixe"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg><span id="fixeTexte"></span></div>
       <div id="clock">--:--</div>
@@ -317,7 +323,16 @@ function mettreEnPause(){
   majPause();
   programmer();
 }
-function majPause(){ zonePause.className = pauseJusqua > Date.now() ? 'on' : ''; }
+function majPause(){
+  var reste = pauseJusqua - Date.now();
+  zonePause.className = reste > 0 ? 'on' : '';
+  var r = document.getElementById('pauseTour');
+  if (reste <= 0) return;
+  // le contour repart plein, puis se vide en ligne droite jusqu'à la fin de la pause
+  r.style.transition = 'none'; r.style.strokeDashoffset = '0';
+  r.getBoundingClientRect();
+  setTimeout(function(){ r.style.transition = 'stroke-dashoffset ' + (reste / 1000) + 's linear'; r.style.strokeDashoffset = '100'; }, 30);
+}
 zonePause.addEventListener('click', function(){ pauseJusqua = 0; majPause(); programmer(); });
 
 // Un toucher à l'intérieur d'une slide (bouton domotique…) met aussi en pause
