@@ -10,6 +10,7 @@
  *  ECRAN_CLE   (secret) mot de passe de l'écran, ajouté à l'adresse du cadre : ?cle=…
  *  GOOGLE_ICS1, GOOGLE_ICS2… (secrets) adresses secrètes au format iCal de tes Google Agenda
  *  HA_URL      (texte)  https://ha.petitgeranium.duckdns.org
+ *  HA_ALERTE   (texte, facultatif) capteur de vigilance Météo-France, par défaut sensor.37_weather_alert
  *  HA_TOKEN    (secret) jeton d'accès longue durée Home Assistant
  *  ADMIN_CLE   (secret, facultatif) mot de passe de la page admin (sinon : ECRAN_CLE)
  *  Liaison KV « REGLAGES » : stockage des réglages modifiés depuis la page admin
@@ -29,7 +30,7 @@ const FLUX_ALERTES = 'https://data.filbleu.fr/ws-tr/gtfs-rt/opendata/service-ale
 const FLUX_INCIDENTS = 'https://www.filbleu.fr/rss-incident.xml';   // l'info trafic du site filbleu.fr (travaux, déviations…)
 const NOMS_ARRETS = { 'A': 'Monconseil', '2': 'Maréchal Juin' };
 const CACHE_SECONDES = 20;
-const VERSION = '14';   // à changer à chaque mise à jour du code : vide les caches
+const VERSION = '15';   // à changer à chaque mise à jour du code : vide les caches
 
 // Horaires prévus, format compact : "jours" = n° de grille pour chaque jour depuis "debut",
 // chaque ligne "g=" = minutes depuis minuit, écrites en écarts successifs.
@@ -690,6 +691,31 @@ async function construireMaison(env) {
   }
   return { maj: Date.now(), lumieres: lumieres, scenes: scenes };
 }
+/* Vigilance Météo-France, lue dans Home Assistant (intégration Météo-France : capteur « … Weather alert ») */
+const COULEURS_VIGI = { vert: 1, jaune: 2, orange: 3, rouge: 4 };
+const ALERTE_PAR_DEFAUT = 'sensor.37_weather_alert';
+async function construireVigilance(env) {
+  const h = { Authorization: 'Bearer ' + env.HA_TOKEN };
+  let e = null;
+  const r = await fetch(haUrl(env, '/api/states/' + (env.HA_ALERTE || ALERTE_PAR_DEFAUT)), { headers: h });
+  if (r.ok) e = await r.json();
+  else {
+    // pas trouvé sous ce nom : on cherche le capteur d'alerte parmi toutes les entités
+    const tous = await etatsHA(env);
+    e = tous.find(x => /^sensor\..*weather_alert/.test(x.entity_id)) ||
+        tous.find(x => x.entity_id.startsWith('sensor.') && COULEURS_VIGI[String(x.state).toLowerCase()] && x.attributes && /m[ée]t[ée]o.?france/i.test(x.attributes.attribution || '')) || null;
+  }
+  if (!e) return { maj: Date.now(), trouve: false };
+  const phenomenes = [];
+  for (const k in e.attributes || {}) {
+    const v = String(e.attributes[k]).toLowerCase();
+    if (COULEURS_VIGI[v] && k !== 'friendly_name') phenomenes.push({ nom: k, niveau: v });
+  }
+  phenomenes.sort((a, b) => COULEURS_VIGI[b.niveau] - COULEURS_VIGI[a.niveau]);
+  let niveau = String(e.state).toLowerCase();
+  if (!COULEURS_VIGI[niveau]) niveau = phenomenes.length ? phenomenes[0].niveau : 'inconnu';
+  return { maj: Date.now(), trouve: true, entite: e.entity_id, niveau: niveau, phenomenes: phenomenes };
+}
 // Liste de tout ce qui peut être choisi dans la page admin
 async function catalogueMaison(env) {
   const etats = await etatsHA(env), res = { lumieres: [], modes: [{ id: 'special.tout_eteindre', nom: 'Tout éteindre (intégré)', type: 'intégré' }] };
@@ -762,6 +788,7 @@ export default {
 
       if (chemin === '/agenda') return await avecCache('agenda', 300, () => construireAgenda(env), entetes, ctx);
       if (chemin === '/maison') return repondre(await construireMaison(env), 200, entetes);
+      if (chemin === '/vigilance') return await avecCache('vigilance', 300, () => construireVigilance(env), entetes, ctx);
       if (chemin === '/maison/action' && request.method === 'POST') {
         let corps = {};
         try { corps = JSON.parse(await request.text()); } catch (e) {}
@@ -784,7 +811,7 @@ export default {
         if (!estAdmin) return repondre({ erreur: 'Clé admin requise' }, 403, entetes);
         return repondre(await catalogueMaison(env), 200, entetes);
       }
-      return repondre({ ok: true, adresses: ['/transports', '/agenda', '/maison', '/reglages'] }, 200, entetes);
+      return repondre({ ok: true, adresses: ['/transports', '/agenda', '/maison', '/vigilance', '/reglages'] }, 200, entetes);
     } catch (e) {
       return repondre({ erreur: String(e.message || e) }, 502, entetes);
     }
