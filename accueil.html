@@ -39,6 +39,12 @@ body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;fon
 .l2 .greet,.l3 .greet,.l4 .greet{font-size:68px}
 .date{font-size:26px;font-weight:500;margin-top:10px}
 .l2 .date,.l3 .date,.l4 .date{font-size:30px}
+.date-meteo{display:flex;align-items:center;margin-top:8px;flex:none}
+.date-meteo span{font-size:34px;font-weight:600;margin-left:6px;letter-spacing:-.02em}
+.date-meteo small{font-size:18px;color:var(--muted);margin-left:12px}
+.demi .date-meteo{margin-top:2px}
+.demi .date-meteo svg{width:30px;height:30px}
+.demi .date-meteo span{font-size:24px}
 .msg{display:inline-block;margin-top:12px;padding:8px 14px;border-radius:12px;background:var(--fete-soft);color:var(--fete);font-size:20px;font-weight:700;line-height:1.3;align-self:flex-start}
 
 /* Météo */
@@ -313,11 +319,21 @@ function taillerParPriorite(boite){
 }
 
 /* ---------- Tuile Date ---------- */
+// Météo du moment, en petit sous la date
+function meteoActuelle(now){
+  var hr = now.getHours(), code, jour, temp;
+  if (meteo) { code = meteo.current.weather_code; jour = meteo.current.is_day === 1; temp = Math.round(meteo.current.temperature_2m); }
+  else if (CONFIG.METEO_REELLE) return '';
+  else { code = mockCode(hr); jour = jourA(hr); temp = mockTemp(hr); }
+  return '<div class="date-meteo" data-p="2">' + iconeMeteo(code, jour, 44) + '<span class="h">' + temp + '°</span>' +
+    (meteo ? '<small>' + Math.round(meteo.daily.temperature_2m_min[0]) + '° / ' + Math.round(meteo.daily.temperature_2m_max[0]) + '°</small>' : '') + '</div>';
+}
 function tuileDate(T, now){
   var h = now.getHours();
   T.className += ' nu';
   T.innerHTML = '<div class="greet h">' + (h < 5 ? 'Bonne nuit' : (h < 12 ? 'Bonjour' : (h < 18 ? 'Bon après-midi' : 'Bonsoir'))) + '</div>' +
     '<div class="date">' + majuscule(JOURS[now.getDay()]) + ' ' + now.getDate() + ' ' + MOIS[now.getMonth()] + (prive() ? '' : ' <span class="demo">exemple</span>') + '</div>' +
+    meteoActuelle(now) +
     (MESSAGE ? '<div class="msg" data-p="1">' + echapper(MESSAGE) + '</div>' : '');
   taillerParPriorite(T);
 }
