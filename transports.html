@@ -9,13 +9,13 @@
 :root{
   --bg:#E8ECE3; --card:#F7F8F4; --card2:#E3E8DD; --ink:#16201A; --muted:#55615A; --line:#D3DACE;
   --ok:#2E7346; --warn:#B4501B; --warn-soft:#F6E0D2;
-  --go-bg:#2E7346; --go-ink:#FFFFFF; --hurry-bg:#B9501A; --hurry-ink:#FFFFFF; --none-bg:#E3E8DD; --none-ink:#55615A;
+  --go-bg:#E3E8DD; --go-ink:#16201A; --go-acc:#2E7346; --hurry-bg:#F6E3D6; --hurry-ink:#9A3F12; --none-bg:#E3E8DD; --none-ink:#55615A;
   --tram:#BD074E; --bus:#004488; --badge-ink:#FFFFFF;
 }
 html.nuit{
   --bg:#0E1216; --card:#1A1F25; --card2:#252C34; --ink:#F2F5F3; --muted:#A8B2AC; --line:#323A43;
   --ok:#5FD08A; --warn:#FF9A5C; --warn-soft:#3B2417;
-  --go-bg:#2B8A4F; --go-ink:#FFFFFF; --hurry-bg:#D9622A; --hurry-ink:#FFFFFF; --none-bg:#252C34; --none-ink:#C3CBC6;
+  --go-bg:#232A31; --go-ink:#F2F5F3; --go-acc:#6CCB91; --hurry-bg:#38251A; --hurry-ink:#FFA36B; --none-bg:#252C34; --none-ink:#C3CBC6;
   --tram:#E0306F; --bus:#3D7FD1; --badge-ink:#FFFFFF;
 }
 html,body{margin:0;width:1280px;height:728px;overflow:hidden;background:var(--bg)}
@@ -41,12 +41,14 @@ body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;fon
 .badge{width:62px;height:62px;display:flex;align-items:center;justify-content:center;font-family:"Bricolage Grotesque",Figtree,Arial,sans-serif;font-size:36px;font-weight:700;color:var(--badge-ink);margin-right:18px;flex:none}
 .badge.tram{background:var(--tram);border-radius:50%}
 .badge.bus{background:var(--bus);border-radius:14px}
-.ln-txt{min-width:0}
+.ln-txt{flex:1;min-width:0}
+.ln-l1{display:flex;align-items:center}
+.ln-stop{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;margin-right:12px}
 .ln-stop{font-size:32px;font-weight:600;line-height:1.1}
 .ln-sub{font-size:20px;color:var(--muted);margin-top:4px;display:flex;align-items:center;white-space:nowrap}
 .ln-sub svg{width:20px;height:20px;margin:0 4px 0 2px;flex:none}
 .ln-sub .sep{margin:0 8px}
-.ln-status{margin-left:auto;font-size:16px;font-weight:700;padding:7px 13px;border-radius:16px;background:var(--card2);color:var(--ok);align-self:flex-start;white-space:nowrap}
+.ln-status{margin-left:auto;font-size:16px;font-weight:700;padding:7px 13px;border-radius:16px;background:var(--card2);color:var(--ok);white-space:nowrap;flex:none}
 .ln-status.pb{background:var(--warn-soft);color:var(--warn)}
 .ln-status.lien{cursor:pointer;font-size:18px;padding:10px 14px 10px 16px;display:flex;align-items:center}
 .ln-status .chev{font-size:24px;line-height:16px;margin-left:8px;font-weight:700}
@@ -94,7 +96,10 @@ body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;fon
 .line.serre .hero-h{font-size:46px}
 .hero.vite{background:var(--hurry-bg);color:var(--hurry-ink)}
 .hero.rien{background:var(--none-bg);color:var(--none-ink)}
-.hero-l{font-size:22px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;opacity:.92}
+.hero-l{font-size:22px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--go-acc)}
+.hero.vite .hero-l,.hero.rien .hero-l{color:inherit}
+.hero-x{color:var(--muted)}
+.hero.vite .hero-x{color:inherit}
 .hero-n{font-size:168px;font-weight:600;line-height:.92;letter-spacing:-.04em;margin-top:6px}
 .hero-n small{font-size:52px;font-weight:600;letter-spacing:0;margin-left:10px}
 .hero-n.mot{font-size:84px;line-height:1;letter-spacing:-.02em}
@@ -248,9 +253,8 @@ function carte(cfg, D){
   var P = (D ? D.passages : []).filter(function(p){ return p.heure > Date.now() - 30000; });
   var html = '<div class="card line' + (ALIGNER ? ' serre' : '') + '"><div class="ln-head">' +
     '<div class="badge ' + cfg.type + '">' + cfg.ligne + '</div>' +
-    '<div class="ln-txt"><div class="ln-stop h">' + cfg.arret + '</div>' +
-    '<div class="ln-sub">vers ' + cfg.direction + '<span class="sep">·</span>' + PIETON + cfg.marche + ' min à pied</div></div>' +
-    etatTrafic(D, P, cfg) + '</div>';
+    '<div class="ln-txt"><div class="ln-l1"><div class="ln-stop h">' + cfg.arret + '</div>' + etatTrafic(D, P, cfg) + '</div>' +
+    '<div class="ln-sub">vers ' + cfg.direction + '<span class="sep">·</span>' + PIETON + cfg.marche + ' min à pied</div></div></div>';
 
   // Premier passage qu'on peut encore attraper à pied
   var cible = -1;
