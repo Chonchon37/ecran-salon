@@ -29,7 +29,7 @@ const FLUX_ALERTES = 'https://data.filbleu.fr/ws-tr/gtfs-rt/opendata/service-ale
 const FLUX_INCIDENTS = 'https://www.filbleu.fr/rss-incident.xml';   // l'info trafic du site filbleu.fr (travaux, déviations…)
 const NOMS_ARRETS = { 'A': 'Monconseil', '2': 'Maréchal Juin' };
 const CACHE_SECONDES = 20;
-const VERSION = '12';   // à changer à chaque mise à jour du code : vide les caches
+const VERSION = '13';   // à changer à chaque mise à jour du code : vide les caches
 
 // Horaires prévus, format compact : "jours" = n° de grille pour chaque jour depuis "debut",
 // chaque ligne "g=" = minutes depuis minuit, écrites en écarts successifs.
@@ -186,7 +186,7 @@ function lireAlertes(b, maintenant) {
 /* ---------------- Info trafic du site filbleu.fr (flux RSS) ---------------- */
 function decoderXml(t) {
   // le site encode deux fois (« &amp;nbsp; », « &lt;p&gt; ») : on décode en deux passes
-  return decoder1(decoder1(t)).replace(/[\u274C\u26A0\uFE0F]/g, '').replace(/\s+/g, ' ').trim();
+  return decoder1(decoder1(t)).replace(/\s*\u274C\uFE0F?\s*/g, '. ').replace(/[\u26A0\uFE0F]/g, '').replace(/\s+/g, ' ').trim();
 }
 function decoder1(t) {
   return t.replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1')
@@ -212,6 +212,10 @@ function lignesCitees(t) {
   }
   return res;
 }
+function nettoyerDetail(t) {
+  return t.replace(/\s*(Voir|Consulter) le plan.*$/i, '').replace(/\s*:\s*-\s*/g, ' : ').replace(/\s*-\s+du /g, ', du ').replace(/\.\s*\./g, '.')
+    .replace(/([a-zé)])(?=[A-ZÉ][a-zé])/g, '$1. ').replace(/,(?=\S)/g, ', ').replace(/\s*>\s*/g, ' → ').replace(/\s+/g, ' ').trim();
+}
 function lireIncidents(xml, maintenant) {
   const res = {}, vus = {};
   for (const l in ARRETS) { res[l] = []; vus[l] = new Set(); }
@@ -229,6 +233,8 @@ function lireIncidents(xml, maintenant) {
       res[l].push({
         titre: court.slice(0, 90),
         texte: texte.split(/Arrêt\(s\) de report|Voir le plan|Consulter le plan/i)[0].replace(/([a-zé])\.?\s*$/, '$1.').replace(/:\s*-\s*/g, ' : ').replace(/\s*-\s+du /g, ', du ').replace(/^En raison d[e'’][^,]{0,60},\s*(\S)/i, (m, c) => c.toUpperCase()).trim().slice(0, 200),
+        detail: nettoyerDetail(texte.split(/Arrêt\(s\) de report/i)[0]).slice(0, 700),
+        report: nettoyerDetail((texte.split(/Arrêt\(s\) de report\s*:?/i)[1] || '')).slice(0, 400),
         debut: debut,
         aVenir: debut > maintenant,
         arret: texte.indexOf(NOMS_ARRETS[l]) >= 0 || titre.indexOf(NOMS_ARRETS[l]) >= 0

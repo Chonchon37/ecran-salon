@@ -50,6 +50,26 @@ body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;fon
 .ln-status.pb{background:var(--warn-soft);color:var(--warn)}
 .alerte{margin-top:14px;padding:10px 16px 10px 14px;border-radius:12px;background:var(--card2);color:var(--ink);border-left:5px solid var(--warn);font-size:18px;font-weight:500;line-height:1.3;flex:none}
 .alerte b{color:var(--warn)}
+.alerte{position:relative;padding-right:92px;cursor:pointer}
+.alerte:after{content:'Détails ›';position:absolute;right:14px;top:50%;-webkit-transform:translateY(-50%);transform:translateY(-50%);font-size:15px;font-weight:700;color:var(--muted)}
+
+/* Panneau de détail des perturbations */
+#panneau{position:fixed;left:0;top:0;width:1280px;height:728px;background:var(--bg);z-index:10;display:none;box-sizing:border-box;padding:24px 36px;flex-direction:column}
+#panneau.ouvert{display:flex}
+.pn-tete{display:flex;align-items:center;margin-bottom:16px}
+.pn-tete .badge{width:52px;height:52px;font-size:30px}
+.pn-titre{font-size:30px;font-weight:600}
+.pn-fermer{margin-left:auto;font-size:20px;font-weight:700;padding:12px 22px;border-radius:14px;background:var(--card2);color:var(--ink)}
+.pn-liste{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;min-height:0}
+.pn-item{background:var(--card);border-radius:16px;padding:18px 24px;margin-bottom:12px;border-left:6px solid var(--warn)}
+.pn-item.bientot{border-left-color:var(--muted)}
+.pn-it-t{font-size:23px;font-weight:700}
+.pn-it-q{font-size:17px;font-weight:700;color:var(--warn);margin-top:3px;text-transform:uppercase;letter-spacing:.05em}
+.pn-item.bientot .pn-it-q{color:var(--muted)}
+.pn-it-d{font-size:20px;line-height:1.4;margin-top:8px}
+.pn-it-r{font-size:18px;line-height:1.4;margin-top:8px;color:var(--muted)}
+.pn-it-r b{color:var(--ink)}
+.pn-pied{font-size:16px;color:var(--muted);margin-top:10px}
 .alerte b{font-weight:700}
 .al-t{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
 .al-plus{display:block;margin-top:4px;font-size:15px;font-weight:600;opacity:.85;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -118,6 +138,7 @@ body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;fon
   </div>
   <div class="lines" id="lines"></div>
 </div>
+<div id="panneau"></div>
 
 <script>
 /* ===================== RÉGLAGES ===================== */
@@ -205,21 +226,21 @@ function etatTrafic(D, P){
   if (D.infoDispo === false) return '';
   return '<div class="ln-status">Aucune alerte</div>';
 }
-function encadreAlerte(D){
+function encadreAlerte(D, cfg){
   if (!D) return '';
   var E = enCours(D), V = aVenir(D);
-  if (D.perturbation) return '<div class="alerte"><span class="al-t">' + esc(D.perturbation) + '</span>' + (E.length ? '<span class="al-plus"> + ' + E.length + ' autre' + (E.length > 1 ? 's' : '') + ' sur le site Fil Bleu</span>' : '') + '</div>';
+  if (D.perturbation) return '<div class="alerte" data-ligne="' + cfg.ligne + '"><span class="al-t">' + esc(D.perturbation) + '</span>' + (E.length ? '<span class="al-plus"> + ' + E.length + ' autre' + (E.length > 1 ? 's' : '') + ' sur le site Fil Bleu</span>' : '') + '</div>';
   if (E.length) {
     var x = E[0];
-    return '<div class="alerte"><span class="al-t"><b>' + esc(x.titre) + '</b> — ' + esc(x.texte) + '</span>' +
+    return '<div class="alerte" data-ligne="' + cfg.ligne + '"><span class="al-t"><b>' + esc(x.titre) + '</b> — ' + esc(x.texte) + '</span>' +
       (E.length > 1 ? '<span class="al-plus">+ ' + (E.length - 1) + ' autre' + (E.length > 2 ? 's' : '') + ' : ' + esc(E.slice(1).map(function(y){ return y.titre; }).join(' · ')) + '</span>' : '') + '</div>';
   }
-  if (V.length) return '<div class="alerte bientot"><span class="al-t"><b>Dès ' + quand(V[0].debut) + '</b> — ' + esc(V[0].texte || V[0].titre) + '</span></div>';
+  if (V.length) return '<div class="alerte bientot" data-ligne="' + cfg.ligne + '"><span class="al-t"><b>Dès ' + quand(V[0].debut) + '</b> — ' + esc(V[0].texte || V[0].titre) + '</span></div>';
   return '';
 }
 function carte(cfg, D){
   var P = (D ? D.passages : []).filter(function(p){ return p.heure > Date.now() - 30000; });
-  var alerte = encadreAlerte(D);
+  var alerte = encadreAlerte(D, cfg);
   var html = '<div class="card line' + (alerte ? ' serre' : '') + '"><div class="ln-head">' +
     '<div class="badge ' + cfg.type + '">' + cfg.ligne + '</div>' +
     '<div class="ln-txt"><div class="ln-stop h">' + cfg.arret + '</div>' +
@@ -323,6 +344,39 @@ window.addEventListener('message', function(e){
   if (dernieresDonnees) afficher(dernieresDonnees);
 });
 charger();
+
+/* ---------- Toucher une perturbation : panneau de détail ---------- */
+var minuteurPanneau = null;
+function depuis(ms){ var d = new Date(ms); return 'depuis le ' + d.getDate() + ' ' + MS[d.getMonth()]; }
+function ouvrirPanneau(ligne){
+  var cfg = null, D = dernieresDonnees ? dernieresDonnees[ligne] : null;
+  for (var i = 0; i < CONFIG.LIGNES.length; i++) if (CONFIG.LIGNES[i].ligne === ligne) cfg = CONFIG.LIGNES[i];
+  if (!cfg || !D) return;
+  var h = '<div class="pn-tete"><div class="badge ' + cfg.type + '">' + cfg.ligne + '</div><div class="pn-titre h">Info trafic · ' + (cfg.type === 'tram' ? 'Tram ' : 'Ligne ') + cfg.ligne + '</div><div class="pn-fermer">Fermer ✕</div></div><div class="pn-liste">';
+  if (D.perturbation) h += '<div class="pn-item"><div class="pn-it-t">Alerte en cours</div><div class="pn-it-d">' + esc(D.perturbation) + '</div></div>';
+  var L = (D.incidents || []).slice().sort(function(a, b){ return (a.aVenir - b.aVenir) || (b.arret - a.arret); });
+  for (var k = 0; k < L.length; k++) {
+    var x = L[k];
+    h += '<div class="pn-item' + (x.aVenir ? ' bientot' : '') + '"><div class="pn-it-t">' + esc(x.titre) + '</div>' +
+      '<div class="pn-it-q">' + (x.aVenir ? 'À partir de ' + quand(x.debut) : 'En cours · ' + depuis(x.debut)) + (x.arret ? ' · ton arrêt' : '') + '</div>' +
+      '<div class="pn-it-d">' + esc(x.detail || x.texte) + '</div>' +
+      (x.report ? '<div class="pn-it-r"><b>Arrêts de report :</b> ' + esc(x.report) + '</div>' : '') + '</div>';
+  }
+  h += '</div><div class="pn-pied">Source : info trafic de filbleu.fr, relue toutes les 5 minutes. Le panneau se ferme tout seul après 1 min 30.</div>';
+  var p = $('panneau'); p.innerHTML = h; p.className = 'ouvert';
+  clearTimeout(minuteurPanneau); minuteurPanneau = setTimeout(fermerPanneau, 90000);
+}
+function fermerPanneau(){ $('panneau').className = ''; clearTimeout(minuteurPanneau); }
+$('lines').addEventListener('click', function(e){
+  var el = e.target;
+  while (el && el !== this && !(el.getAttribute && el.getAttribute('data-ligne'))) el = el.parentNode;
+  if (el && el !== this) ouvrirPanneau(el.getAttribute('data-ligne'));
+});
+$('panneau').addEventListener('click', function(e){
+  var el = e.target;
+  while (el && el !== this) { if (el.className === 'pn-fermer') { fermerPanneau(); return; } el = el.parentNode; }
+  if (e.target === this || e.target.className === 'pn-pied') fermerPanneau();
+});
 setInterval(charger, CONFIG.RAFRAICHIR_SEC * 1000);
 // Entre deux chargements, on recalcule les minutes restantes chaque 10 s
 setInterval(function(){ if (dernieresDonnees) afficher(dernieresDonnees); majTexte(); }, 10000);
