@@ -97,7 +97,9 @@ body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;fon
 .bd-q{font-size:30px;font-weight:600;line-height:1.05;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .bd-j{font-size:20px;font-weight:700;color:var(--fete);margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .bd-d{font-size:17px;color:var(--muted);font-weight:400}
-.bd-suite{margin-top:10px;border-top:1.5px solid var(--line);padding-top:6px}
+.bd-q,.bd-j{flex:none}
+/* la liste rétrécit (et se coupe en bas) plutôt que de pousser le nom du haut hors de la tuile */
+.bd-suite{margin-top:10px;border-top:1.5px solid var(--line);padding-top:6px;flex:0 1 auto;min-height:0;overflow:hidden}
 .bd-l{display:flex;align-items:baseline;font-size:18px;line-height:1.55}
 .bd-n{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}
 .bd-w{color:var(--muted);margin-left:10px;white-space:nowrap}
@@ -520,7 +522,10 @@ function tuileAnniversaires(T, now, l, h, A){
     html += '</div>';
   }
   T.innerHTML = html;
-  var lignes = T.querySelectorAll('.bd-l'), caches = tailler(T, lignes);
+  var lignes = T.querySelectorAll('.bd-l'), suiteEl = T.querySelector('.bd-suite');
+  // on retire les noms qui ne tiennent pas entièrement dans la liste
+  var caches = 0;
+  if (suiteEl) for (var z = lignes.length - 1; z >= 0 && suiteEl.scrollHeight > suiteEl.clientHeight + 1; z--) { lignes[z].style.display = 'none'; caches++; }
   if (caches === lignes.length && lignes.length) T.querySelector('.bd-suite').style.display = 'none';
 }
 
