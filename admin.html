@@ -69,9 +69,15 @@ input[type=time]{font:inherit;color:var(--ink);background:var(--bg);border:1.5px
 .jours.tuiles label{width:auto;padding:0 14px}
 /* Aperçu de la grille de l'accueil (même placement que sur l'écran) */
 .apercu{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;aspect-ratio:1208/680;background:var(--bg);border-radius:12px;padding:8px}
-.apercu div{background:var(--accent);color:var(--accent-ink);border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-weight:700;font-size:14px;text-align:center;min-width:0;min-height:0;overflow:hidden;padding:2px}
+.apercu{touch-action:none;position:relative;-webkit-user-select:none;user-select:none}
+.apercu .tu{cursor:grab;position:relative}
+.apercu .tu.glisse{outline:3px solid var(--warn);outline-offset:-3px;opacity:.85;cursor:grabbing}
+.apercu .tu.cible{outline:3px dashed var(--accent-ink);outline-offset:-6px}
+.apercu .poignee{position:absolute;right:3px;bottom:3px;width:22px;height:22px;border-radius:6px;cursor:nwse-resize;background:linear-gradient(135deg,transparent 45%,currentColor 45%,currentColor 55%,transparent 55%,transparent 70%,currentColor 70%,currentColor 80%,transparent 80%);opacity:.8;padding:0}
+.apercu .tu.redim{outline:3px solid var(--warn);outline-offset:-3px}
+.apercu div:not(.poignee){background:var(--accent);color:var(--accent-ink);border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-weight:700;font-size:14px;text-align:center;min-width:0;min-height:0;overflow:hidden;padding:2px}
 .apercu div small{font-weight:600;opacity:.75;font-size:12px}
-.apercu div.date{background:transparent;color:var(--ink);border:2px dashed var(--line)}
+.apercu div.tu.date{background:transparent;color:var(--ink);border:2px dashed var(--line)}
 .dispo-l select{width:auto}
 [hidden]{display:none!important}
 /* Résumé et rubriques */
@@ -139,7 +145,7 @@ button.discret{background:transparent;color:var(--muted);padding:8px 10px;font-s
 
     <section data-groupe="accueil">
       <h2>Taille des tuiles</h2>
-      <p class="aide">L'accueil est une grille de 4 colonnes sur 3 rangées. Choisis l'ordre des tuiles et la place de chacune : plus une tuile est grande, plus elle montre d'informations (plus d'heures et de jours de météo, plus d'événements et de jours d'agenda, les passages suivants, les lumières…). Quand une tuile est masquée (à certains moments, ou Transports la nuit quand plus rien ne passe), les autres gardent leur place et s'agrandissent dans l'espace libéré.</p>
+      <p class="aide">L'accueil est une grille de 4 colonnes sur 3 rangées. <b>Glisse une tuile</b> sur une autre pour changer l'ordre, et <b>tire le coin en bas à droite</b> pour l'agrandir ou la réduire. Plus une tuile est grande, plus elle montre d'informations (plus d'heures et de jours de météo, plus d'événements et de jours d'agenda, les passages suivants, les lumières…). Quand une tuile est masquée à certains moments, les autres gardent leur place et s'agrandissent dans l'espace libéré.</p>
       <div class="rang" style="margin-bottom:10px"><label for="apercuMoment">Aperçu</label><select id="apercuMoment"></select></div>
       <div class="apercu" id="apercu" aria-label="Aperçu de l'accueil"></div>
       <p class="aide" id="cases" style="margin:8px 0 0"></p>
@@ -149,7 +155,7 @@ button.discret{background:transparent;color:var(--muted);padding:8px 10px;font-s
 
     <section data-groupe="accueil">
       <h2>Accueil selon le moment</h2>
-      <p class="aide">Pour chaque moment de la journée, cochez les tuiles à afficher sur l'accueil. « Demain d'abord » met l'agenda de demain en premier et donne la météo de demain. En dehors de ces moments, tout est affiché. La tuile Transports s'efface aussi toute seule quand plus rien ne passe dans l'heure et demie.</p>
+      <p class="aide">Pour chaque moment de la journée, cochez les tuiles à afficher sur l'accueil. « Demain d'abord » met l'agenda de demain en premier et donne la météo de demain. En dehors de ces moments, tout est affiché.</p>
       <div id="moments"></div>
       <button type="button" id="ajouterMoment" style="margin-top:12px">Ajouter un moment</button>
     </section>
@@ -383,7 +389,8 @@ function dessinerDispo() {
   const mo = sel.value === '' ? null : M[+sel.value];
   const P = placer(L, t => !!mo && mo.tuiles[t.id] === false);
   $('apercu').style.gridTemplateRows = 'repeat(' + P.rangees + ', minmax(0, 1fr))';
-  $('apercu').innerHTML = P.places.map(p => `<div class="${p.t.id === 'date' ? 'date' : ''}" style="grid-column:${p.c + 1} / span ${p.w};grid-row:${p.r + 1} / span ${p.h}">${NOMS_TUILES[p.t.id]}<small>${p.w} × ${p.h}${p.w !== p.t.l || p.h !== p.t.h ? ' (ajusté)' : ''}</small></div>`).join('');
+  $('apercu').innerHTML = P.places.map(p => `<div class="tu ${p.t.id === 'date' ? 'date' : ''} ${glisse && glisse.id === p.t.id ? (glisse.mode === 'redim' ? 'redim' : 'glisse') : ''}" data-id="${p.t.id}" style="grid-column:${p.c + 1} / span ${p.w};grid-row:${p.r + 1} / span ${p.h}">${NOMS_TUILES[p.t.id]}<small>${p.t.l} × ${p.t.h}${p.w !== p.t.l || p.h !== p.t.h ? ' → ' + p.w + ' × ' + p.h : ''}</small><div class="poignee" data-poignee="${p.t.id}" title="Tirer pour changer la taille"></div></div>`).join('');
+  APERCU = P;
   const reduites = P.places.filter(p => p.w < p.t.l || p.h < p.t.h).length;
   $('cases').textContent = P.rangees > 3
     ? 'Trop de tuiles pour 3 rangées : l\'écran passe à ' + P.rangees + ' rangées et toutes les tuiles deviennent moins hautes.'
@@ -402,6 +409,51 @@ function dessinerDispo() {
     </div>`).join('');
 }
 $('apercuMoment').addEventListener('change', dessinerDispo);
+
+/* Glisser-déposer dans l'aperçu : déplacer une tuile, ou tirer son coin pour la redimensionner */
+let glisse = null, APERCU = null;
+function caseSous(x, y) {
+  // Case de la grille (colonne, rangée) sous le pointeur
+  const A = $('apercu'), r = A.getBoundingClientRect(), st = getComputedStyle(A);
+  const pad = parseFloat(st.paddingLeft), gap = parseFloat(st.columnGap) || 6;
+  const lc = (r.width - 2 * pad + gap) / 4, lr = (r.height - 2 * pad + gap) / APERCU.rangees;
+  return { c: (x - r.left - pad) / lc, r: (y - r.top - pad) / lr };
+}
+$('apercu').addEventListener('pointerdown', e => {
+  const p = e.target.closest('[data-poignee]'), t = e.target.closest('.tu');
+  if (!t) return;
+  e.preventDefault();
+  const id = t.dataset.id, place = APERCU.places.find(x => x.t.id === id);
+  glisse = { id, mode: p ? 'redim' : 'deplacer', place, x0: e.clientX, y0: e.clientY, bouge: false };
+  $('apercu').setPointerCapture(e.pointerId);
+  dessinerDispo();
+});
+$('apercu').addEventListener('pointermove', e => {
+  if (!glisse) return;
+  if (Math.abs(e.clientX - glisse.x0) + Math.abs(e.clientY - glisse.y0) > 6) glisse.bouge = true;
+  const L = dispo(), t = L.find(x => x.id === glisse.id);
+  if (glisse.mode === 'redim') {
+    // La taille suit le coin, case par case
+    const k = caseSous(e.clientX, e.clientY);
+    const l = Math.max(1, Math.min(4, Math.round(k.c - glisse.place.c + 0.15)));
+    const h = Math.max(1, Math.min(3, Math.round(k.r - glisse.place.r + 0.15)));
+    if (l !== t.l || h !== t.h) { t.l = l; t.h = h; dessinerDispo(); aChange(); }
+    return;
+  }
+  // Déplacement : la tuile prend la place de celle survolée
+  const sous = document.elementFromPoint(e.clientX, e.clientY), cible = sous && sous.closest('.tu');
+  document.querySelectorAll('.apercu .tu.cible').forEach(x => x.classList.remove('cible'));
+  if (!cible || cible.dataset.id === glisse.id) return;
+  cible.classList.add('cible');
+  const de = L.findIndex(x => x.id === glisse.id), vers = L.findIndex(x => x.id === cible.dataset.id);
+  if (glisse.derniere === cible.dataset.id) return;   // évite les allers-retours en restant sur la même tuile
+  glisse.derniere = cible.dataset.id;
+  const [m] = L.splice(de, 1); L.splice(vers, 0, m);
+  dessinerDispo(); aChange();
+});
+function finGlisse() { if (!glisse) return; glisse = null; dessinerDispo(); }
+$('apercu').addEventListener('pointerup', finGlisse);
+$('apercu').addEventListener('pointercancel', finGlisse);
 $('dispo').addEventListener('click', e => {
   const L = dispo(), m = e.target.dataset.dMonter, d = e.target.dataset.dDescendre;
   if (m !== undefined) { const i = +m; [L[i - 1], L[i]] = [L[i], L[i - 1]]; }

@@ -302,7 +302,8 @@ async function construire() {
     lignes[l] = {
       passages: fusionner(passagesPrevus(ARRETS[l], maintenant, fin), reels[ARRETS[l]] || [], maintenant),
       perturbation: alertes[l] || null,
-      incidents: incidents ? incidents[l] : null      // null = info trafic indisponible
+      incidents: incidents ? incidents[l] : null,     // null = info trafic indisponible
+      prochain: (passagesPrevus(ARRETS[l], fin, maintenant + 30 * 3600000)[0]) || null   // premier passage prévu après la fenêtre de 2 h
     };
   }
   const P = lirePrevus();

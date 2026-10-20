@@ -424,7 +424,13 @@ function tuileTransports(T, now, l, h){
     if (L.actif === false) continue;
     var P = passagesLigne(L), badge = '<div class="badge ' + L.type + '">' + L.ligne + '</div>';
     var noms = avecNoms ? '<div class="tl-txt"><div class="tl-s">' + L.arret + '</div><div class="tl-d">vers ' + L.direction + '</div></div>' : '';
-    if (!P.length) { html += '<div class="tl">' + badge + '<div class="tl-txt"><div class="tl-s">' + (avecNoms ? L.arret : '') + '</div><div class="tl-d">Plus de passage</div></div></div>'; continue; }
+    if (!P.length) {
+      // Plus rien dans les 2 h : on annonce le premier passage suivant (souvent demain matin)
+      var pro = transportsReels && transportsReels.lignes[L.ligne] ? transportsReels.lignes[L.ligne].prochain : null, txt = 'Plus de passage';
+      if (pro) { var dp = new Date(pro), demainP = dp.getDate() !== now.getDate(); txt = (L.type === 'tram' ? 'Premier tram ' : 'Premier bus ') + (demainP ? 'demain ' : '') + 'à ' + hhmm(pro); }
+      html += '<div class="tl">' + badge + '<div class="tl-txt">' + (avecNoms ? '<div class="tl-s">' + L.arret + '</div>' : '') + '<div class="tl-d" style="white-space:normal">' + txt + '</div></div></div>';
+      continue;
+    }
     var marge = P[0].min - L.marche, suite = '';
     if (avecSuite && P.length > 1) suite = '<div class="tl-puis">puis ' + P.slice(1, 3).map(function(x){ return hhmm(x.t); }).join(' · ') + '</div>';
     html += '<div class="tl">' + badge + noms +
@@ -648,8 +654,6 @@ function afficher(){
   for (var i = 0; i < DISPOSITION.length; i++) {
     var D = DISPOSITION[i];
     if (!FABRIQUES[D.id] || !tuileVisible(D.id, now)) continue;
-    // Transports : rien à afficher quand plus aucun passage dans l'heure et demie
-    if (D.id === 'transports' && transportsReels && prochainPassage() > 90) continue;
     if (D.id === 'anniversaires') {
       A = anniversaires(now, D.h >= 2 ? 60 : 30);
       if (!A.liste.length && (!prive() || agendaReel)) continue;
