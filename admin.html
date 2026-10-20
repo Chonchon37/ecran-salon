@@ -66,6 +66,7 @@ input[type=time]{font:inherit;color:var(--ink);background:var(--bg);border:1.5px
 .jours input{position:absolute;opacity:0;pointer-events:none}
 .jours label:has(input:checked){background:var(--accent);color:var(--accent-ink)}
 .jours label:has(input:focus-visible){outline:2px solid var(--accent);outline-offset:2px}
+.jours.tuiles label{width:auto;padding:0 14px}
 [hidden]{display:none!important}
 </style>
 </head>
@@ -132,18 +133,10 @@ input[type=time]{font:inherit;color:var(--ink);background:var(--bg);border:1.5px
     </section>
 
     <section>
-      <h2>Accueil du soir</h2>
-      <p class="aide">Le soir, l'accueil passe en mode « demain » : l'agenda montre « Ce soir » et « Demain », la météo donne les prévisions de demain, et la tuile Transports s'efface. En dehors de ce mode, la tuile Transports disparaît aussi toute seule quand plus aucun tram ni bus ne passe dans l'heure et demie.</p>
-      <div class="rang">
-        <label class="interrupteur"><input type="checkbox" id="soirActif"> Activer l'accueil du soir</label>
-      </div>
-      <div class="rang" id="soirDetails">
-        <label for="soirDebut">De</label><input type="time" id="soirDebut">
-        <span>à</span><input type="time" id="soirFin">
-      </div>
-      <div class="rang" id="soirTr">
-        <label class="interrupteur"><input type="checkbox" id="soirTransports"> Garder la tuile Transports le soir</label>
-      </div>
+      <h2>Accueil selon le moment</h2>
+      <p class="aide">Pour chaque moment de la journée, cochez les tuiles à afficher sur l'accueil. « Demain d'abord » met l'agenda de demain en premier et donne la météo de demain. En dehors de ces moments, tout est affiché. La tuile Transports s'efface aussi toute seule quand plus rien ne passe dans l'heure et demie.</p>
+      <div id="moments"></div>
+      <button type="button" id="ajouterMoment" style="margin-top:12px">Ajouter un moment</button>
     </section>
 
     <section>
@@ -258,9 +251,7 @@ function remplir() {
   const V = g.veille;
   $('veilleActif').checked = V.actif; $('veilleDebut').value = V.debut; $('veilleFin').value = V.fin; $('reveil').value = V.reveil;
   majVeille();
-  const So = g.accueil.soir;
-  $('soirActif').checked = So.actif; $('soirDebut').value = So.debut; $('soirFin').value = So.fin; $('soirTransports').checked = So.transports;
-  majSoir();
+  dessinerMoments();
   dessinerSlides(); dessinerPlages(); dessinerLignes(); dessinerAgendas();
   $('lumieres').innerHTML = $('modes').innerHTML = '<p class="vide">Lecture de Home Assistant…</p>';
 }
@@ -269,11 +260,47 @@ $('veilleActif').addEventListener('change', () => { R.reglages.veille.actif = $(
 $('veilleDebut').addEventListener('change', () => { R.reglages.veille.debut = $('veilleDebut').value; aChange(); });
 $('veilleFin').addEventListener('change', () => { R.reglages.veille.fin = $('veilleFin').value; aChange(); });
 $('reveil').addEventListener('change', () => { R.reglages.veille.reveil = +$('reveil').value; aChange(); });
-function majSoir() { $('soirDetails').hidden = $('soirTr').hidden = !R.reglages.accueil.soir.actif; }
-$('soirActif').addEventListener('change', () => { R.reglages.accueil.soir.actif = $('soirActif').checked; majSoir(); aChange(); });
-$('soirDebut').addEventListener('change', () => { R.reglages.accueil.soir.debut = $('soirDebut').value; aChange(); });
-$('soirFin').addEventListener('change', () => { R.reglages.accueil.soir.fin = $('soirFin').value; aChange(); });
-$('soirTransports').addEventListener('change', () => { R.reglages.accueil.soir.transports = $('soirTransports').checked; aChange(); });
+/* ---------- Accueil selon le moment de la journée ---------- */
+const TUILES = [['meteo', 'Météo'], ['transports', 'Transports'], ['anniversaires', 'Anniversaires'], ['agenda', 'Agenda'], ['maison', 'Maison']];
+function moments() { return R.reglages.accueil.moments || (R.reglages.accueil.moments = []); }
+function dessinerMoments() {
+  const M = moments();
+  if (!M.length) { $('moments').innerHTML = '<p class="vide">Aucun moment : l\'accueil affiche toujours toutes les tuiles.</p>'; return; }
+  $('moments').innerHTML = M.map((m, i) => `
+    <div class="plage">
+      <div class="rang">
+        <input type="text" data-m-nom="${i}" value="${m.nom.replace(/"/g, '&quot;')}" maxlength="20" style="width:140px" aria-label="Nom du moment">
+        <span>de</span><input type="time" data-m-debut="${i}" value="${m.debut}" aria-label="Début">
+        <span>à</span><input type="time" data-m-fin="${i}" value="${m.fin}" aria-label="Fin">
+        <button type="button" data-m-retirer="${i}" style="margin-left:auto">Retirer</button>
+      </div>
+      <div class="jours tuiles" role="group" aria-label="Tuiles affichées">
+        ${TUILES.map(([k, l]) => `<label><input type="checkbox" data-m-tuile="${i}" value="${k}" ${m.tuiles[k] ? 'checked' : ''}>${l}</label>`).join('')}
+      </div>
+      <label class="interrupteur"><input type="checkbox" data-m-demain="${i}" ${m.demain ? 'checked' : ''}> Demain d'abord (agenda et météo)</label>
+      ${m.debut >= m.fin ? '<div style="color:var(--muted);font-size:14px">Passe minuit : se termine le lendemain à ' + m.fin + '.</div>' : ''}
+    </div>`).join('');
+}
+$('ajouterMoment').addEventListener('click', () => {
+  const M = moments();
+  if (M.length >= 6) { alerteEtat('6 moments au maximum.'); return; }
+  M.push({ nom: 'Matin', debut: '06:30', fin: '09:00', tuiles: { meteo: true, transports: true, anniversaires: false, agenda: true, maison: false }, demain: false });
+  dessinerMoments(); aChange();
+});
+$('moments').addEventListener('click', e => {
+  const i = e.target.dataset.mRetirer;
+  if (i !== undefined) { moments().splice(+i, 1); dessinerMoments(); aChange(); }
+});
+$('moments').addEventListener('change', e => {
+  const t = e.target, d = t.dataset, M = moments();
+  if (d.mNom !== undefined) M[+d.mNom].nom = t.value.trim() || 'Moment';
+  else if (d.mDebut !== undefined) M[+d.mDebut].debut = t.value;
+  else if (d.mFin !== undefined) M[+d.mFin].fin = t.value;
+  else if (d.mTuile !== undefined) M[+d.mTuile].tuiles[t.value] = t.checked;
+  else if (d.mDemain !== undefined) M[+d.mDemain].demain = t.checked;
+  else return;
+  dessinerMoments(); aChange();
+});
 function majCompteur() { $('compteur').textContent = $('message').value.length; }
 // Lever / coucher du soleil (formules NOAA), en minutes depuis minuit, heure locale
 function soleil(date, lat, lon){

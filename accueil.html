@@ -28,6 +28,11 @@ body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;fon
 .lien:active{-webkit-transform:scale(.985);transform:scale(.985)}
 .voir{margin-left:auto;font-size:30px;line-height:.6;font-weight:600;color:var(--muted);letter-spacing:0}
 .row.seul .tr{margin-right:0}
+.wrap.sans-meteo .left{width:340px}
+.right.sans-agenda .row{flex:1;height:auto}
+.right.sans-agenda.sans-rang .home{flex:1;height:auto}
+.right.sans-maison .ag{margin-bottom:0}
+.right.sans-maison.sans-agenda .row{margin-bottom:0}
 .tr{justify-content:center}
 .tr .tl:first-child{margin-top:0}
 .home-top{justify-content:flex-start !important}
@@ -280,7 +285,7 @@ function afficherMeteo(){
   // Mini prévisions : le soir, on montre déjà demain (7 h → 15 h)
   var H = meteo.hourly, debutHeure = new Date(now.getTime()); debutHeure.setMinutes(0, 0, 0);
   var liste = [], titre = '';
-  var soirMeteo = SOIR.actif ? modeSoir(now) : (h >= 20 || h < 5);
+  var soirMeteo = demainDabord(now) || (h < 5 && !momentActif(now));
   if (soirMeteo) {
     var cible = new Date(now.getFullYear(), now.getMonth(), now.getDate() + (h >= 12 ? 1 : 0));
     titre = h >= 12 ? 'Demain' : 'Ce matin';
@@ -416,7 +421,7 @@ function afficher(){
   }
   $('tr').innerHTML = tr;
   // Tuile masquée le soir (réglage) ou quand plus rien ne passe dans l'heure et demie
-  var soir = modeSoir(now), trCache = (soir && !SOIR.transports) || (transportsReels && prochainMin > 90);
+  var T = tuiles(now), soir = demainDabord(now), trCache = !T.transports || (transportsReels && prochainMin > 90);
 
   // Anniversaires : les 3 prochains (réels si disponibles)
   var auj = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -438,7 +443,7 @@ function afficher(){
   function dansJours(d){ var n = Math.round((d - auj) / 86400000); return n === 0 ? 'Aujourd\'hui !' : (n === 1 ? 'Demain' : 'Dans ' + n + ' jours'); }
   var titreBd = '';
   // Pas d'anniversaire dans les 30 jours : la tuile disparaît et les transports prennent toute la largeur
-  var sansAnniv = !AN.length && (!prive() || agendaReel);
+  var sansAnniv = !T.anniversaires || (!AN.length && (!prive() || agendaReel));
   $('bd').style.display = sansAnniv ? 'none' : '';
   $('tr').parentNode.style.display = trCache ? 'none' : '';
   $('bd').parentNode.className = 'row' + (sansAnniv || trCache ? ' seul' : '');
@@ -492,6 +497,14 @@ function afficher(){
     ? colonne('Demain', demain, 'Rien de prévu') + colonne('Ce soir', restAuj, 'Plus rien ce soir')
     : colonne('Aujourd\'hui', restAuj, 'Plus rien de prévu') + colonne('Demain', demain, 'Rien de prévu')) + '</div>';
   $('ag').innerHTML = ag;
+
+  // Tuiles cochées pour ce moment de la journée
+  var cacheRang = sansAnniv && trCache;
+  document.querySelector('.wx').style.display = T.meteo ? '' : 'none';
+  $('ag').style.display = T.agenda ? '' : 'none';
+  document.querySelector('.home').style.display = T.maison ? '' : 'none';
+  document.querySelector('.wrap').className = 'wrap' + (T.meteo ? '' : ' sans-meteo');
+  document.querySelector('.right').className = 'right' + (T.agenda ? '' : ' sans-agenda') + (T.maison ? '' : ' sans-maison') + (cacheRang ? ' sans-rang' : '');
 
   afficherMaison();
 }
@@ -550,20 +563,28 @@ $('sc').addEventListener('click', function(e){
 // Réglages envoyés par l'écran (page admin) : temps de marche, agendas, message
 var MESSAGE = '';
 // Accueil du soir (réglable dans la page admin)
-var SOIR = { actif: true, debut: '21:00', fin: '05:00', transports: false };
+// Accueil selon le moment de la journée (réglable dans la page admin) :
+// pour chaque moment, les tuiles affichées et « demain d'abord »
+var TOUT = { meteo: true, transports: true, anniversaires: true, agenda: true, maison: true };
+var MOMENTS = [{ nom: 'Soir', debut: '21:00', fin: '05:00', tuiles: { meteo: true, transports: false, anniversaires: true, agenda: true, maison: true }, demain: true }];
 function enMinutes(hhmm){ var p = hhmm.split(':'); return parseInt(p[0], 10) * 60 + parseInt(p[1], 10); }
-function modeSoir(now){
-  if (!SOIR.actif) return false;
-  var m = now.getHours() * 60 + now.getMinutes(), a = enMinutes(SOIR.debut), b = enMinutes(SOIR.fin);
-  return a < b ? (m >= a && m < b) : (m >= a || m < b);
+function momentActif(now){
+  var m = now.getHours() * 60 + now.getMinutes();
+  for (var i = 0; i < MOMENTS.length; i++) {
+    var a = enMinutes(MOMENTS[i].debut), b = enMinutes(MOMENTS[i].fin);
+    if (a < b ? (m >= a && m < b) : (m >= a || m < b)) return MOMENTS[i];
+  }
+  return null;
 }
+function tuiles(now){ var M = momentActif(now); return M ? M.tuiles : TOUT; }
+function demainDabord(now){ var M = momentActif(now); return !!(M && M.demain); }
 window.addEventListener('message', function(e){
   if (!e.data || e.data.type !== 'reglages' || !e.data.value) return;
   var g = e.data.value, k;
   if (g.transports) for (k = 0; k < DEMO_TR.length; k++) { var t = g.transports[DEMO_TR[k].ligne]; if (t) { DEMO_TR[k].marche = t.marche; DEMO_TR[k].actif = t.actif; } }
   if (g.agenda) { for (k in g.agenda.agendas) AGENDAS[k] = g.agenda.agendas[k]; }
   MESSAGE = g.message || '';
-  if (g.accueil && g.accueil.soir) SOIR = g.accueil.soir;
+  if (g.accueil && g.accueil.moments) MOMENTS = g.accueil.moments;
   afficher(); afficherMeteo();
 });
 

@@ -584,8 +584,10 @@ const REGLAGES_DEFAUT = {
   },
   theme: { mode: 'auto', nuitDebut: 19, nuitFin: 7 },
   veille: { actif: true, debut: '23:00', fin: '07:00', reveil: 120 },
-  // Accueil du soir : transports masqués, l'agenda et la météo de demain passent en premier
-  accueil: { soir: { actif: true, debut: '21:00', fin: '05:00', transports: false } },
+  // Accueil selon le moment de la journée : tuiles affichées et « demain d'abord » (agenda + météo)
+  accueil: { moments: [
+    { nom: 'Soir', debut: '21:00', fin: '05:00', tuiles: { meteo: true, transports: false, anniversaires: true, agenda: true, maison: true }, demain: true }
+  ] },
   transports: { A: { actif: true, marche: 7 }, '2': { actif: true, marche: 9 } },
   agenda: { personnes: { moi: 'Nico', flo: 'Flo' }, agendas: { GOOGLE_ICS1: 'flo', GOOGLE_ICS2: 'moi', GOOGLE_ICS3: 'nous' } },
   maison: { lumieres: [], modes: ['automation.apero', 'automation.all_cine', 'special.tout_eteindre'], noms: { 'automation.apero': 'Apéro', 'automation.all_cine': 'Ciné' } },
@@ -633,13 +635,24 @@ function nettoyerReglages(r) {
     reveil: entier(ve.reveil, 15, 1800, D.veille.reveil)
   };
   if (res.veille.debut === res.veille.fin) res.veille.actif = false;
-  const so = (r.accueil && r.accueil.soir) || {};
-  res.accueil = { soir: {
-    actif: so.actif === undefined ? D.accueil.soir.actif : !!so.actif,
-    debut: hv(so.debut) || D.accueil.soir.debut, fin: hv(so.fin) || D.accueil.soir.fin,
-    transports: !!so.transports
-  } };
-  if (res.accueil.soir.debut === res.accueil.soir.fin) res.accueil.soir.actif = false;
+  const acc = r.accueil || {};
+  let brutsMoments = acc.moments;
+  if (!Array.isArray(brutsMoments)) {
+    // ancien réglage « accueil du soir » → un moment « Soir »
+    const so = acc.soir;
+    brutsMoments = so ? (so.actif === false ? [] : [{ nom: 'Soir', debut: so.debut, fin: so.fin, tuiles: { transports: !!so.transports }, demain: true }]) : D.accueil.moments;
+  }
+  const TUILES = ['meteo', 'transports', 'anniversaires', 'agenda', 'maison'];
+  res.accueil = { moments: [] };
+  for (const m of brutsMoments) {
+    if (!m) continue;
+    const debut = hv(m.debut), fin = hv(m.fin);
+    if (!debut || !fin || debut === fin) continue;
+    const t = m.tuiles || {}, tuiles = {};
+    for (const k of TUILES) tuiles[k] = t[k] !== false;
+    res.accueil.moments.push({ nom: texte(m.nom, 20) || 'Moment', debut, fin, tuiles, demain: !!m.demain });
+    if (res.accueil.moments.length >= 6) break;
+  }
   const tr = r.transports || {};
   res.transports = {};
   for (const l of Object.keys(D.transports)) {
