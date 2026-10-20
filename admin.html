@@ -132,6 +132,21 @@ input[type=time]{font:inherit;color:var(--ink);background:var(--bg);border:1.5px
     </section>
 
     <section>
+      <h2>Accueil du soir</h2>
+      <p class="aide">Le soir, l'accueil passe en mode « demain » : l'agenda montre « Ce soir » et « Demain », la météo donne les prévisions de demain, et la tuile Transports s'efface. En dehors de ce mode, la tuile Transports disparaît aussi toute seule quand plus aucun tram ni bus ne passe dans l'heure et demie.</p>
+      <div class="rang">
+        <label class="interrupteur"><input type="checkbox" id="soirActif"> Activer l'accueil du soir</label>
+      </div>
+      <div class="rang" id="soirDetails">
+        <label for="soirDebut">De</label><input type="time" id="soirDebut">
+        <span>à</span><input type="time" id="soirFin">
+      </div>
+      <div class="rang" id="soirTr">
+        <label class="interrupteur"><input type="checkbox" id="soirTransports"> Garder la tuile Transports le soir</label>
+      </div>
+    </section>
+
+    <section>
       <h2>Veille de nuit</h2>
       <p class="aide">L'écran devient noir sur cette plage. Un toucher le rallume quelques minutes, puis il se rendort.</p>
       <div class="rang">
@@ -243,6 +258,9 @@ function remplir() {
   const V = g.veille;
   $('veilleActif').checked = V.actif; $('veilleDebut').value = V.debut; $('veilleFin').value = V.fin; $('reveil').value = V.reveil;
   majVeille();
+  const So = g.accueil.soir;
+  $('soirActif').checked = So.actif; $('soirDebut').value = So.debut; $('soirFin').value = So.fin; $('soirTransports').checked = So.transports;
+  majSoir();
   dessinerSlides(); dessinerPlages(); dessinerLignes(); dessinerAgendas();
   $('lumieres').innerHTML = $('modes').innerHTML = '<p class="vide">Lecture de Home Assistant…</p>';
 }
@@ -251,6 +269,11 @@ $('veilleActif').addEventListener('change', () => { R.reglages.veille.actif = $(
 $('veilleDebut').addEventListener('change', () => { R.reglages.veille.debut = $('veilleDebut').value; aChange(); });
 $('veilleFin').addEventListener('change', () => { R.reglages.veille.fin = $('veilleFin').value; aChange(); });
 $('reveil').addEventListener('change', () => { R.reglages.veille.reveil = +$('reveil').value; aChange(); });
+function majSoir() { $('soirDetails').hidden = $('soirTr').hidden = !R.reglages.accueil.soir.actif; }
+$('soirActif').addEventListener('change', () => { R.reglages.accueil.soir.actif = $('soirActif').checked; majSoir(); aChange(); });
+$('soirDebut').addEventListener('change', () => { R.reglages.accueil.soir.debut = $('soirDebut').value; aChange(); });
+$('soirFin').addEventListener('change', () => { R.reglages.accueil.soir.fin = $('soirFin').value; aChange(); });
+$('soirTransports').addEventListener('change', () => { R.reglages.accueil.soir.transports = $('soirTransports').checked; aChange(); });
 function majCompteur() { $('compteur').textContent = $('message').value.length; }
 // Lever / coucher du soleil (formules NOAA), en minutes depuis minuit, heure locale
 function soleil(date, lat, lon){

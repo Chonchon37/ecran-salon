@@ -280,9 +280,10 @@ function afficherMeteo(){
   // Mini prévisions : le soir, on montre déjà demain (7 h → 15 h)
   var H = meteo.hourly, debutHeure = new Date(now.getTime()); debutHeure.setMinutes(0, 0, 0);
   var liste = [], titre = '';
-  if (h >= 20 || h < 5) {
-    var cible = new Date(now.getFullYear(), now.getMonth(), now.getDate() + (h >= 20 ? 1 : 0));
-    titre = h >= 20 ? 'Demain' : 'Ce matin';
+  var soirMeteo = SOIR.actif ? modeSoir(now) : (h >= 20 || h < 5);
+  if (soirMeteo) {
+    var cible = new Date(now.getFullYear(), now.getMonth(), now.getDate() + (h >= 12 ? 1 : 0));
+    titre = h >= 12 ? 'Demain' : 'Ce matin';
     for (i = 0; i < H.time.length; i++) {
       var dt = lireDate(H.time[i]);
       if (dt.getDate() === cible.getDate() && dt.getHours() >= 7 && dt.getHours() <= 15 && (dt.getHours() - 7) % 2 === 0) liste.push(i);
@@ -392,7 +393,7 @@ function afficher(){
   afficherMeteo();
 
   // Transports
-  var tr = '';
+  var tr = '', prochainMin = 9999;
   for (var k = 0; k < DEMO_TR.length; k++) {
     var L = DEMO_TR[k], restants = [], heurePassage = 0;
     if (L.actif === false) continue;
@@ -406,6 +407,7 @@ function afficher(){
       }
       if (!restants.length) { t0 = Date.now(); restants = [12]; }
     }
+    if (restants.length) prochainMin = Math.min(prochainMin, restants[0]);
     if (!restants.length) { tr += '<div class="tl"><div class="badge ' + L.type + '">' + L.ligne + '</div><div><div class="tl-s">' + L.arret + '</div><div class="tl-d">Aucun passage attrapable</div></div></div>'; continue; }
     tr += '<div class="tl"><div class="badge ' + L.type + '">' + L.ligne + '</div>' +
       '<div><div class="tl-s">' + L.arret + '</div><div class="tl-d">vers ' + L.direction + '</div></div>' +
@@ -413,6 +415,8 @@ function afficher(){
       '<div class="tl-n' + (restants[0] - L.marche <= 1 ? ' vite' : '') + '">' + (restants[0] - L.marche <= 1 ? 'pars maintenant' : 'pars dans ' + (restants[0] - L.marche) + ' min') + '</div></div></div>';
   }
   $('tr').innerHTML = tr;
+  // Tuile masquée le soir (réglage) ou quand plus rien ne passe dans l'heure et demie
+  var soir = modeSoir(now), trCache = (soir && !SOIR.transports) || (transportsReels && prochainMin > 90);
 
   // Anniversaires : les 3 prochains (réels si disponibles)
   var auj = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -436,7 +440,9 @@ function afficher(){
   // Pas d'anniversaire dans les 30 jours : la tuile disparaît et les transports prennent toute la largeur
   var sansAnniv = !AN.length && (!prive() || agendaReel);
   $('bd').style.display = sansAnniv ? 'none' : '';
-  $('bd').parentNode.className = 'row' + (sansAnniv ? ' seul' : '');
+  $('tr').parentNode.style.display = trCache ? 'none' : '';
+  $('bd').parentNode.className = 'row' + (sansAnniv || trCache ? ' seul' : '');
+  $('bd').parentNode.style.display = sansAnniv && trCache ? 'none' : '';
   if (AN.length) {
     var A = AN[0], bd = titreBd +
       '<div class="bd-q h">' + echapper(A.nom) + '</div>' +
@@ -473,15 +479,18 @@ function afficher(){
   }
   function ligneEv(x){ return '<div class="ev"><div class="ev-h">' + (x.debut ? x.debut.replace(':', ' h ') : 'Journée') + '</div><i style="background:' + (COULEURS[x.qui] || COULEURS.moi) + '"></i><div class="ev-n">' + echapper(x.titre) + '</div></div>'; }
   var MAX = 4;
-  ag += '<div class="ag-cols"><div class="ag-col"><div class="ev-sub">Aujourd\'hui</div>';
-  if (!restAuj.length) ag += '<div class="vide">' + (prive() && !agendaReel ? 'Chargement…' : 'Plus rien de prévu') + '</div>';
-  for (var r1 = 0; r1 < restAuj.length && r1 < MAX; r1++) ag += ligneEv(restAuj[r1]);
-  if (restAuj.length > MAX) ag += '<div class="vide">+ ' + (restAuj.length - MAX) + ' autre' + (restAuj.length - MAX > 1 ? 's' : '') + '</div>';
-  ag += '</div><div class="ag-col"><div class="ev-sub">Demain</div>';
-  if (!demain.length) ag += '<div class="vide">' + (prive() && !agendaReel ? '' : 'Rien de prévu') + '</div>';
-  for (var r2 = 0; r2 < demain.length && r2 < MAX; r2++) ag += ligneEv(demain[r2]);
-  if (demain.length > MAX) ag += '<div class="vide">+ ' + (demain.length - MAX) + ' autre' + (demain.length - MAX > 1 ? 's' : '') + '</div>';
-  ag += '</div></div>';
+  function colonne(titre, L, vide){
+    var c = '<div class="ag-col"><div class="ev-sub">' + titre + '</div>';
+    if (!L.length) c += '<div class="vide">' + (prive() && !agendaReel ? 'Chargement…' : vide) + '</div>';
+    for (var r = 0; r < L.length && r < MAX; r++) c += ligneEv(L[r]);
+    if (L.length > MAX) c += '<div class="vide">+ ' + (L.length - MAX) + ' autre' + (L.length - MAX > 1 ? 's' : '') + '</div>';
+    return c + '</div>';
+  }
+  // Le soir, demain passe en premier
+  var soirAg = soir && h >= 12;
+  ag += '<div class="ag-cols">' + (soirAg
+    ? colonne('Demain', demain, 'Rien de prévu') + colonne('Ce soir', restAuj, 'Plus rien ce soir')
+    : colonne('Aujourd\'hui', restAuj, 'Plus rien de prévu') + colonne('Demain', demain, 'Rien de prévu')) + '</div>';
   $('ag').innerHTML = ag;
 
   afficherMaison();
@@ -540,13 +549,22 @@ $('sc').addEventListener('click', function(e){
 
 // Réglages envoyés par l'écran (page admin) : temps de marche, agendas, message
 var MESSAGE = '';
+// Accueil du soir (réglable dans la page admin)
+var SOIR = { actif: true, debut: '21:00', fin: '05:00', transports: false };
+function enMinutes(hhmm){ var p = hhmm.split(':'); return parseInt(p[0], 10) * 60 + parseInt(p[1], 10); }
+function modeSoir(now){
+  if (!SOIR.actif) return false;
+  var m = now.getHours() * 60 + now.getMinutes(), a = enMinutes(SOIR.debut), b = enMinutes(SOIR.fin);
+  return a < b ? (m >= a && m < b) : (m >= a || m < b);
+}
 window.addEventListener('message', function(e){
   if (!e.data || e.data.type !== 'reglages' || !e.data.value) return;
   var g = e.data.value, k;
   if (g.transports) for (k = 0; k < DEMO_TR.length; k++) { var t = g.transports[DEMO_TR[k].ligne]; if (t) { DEMO_TR[k].marche = t.marche; DEMO_TR[k].actif = t.actif; } }
   if (g.agenda) { for (k in g.agenda.agendas) AGENDAS[k] = g.agenda.agendas[k]; }
   MESSAGE = g.message || '';
-  afficher();
+  if (g.accueil && g.accueil.soir) SOIR = g.accueil.soir;
+  afficher(); afficherMeteo();
 });
 
 // Toucher une carte ouvre la page détaillée correspondante
