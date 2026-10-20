@@ -27,6 +27,8 @@ body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;fon
 .lien{cursor:pointer;transition:transform .15s}
 .lien:active{-webkit-transform:scale(.985);transform:scale(.985)}
 .voir{margin-left:auto;font-size:30px;line-height:.6;font-weight:600;color:var(--muted);letter-spacing:0}
+.voir.coin{position:absolute;top:30px;right:24px}
+.ag{position:relative}
 .demo{font-size:12px;letter-spacing:.06em;padding:3px 9px;border-radius:20px;background:var(--warn-soft);color:var(--warn);font-weight:700;text-transform:uppercase;display:inline-block}
 
 /* Colonne gauche : bonjour + météo */
@@ -445,7 +447,7 @@ function afficher(){
   }
 
   // Agenda : ce qui reste aujourd'hui, puis demain
-  var ag = '<div class="label">À venir<span class="voir">›</span></div>', restAuj = [], demain = [];
+  var ag = '<span class="voir coin">›</span>', restAuj = [], demain = [];
   if (agendaReel && agendaReel.evenements) {
     var demain0 = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).getTime(), demain1 = demain0 + 86400000;
     for (var e = 0; e < agendaReel.evenements.length; e++) {
