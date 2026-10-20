@@ -590,7 +590,7 @@ const REGLAGES_DEFAUT = {
     // Tuiles de l'accueil, dans l'ordre : largeur l (1-4 colonnes) et hauteur h (1-3 rangées)
     disposition: [
       { id: 'date', l: 1, h: 1 }, { id: 'transports', l: 2, h: 1 }, { id: 'anniversaires', l: 1, h: 1 },
-      { id: 'meteo', l: 1, h: 2 }, { id: 'agenda', l: 3, h: 1 }, { id: 'maison', l: 3, h: 1 }
+      { id: 'meteo', l: 1, h: 2 }, { id: 'agenda', l: 3, h: 1.5 }, { id: 'maison', l: 3, h: 0.5 }
     ],
     moments: [
     { nom: 'Soir', debut: '21:00', fin: '05:00', tuiles: { meteo: true, transports: false, anniversaires: true, agenda: true, maison: true }, demain: true }
@@ -654,7 +654,8 @@ function nettoyerReglages(r) {
   for (const t of Array.isArray(acc.disposition) ? acc.disposition : []) {
     if (!t || !TUILES.includes(t.id) || vuesT.has(t.id)) continue;
     vuesT.add(t.id);
-    dispo.push({ id: t.id, l: entier(t.l, 1, 4, 1), h: entier(t.h, 1, 3, 1) });
+    const h = Math.round(Number(t.h) * 2) / 2;   // par demi-rangée : 0,5 à 3
+    dispo.push({ id: t.id, l: entier(t.l, 1, 4, 1), h: isFinite(h) ? Math.min(3, Math.max(0.5, h)) : 1 });
   }
   for (const t of D.accueil.disposition) if (!vuesT.has(t.id)) dispo.push(Object.assign({}, t));
   res.accueil = { disposition: dispo, moments: [] };

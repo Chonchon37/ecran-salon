@@ -121,6 +121,32 @@ body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;fon
 .scene svg{width:26px;height:26px;margin-right:9px;flex:none}
 .scene span{overflow:hidden;text-overflow:ellipsis}
 .scene.on{background:var(--accent);color:var(--on-ink)}
+/* Demi-rangée */
+.tuile.demi{padding:14px 22px}
+.demi > :first-child{margin-top:auto}
+.demi > :last-child{margin-bottom:auto}
+.wx-ligne{display:flex;align-items:center}
+.wx-demi .wx-temp{font-size:56px;margin:0 16px 0 8px}
+.wx-demi .wx-hl{margin:0 16px 0 0;font-size:20px}
+.wx-pl{flex:1;min-width:0}
+.wx-pl .alert{margin-top:0}
+.tr-demi{flex-direction:row !important;flex-wrap:wrap;align-items:center}
+.tr-demi .tl{flex:1;min-width:200px}
+.tr-demi .tl + .tl{margin-top:0;margin-left:20px}
+.tr-demi .tl > :first-child{margin-top:0}
+.tr-demi .tl-m b{font-size:38px}
+.maison-demi{flex-direction:row !important;align-items:center}
+.maison-demi .home-s{width:150px;font-size:17px;line-height:1.25}
+.maison-demi .sc{flex:1;flex-wrap:nowrap;margin:0 -5px}
+.maison-demi .scene{height:64px}
+.demi .greet{font-size:30px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tr-demi .tl-m{text-align:left;margin-left:14px}
+.bd-ligne{display:flex;flex-wrap:wrap;align-items:baseline;overflow:hidden;max-height:44px;line-height:40px}
+.bd-c{font-size:22px;margin-right:26px;white-space:nowrap}
+.bd-c b{font-weight:600}
+.bd-c .bd-j{font-size:19px;display:inline}
+.demi .date{font-size:20px;margin-top:4px}
+.demi .ev{margin-top:6px}
 .lums{display:flex;flex-wrap:wrap;margin:8px -4px 0}
 .lum{margin:4px;padding:9px 14px;border-radius:12px;background:var(--card2);font-size:17px;font-weight:600;cursor:pointer;white-space:nowrap}
 .lum.on{background:var(--fete-soft);color:var(--fete)}
@@ -141,7 +167,7 @@ var CONFIG = {
 // Disposition par défaut (modifiable dans la page admin) : ordre, largeur l (1-4 colonnes), hauteur h (1-3 rangées)
 var DISPOSITION = [
   { id: 'date', l: 1, h: 1 }, { id: 'transports', l: 2, h: 1 }, { id: 'anniversaires', l: 1, h: 1 },
-  { id: 'meteo', l: 1, h: 2 }, { id: 'agenda', l: 3, h: 1 }, { id: 'maison', l: 3, h: 1 }
+  { id: 'meteo', l: 1, h: 2 }, { id: 'agenda', l: 3, h: 1.5 }, { id: 'maison', l: 3, h: 0.5 }
 ];
 /* ==================================================== */
 
@@ -284,6 +310,7 @@ function tuileDate(T, now){
   T.innerHTML = '<div class="greet h">' + (h < 5 ? 'Bonne nuit' : (h < 12 ? 'Bonjour' : (h < 18 ? 'Bon après-midi' : 'Bonsoir'))) + '</div>' +
     '<div class="date">' + majuscule(JOURS[now.getDay()]) + ' ' + now.getDate() + ' ' + MOIS[now.getMonth()] + (prive() ? '' : ' <span class="demo">exemple</span>') + '</div>' +
     (MESSAGE ? '<div class="msg" data-p="1">' + echapper(MESSAGE) + '</div>' : '');
+  taillerParPriorite(T);
 }
 
 /* ---------- Tuile Météo ---------- */
@@ -368,7 +395,15 @@ function heuresPrevues(now, nb){
   return { titre: titre, liste: res };
 }
 function tuileMeteo(T, now, l, h){
-  var large = l >= 2 && h === 1, petit = l === 1 && h === 1;
+  var large = l >= 2 && h <= 1, petit = l === 1 && h <= 1;
+  if (h < 1) {   // demi-rangée : l'essentiel sur une ligne
+    T.className += ' lien wx-demi'; T.setAttribute('data-page', 'meteo');
+    var c0 = meteo ? meteo.current : { weather_code: mockCode(now.getHours()), is_day: jourA(now.getHours()) ? 1 : 0, temperature_2m: mockTemp(now.getHours()) };
+    if (!meteo && CONFIG.METEO_REELLE) { T.innerHTML = '<div class="vide">Chargement…</div>'; return; }
+    T.innerHTML = '<div class="wx-ligne">' + iconeMeteo(c0.weather_code, c0.is_day === 1, 56) + '<span class="wx-temp h">' + Math.round(c0.temperature_2m) + '°</span>' +
+      (meteo ? '<span class="wx-hl">' + Math.round(meteo.daily.temperature_2m_min[0]) + '° / ' + Math.round(meteo.daily.temperature_2m_max[0]) + '°</span>' : '') + (l >= 2 ? '<span class="wx-pl">' + textePluie(now) + '</span>' : '') + '</div>';
+    return;
+  }
   T.className += ' lien' + (large ? ' wx-large' : '') + (petit ? ' petit' : '');
   T.setAttribute('data-page', 'meteo');
   var hr = now.getHours(), code, jour, temp, max, min;
@@ -418,7 +453,8 @@ function prochainPassage(){
 }
 function tuileTransports(T, now, l, h){
   T.className += ' tr lien'; T.setAttribute('data-page', 'transports');
-  var html = '', avecNoms = l >= 2, avecSuite = l >= 3 || h >= 2;
+  var html = '', avecNoms = l >= 2 && h >= 1, avecSuite = (l >= 3 && h >= 1) || h >= 2;
+  if (h < 1) T.className += ' tr-demi';
   for (var k = 0; k < LIGNES.length; k++) {
     var L = LIGNES[k];
     if (L.actif === false) continue;
@@ -437,6 +473,9 @@ function tuileTransports(T, now, l, h){
       '<div class="tl-m"><b>' + hhmm(P[0].t) + '</b><div class="tl-n' + (marge <= 1 ? ' vite' : '') + '">' + (marge <= 1 ? 'pars maintenant' : 'pars dans ' + marge + ' min') + '</div>' + suite + '</div></div>';
   }
   T.innerHTML = html;
+  var lignesTr = T.querySelectorAll('.tl'), reste = [];
+  for (var q = 1; q < lignesTr.length; q++) reste.push(lignesTr[q]);   // la première ligne reste toujours
+  tailler(T, reste);
 }
 
 /* ---------- Tuile Anniversaires ---------- */
@@ -462,6 +501,15 @@ function tuileAnniversaires(T, now, l, h, A){
   var AN = A.liste, auj = A.auj;
   if (!AN.length) { T.innerHTML = '<div class="bd-d">' + (prive() && !agendaReel ? 'Chargement…' : 'Aucun anniversaire proche') + '</div>'; return; }
   function dans(d){ var n = Math.round((d - auj) / 86400000); return n === 0 ? 'Aujourd\'hui !' : (n === 1 ? 'Demain' : 'Dans ' + n + ' jours'); }
+  if (h < 1) {
+    var ligne = '';
+    for (var u = 0; u < AN.length; u++) ligne += '<span class="bd-c"><b>' + echapper(AN[u].nom) + '</b> ' + (u === 0 ? '<span class="bd-j">' + dans(AN[u].date) + '</span>' : '<span class="bd-d">' + AN[u].date.getDate() + ' ' + MOIS_C[AN[u].date.getMonth()] + '</span>') + '</span>';
+    T.innerHTML = '<div class="bd-ligne">' + ligne + '</div>';
+    var cs = T.querySelectorAll('.bd-c'), suite = [];
+    for (var v = 1; v < cs.length; v++) suite.push(cs[v]);   // le prochain anniversaire reste toujours
+    tailler(T.firstChild, suite);
+    return;
+  }
   var P = AN[0];
   var html = '<div class="bd-q h">' + echapper(P.nom) + '</div>' +
     '<div class="bd-j">' + dans(P.date) + '<span class="bd-d"> · ' + P.date.getDate() + ' ' + MOIS_C[P.date.getMonth()] + (P.age ? ' · ' + P.age + ' ans' : '') + '</span></div>';
@@ -552,9 +600,11 @@ function tuileMaison(T, now, l, h){
   var L = scenesAffichees(), lum = lumieresAffichees(), nb = 0, i;
   for (i = 0; i < lum.length; i++) if (lum[i].allumee) nb++;
   // Boutons par rangée selon la largeur réelle de la tuile (au moins ~170 px chacun)
-  var parRang = Math.max(1, Math.floor((T.clientWidth - 48 + 10) / 180));
+  var parRang = Math.max(1, Math.floor((T.clientWidth - 48 + 10 - (h < 1 ? 170 : 0)) / 180));
   var largeur = 'calc(' + (100 / Math.min(parRang, Math.max(1, L.length))).toFixed(3) + '% - 10px)';
+  if (h < 1) T.className += ' maison-demi';
   var html = '<div class="home-s">' + ((prive() && !maisonReelle) ? 'Chargement…' : (nb === 0 ? 'Tout est éteint' : nb + (nb > 1 ? ' lumières allumées' : ' lumière allumée'))) + '</div><div class="sc">';
+  if (h < 1) largeur = 'calc(' + (100 / Math.min(parRang, Math.max(1, L.length))).toFixed(3) + '% - 10px)';
   for (i = 0; i < L.length; i++) html += '<div class="scene' + (L[i].id === sceneActive ? ' on' : '') + '" data-scene="' + i + '" style="width:' + largeur + '">' + SVG + ICONES_SC[iconeScene(L[i].nom)] + '</svg><span>' + echapper(L[i].nom) + '</span></div>';
   html += '</div>';
   // Grande tuile : les lumières, à toucher pour allumer / éteindre
@@ -564,6 +614,7 @@ function tuileMaison(T, now, l, h){
     html += '</div>';
   }
   T.innerHTML = html;
+  if (h < 1) { var bts = T.querySelectorAll('.scene'); for (var b2 = parRang; b2 < bts.length; b2++) bts[b2].style.display = 'none'; }
   tailler(T, T.querySelectorAll('.lum'));
   if (deborde(T)) { var lm = T.querySelector('.lums'); if (lm) lm.style.display = 'none'; }
   tailler(T, T.querySelectorAll('.scene'));
@@ -596,8 +647,9 @@ document.addEventListener('click', function(e){
 // 1) chaque tuile prend la première place libre (si elle ne tient pas, on la rétrécit avant d'ajouter une rangée) ;
 // 2) puis chaque tuile s'étire à droite et vers le bas dans les cases restées vides.
 function placer(liste, masquee){
-  var R = 3, i, r, c, x, y;
-  for (var essai = 0; essai < 6; essai++) {
+  // Tout se compte en demi-rangées : 6 demi-rangées = les 3 rangées de l'écran
+  var R = 6, i, r, c, x, y;
+  for (var essai = 0; essai < 14; essai++) {
     var occ = [], res = [], ok = true;
     for (r = 0; r < R; r++) occ.push([false, false, false, false]);
     var libre = function(r0, c0, w, h){
@@ -606,10 +658,10 @@ function placer(liste, masquee){
       return true;
     };
     for (i = 0; i < liste.length && ok; i++) {
-      var t = liste[i], place = null;
+      var t = liste[i], place = null, H = Math.max(1, Math.round(t.h * 2));
       for (var w = Math.min(4, t.l); w >= 1 && !place; w--) {
-        for (var h = Math.min(R, t.h); h >= 1 && !place; h--) {
-          if (w < t.l && h < t.h) continue;          // on ne rétrécit que dans un sens à la fois
+        for (var h = Math.min(R, H); h >= 1 && !place; h--) {
+          if (w < t.l && h < H) continue;          // on ne rétrécit que dans un sens à la fois
           for (r = 0; r < R && !place; r++) for (c = 0; c < 4 && !place; c++) if (libre(r, c, w, h)) place = { r: r, c: c, w: w, h: h };
         }
       }
@@ -663,13 +715,15 @@ function afficher(){
   var P = placer(DISPOSITION, function(t){ return visibles.indexOf(t) < 0; });
   for (var k = 0; k < P.places.length; k++) {
     var V = P.places[k];
-    html += '<div class="tuile l' + V.w + ' h' + V.h + '" id="t-' + V.t.id + '" style="grid-column:' + (V.c + 1) + ' / span ' + V.w + ';grid-row:' + (V.r + 1) + ' / span ' + V.h + '"></div>';
+    // classes : l1-l4 (colonnes), h1-h3 (rangées entières), demi (demi-rangée)
+    var hr = V.h / 2, classeH = V.h === 1 ? ' demi' : ' h' + Math.max(1, Math.floor(hr));
+    html += '<div class="tuile l' + V.w + classeH + '" id="t-' + V.t.id + '" style="grid-column:' + (V.c + 1) + ' / span ' + V.w + ';grid-row:' + (V.r + 1) + ' / span ' + V.h + '"></div>';
   }
   G.innerHTML = html;
   G.style.gridTemplateRows = 'repeat(' + P.rangees + ', minmax(0, 1fr))';
   for (var m = 0; m < P.places.length; m++) {
     var W = P.places[m], T = $('t-' + W.t.id);
-    try { FABRIQUES[W.t.id](T, now, W.w, W.h, A); } catch (err) { T.innerHTML = '<div class="vide">Indisponible</div>'; }
+    try { FABRIQUES[W.t.id](T, now, W.w, W.h / 2, A); } catch (err) { T.innerHTML = '<div class="vide">Indisponible</div>'; }
   }
 }
 

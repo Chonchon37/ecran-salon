@@ -145,7 +145,7 @@ button.discret{background:transparent;color:var(--muted);padding:8px 10px;font-s
 
     <section data-groupe="accueil">
       <h2>Taille des tuiles</h2>
-      <p class="aide">L'accueil est une grille de 4 colonnes sur 3 rangées. <b>Glisse une tuile</b> sur une autre pour changer l'ordre, et <b>tire le coin en bas à droite</b> pour l'agrandir ou la réduire. Plus une tuile est grande, plus elle montre d'informations (plus d'heures et de jours de météo, plus d'événements et de jours d'agenda, les passages suivants, les lumières…). Quand une tuile est masquée à certains moments, les autres gardent leur place et s'agrandissent dans l'espace libéré.</p>
+      <p class="aide">L'accueil est une grille de 4 colonnes sur 3 rangées (une tuile peut faire une demi-rangée). <b>Glisse une tuile</b> sur une autre pour changer l'ordre, et <b>tire le coin en bas à droite</b> pour l'agrandir ou la réduire. Plus une tuile est grande, plus elle montre d'informations (plus d'heures et de jours de météo, plus d'événements et de jours d'agenda, les passages suivants, les lumières…). Quand une tuile est masquée à certains moments, les autres gardent leur place et s'agrandissent dans l'espace libéré.</p>
       <div class="rang" style="margin-bottom:10px"><label for="apercuMoment">Aperçu</label><select id="apercuMoment"></select></div>
       <div class="apercu" id="apercu" aria-label="Aperçu de l'accueil"></div>
       <p class="aide" id="cases" style="margin:8px 0 0"></p>
@@ -322,15 +322,16 @@ $('veilleFin').addEventListener('change', () => { R.reglages.veille.fin = $('vei
 $('reveil').addEventListener('change', () => { R.reglages.veille.reveil = +$('reveil').value; aChange(); });
 /* ---------- Taille des tuiles de l'accueil ---------- */
 const NOMS_TUILES = { date: 'Date & message', meteo: 'Météo', transports: 'Transports', anniversaires: 'Anniversaires', agenda: 'Agenda', maison: 'Maison' };
-const DISPO_ORIGINE = [{ id: 'date', l: 1, h: 1 }, { id: 'transports', l: 2, h: 1 }, { id: 'anniversaires', l: 1, h: 1 }, { id: 'meteo', l: 1, h: 2 }, { id: 'agenda', l: 3, h: 1 }, { id: 'maison', l: 3, h: 1 }];
+const DISPO_ORIGINE = [{ id: 'date', l: 1, h: 1 }, { id: 'transports', l: 2, h: 1 }, { id: 'anniversaires', l: 1, h: 1 }, { id: 'meteo', l: 1, h: 2 }, { id: 'agenda', l: 3, h: 1.5 }, { id: 'maison', l: 3, h: 0.5 }];
 function dispo() { return R.reglages.accueil.disposition || (R.reglages.accueil.disposition = JSON.parse(JSON.stringify(DISPO_ORIGINE))); }
 // Même placement que sur l'écran (accueil.html)
 // Placement des tuiles sur 4 colonnes × 3 rangées, sans trous (on place d'abord toutes les tuiles réglées) :
 // 1) chaque tuile prend la première place libre (si elle ne tient pas, on la rétrécit avant d'ajouter une rangée) ;
 // 2) puis chaque tuile s'étire à droite et vers le bas dans les cases restées vides.
 function placer(liste, masquee){
-  var R = 3, i, r, c, x, y;
-  for (var essai = 0; essai < 6; essai++) {
+  // Tout se compte en demi-rangées : 6 demi-rangées = les 3 rangées de l'écran
+  var R = 6, i, r, c, x, y;
+  for (var essai = 0; essai < 14; essai++) {
     var occ = [], res = [], ok = true;
     for (r = 0; r < R; r++) occ.push([false, false, false, false]);
     var libre = function(r0, c0, w, h){
@@ -339,10 +340,10 @@ function placer(liste, masquee){
       return true;
     };
     for (i = 0; i < liste.length && ok; i++) {
-      var t = liste[i], place = null;
+      var t = liste[i], place = null, H = Math.max(1, Math.round(t.h * 2));
       for (var w = Math.min(4, t.l); w >= 1 && !place; w--) {
-        for (var h = Math.min(R, t.h); h >= 1 && !place; h--) {
-          if (w < t.l && h < t.h) continue;          // on ne rétrécit que dans un sens à la fois
+        for (var h = Math.min(R, H); h >= 1 && !place; h--) {
+          if (w < t.l && h < H) continue;          // on ne rétrécit que dans un sens à la fois
           for (r = 0; r < R && !place; r++) for (c = 0; c < 4 && !place; c++) if (libre(r, c, w, h)) place = { r: r, c: c, w: w, h: h };
         }
       }
@@ -380,6 +381,8 @@ function placer(liste, masquee){
   return { rangees: R, places: [] };
 }
 
+const demi = n => (Math.floor(n) ? Math.floor(n) : '') + (n % 1 ? '½' : '');
+const rangees = n => demi(n) + ' rangée' + (n > 1 ? 's' : '');
 function dessinerDispo() {
   const L = dispo(), M = moments();
   // Choix de l'aperçu : toutes les tuiles, ou ce qui reste pendant un moment
@@ -389,14 +392,14 @@ function dessinerDispo() {
   const mo = sel.value === '' ? null : M[+sel.value];
   const P = placer(L, t => !!mo && mo.tuiles[t.id] === false);
   $('apercu').style.gridTemplateRows = 'repeat(' + P.rangees + ', minmax(0, 1fr))';
-  $('apercu').innerHTML = P.places.map(p => `<div class="tu ${p.t.id === 'date' ? 'date' : ''} ${glisse && glisse.id === p.t.id ? (glisse.mode === 'redim' ? 'redim' : 'glisse') : ''}" data-id="${p.t.id}" style="grid-column:${p.c + 1} / span ${p.w};grid-row:${p.r + 1} / span ${p.h}">${NOMS_TUILES[p.t.id]}<small>${p.t.l} × ${p.t.h}${p.w !== p.t.l || p.h !== p.t.h ? ' → ' + p.w + ' × ' + p.h : ''}</small><div class="poignee" data-poignee="${p.t.id}" title="Tirer pour changer la taille"></div></div>`).join('');
+  $('apercu').innerHTML = P.places.map(p => `<div class="tu ${p.t.id === 'date' ? 'date' : ''} ${glisse && glisse.id === p.t.id ? (glisse.mode === 'redim' ? 'redim' : 'glisse') : ''}" data-id="${p.t.id}" style="grid-column:${p.c + 1} / span ${p.w};grid-row:${p.r + 1} / span ${p.h}">${NOMS_TUILES[p.t.id]}<small>${p.t.l} × ${demi(p.t.h)}${p.w !== p.t.l || p.h !== Math.round(p.t.h * 2) ? ' → ' + p.w + ' × ' + demi(p.h / 2) : ''}</small><div class="poignee" data-poignee="${p.t.id}" title="Tirer pour changer la taille"></div></div>`).join('');
   APERCU = P;
-  const reduites = P.places.filter(p => p.w < p.t.l || p.h < p.t.h).length;
-  $('cases').textContent = P.rangees > 3
-    ? 'Trop de tuiles pour 3 rangées : l\'écran passe à ' + P.rangees + ' rangées et toutes les tuiles deviennent moins hautes.'
+  const reduites = P.places.filter(p => p.w < p.t.l || p.h < Math.round(p.t.h * 2)).length;
+  $('cases').textContent = P.rangees > 6
+    ? 'Trop de tuiles pour 3 rangées : l\'écran passe à ' + demi(P.rangees / 2) + ' rangées et toutes les tuiles deviennent moins hautes.'
     : reduites ? 'Certaines tuiles sont réduites pour tenir sur l\'écran (« ajusté »). Les tuiles s\'étirent aussi pour combler les vides.'
     : 'Les tuiles s\'étirent pour combler les cases vides : ce qui est affiché ici est exactement ce que montrera l\'écran.';
-  $('cases').style.color = P.rangees > 3 ? 'var(--warn)' : '';
+  $('cases').style.color = P.rangees > 6 ? 'var(--warn)' : '';
   $('dispo').innerHTML = L.map((t, i) => `
     <div class="ligne dispo-l">
       <div class="fleches">
@@ -405,7 +408,7 @@ function dessinerDispo() {
       </div>
       <div class="nom">${NOMS_TUILES[t.id]}</div>
       <select data-d-l="${i}" aria-label="Largeur de ${NOMS_TUILES[t.id]}">${[1, 2, 3, 4].map(n => `<option value="${n}" ${t.l === n ? 'selected' : ''}>${n} colonne${n > 1 ? 's' : ''}</option>`).join('')}</select>
-      <select data-d-h="${i}" aria-label="Hauteur de ${NOMS_TUILES[t.id]}">${[1, 2, 3].map(n => `<option value="${n}" ${t.h === n ? 'selected' : ''}>${n} rangée${n > 1 ? 's' : ''}</option>`).join('')}</select>
+      <select data-d-h="${i}" aria-label="Hauteur de ${NOMS_TUILES[t.id]}">${[0.5, 1, 1.5, 2, 2.5, 3].map(n => `<option value="${n}" ${t.h === n ? 'selected' : ''}>${rangees(n)}</option>`).join('')}</select>
     </div>`).join('');
 }
 $('apercuMoment').addEventListener('change', dessinerDispo);
@@ -436,7 +439,7 @@ $('apercu').addEventListener('pointermove', e => {
     // La taille suit le coin, case par case
     const k = caseSous(e.clientX, e.clientY);
     const l = Math.max(1, Math.min(4, Math.round(k.c - glisse.place.c + 0.15)));
-    const h = Math.max(1, Math.min(3, Math.round(k.r - glisse.place.r + 0.15)));
+    const h = Math.max(1, Math.min(6, Math.round(k.r - glisse.place.r + 0.15))) / 2;   // par demi-rangée
     if (l !== t.l || h !== t.h) { t.l = l; t.h = h; dessinerDispo(); aChange(); }
     return;
   }
@@ -464,7 +467,7 @@ $('dispo').addEventListener('click', e => {
 $('dispo').addEventListener('change', e => {
   const L = dispo(), d = e.target.dataset;
   if (d.dL !== undefined) L[+d.dL].l = +e.target.value;
-  else if (d.dH !== undefined) L[+d.dH].h = +e.target.value;
+  else if (d.dH !== undefined) L[+d.dH].h = parseFloat(e.target.value);
   else return;
   dessinerDispo(); aChange();
 });
