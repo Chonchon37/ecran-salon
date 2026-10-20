@@ -75,7 +75,8 @@ body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;fon
 .jp-t b{color:var(--ink)}
 
 /* Transports */
-.tr{justify-content:center}
+.tr > :first-child,.bd > :first-child{margin-top:auto}
+.tr > :last-child,.bd > :last-child{margin-bottom:auto}
 .tl{display:flex;align-items:center}
 .tl + .tl{margin-top:14px}
 .badge{width:48px;height:48px;display:flex;align-items:center;justify-content:center;font-family:"Bricolage Grotesque",Figtree,Arial,sans-serif;font-size:27px;font-weight:700;color:var(--badge-ink);margin-right:14px;flex:none}
@@ -92,7 +93,7 @@ body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;fon
 .tl-puis{font-size:16px;color:var(--muted);white-space:nowrap;margin-top:2px}
 
 /* Anniversaires */
-.bd{justify-content:center}
+
 .bd-q{font-size:30px;font-weight:600;line-height:1.05;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .bd-j{font-size:20px;font-weight:700;color:var(--fete);margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .bd-d{font-size:17px;color:var(--muted);font-weight:400}
@@ -118,6 +119,7 @@ body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;fon
 .l1 .scene{height:56px;font-size:18px}
 .scene{box-sizing:border-box;height:72px;margin:5px;border-radius:16px;background:var(--card2);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:19px;font-weight:600;padding:0 10px;white-space:nowrap;overflow:hidden;transition:background-color .3s,color .3s}
 .scene svg{width:26px;height:26px;margin-right:9px;flex:none}
+.scene span{overflow:hidden;text-overflow:ellipsis}
 .scene.on{background:var(--accent);color:var(--on-ink)}
 .lums{display:flex;flex-wrap:wrap;margin:8px -4px 0}
 .lum{margin:4px;padding:9px 14px;border-radius:12px;background:var(--card2);font-size:17px;font-weight:600;cursor:pointer;white-space:nowrap}
@@ -463,10 +465,8 @@ function tuileAnniversaires(T, now, l, h, A){
     html += '</div>';
   }
   T.innerHTML = html;
-  T.style.justifyContent = 'flex-start';
   var lignes = T.querySelectorAll('.bd-l'), caches = tailler(T, lignes);
   if (caches === lignes.length && lignes.length) T.querySelector('.bd-suite').style.display = 'none';
-  if (!deborde(T) && h === 1) T.style.justifyContent = 'center';
 }
 
 /* ---------- Tuile Agenda ---------- */
@@ -545,10 +545,11 @@ function lumieresAffichees(){ return maisonReelle ? maisonReelle.lumieres : (pri
 function tuileMaison(T, now, l, h){
   var L = scenesAffichees(), lum = lumieresAffichees(), nb = 0, i;
   for (i = 0; i < lum.length; i++) if (lum[i].allumee) nb++;
-  var parRang = l === 1 ? 1 : (h === 1 ? (l === 2 ? 4 : 5) : (l === 2 ? 2 : 3));
+  // Boutons par rangée selon la largeur réelle de la tuile (au moins ~170 px chacun)
+  var parRang = Math.max(1, Math.floor((T.clientWidth - 48 + 10) / 180));
   var largeur = 'calc(' + (100 / Math.min(parRang, Math.max(1, L.length))).toFixed(3) + '% - 10px)';
   var html = '<div class="home-s">' + ((prive() && !maisonReelle) ? 'Chargement…' : (nb === 0 ? 'Tout est éteint' : nb + (nb > 1 ? ' lumières allumées' : ' lumière allumée'))) + '</div><div class="sc">';
-  for (i = 0; i < L.length; i++) html += '<div class="scene' + (L[i].id === sceneActive ? ' on' : '') + '" data-scene="' + i + '" style="width:' + largeur + '">' + SVG + ICONES_SC[iconeScene(L[i].nom)] + '</svg>' + echapper(L[i].nom) + '</div>';
+  for (i = 0; i < L.length; i++) html += '<div class="scene' + (L[i].id === sceneActive ? ' on' : '') + '" data-scene="' + i + '" style="width:' + largeur + '">' + SVG + ICONES_SC[iconeScene(L[i].nom)] + '</svg><span>' + echapper(L[i].nom) + '</span></div>';
   html += '</div>';
   // Grande tuile : les lumières, à toucher pour allumer / éteindre
   if (h >= 2 && lum.length) {
@@ -585,10 +586,10 @@ document.addEventListener('click', function(e){
 });
 
 /* ---------- Mise en page ---------- */
-// Placement des tuiles sur 4 colonnes × 3 rangées, sans trous :
+// Placement des tuiles sur 4 colonnes × 3 rangées, sans trous (on place d'abord toutes les tuiles réglées) :
 // 1) chaque tuile prend la première place libre (si elle ne tient pas, on la rétrécit avant d'ajouter une rangée) ;
 // 2) puis chaque tuile s'étire à droite et vers le bas dans les cases restées vides.
-function placer(liste){
+function placer(liste, masquee){
   var R = 3, i, r, c, x, y;
   for (var essai = 0; essai < 6; essai++) {
     var occ = [], res = [], ok = true;
@@ -611,6 +612,16 @@ function placer(liste){
       res.push({ t: t, r: place.r, c: place.c, w: place.w, h: place.h });
     }
     if (!ok) { R++; continue; }
+    // Tuiles masquées (moment de la journée, plus de transports…) : les autres gardent leur place et s'étirent dans le vide laissé
+    if (masquee) {
+      var gardees = [];
+      for (r = 0; r < R; r++) occ[r] = [false, false, false, false];
+      for (i = 0; i < res.length; i++) if (!masquee(res[i].t)) {
+        gardees.push(res[i]);
+        for (y = res[i].r; y < res[i].r + res[i].h; y++) for (x = res[i].c; x < res[i].c + res[i].w; x++) occ[y][x] = true;
+      }
+      res = gardees;
+    }
     // Étirement dans les cases vides
     var change = true;
     while (change) {
@@ -645,7 +656,7 @@ function afficher(){
     }
     visibles.push(D);
   }
-  var P = placer(visibles);
+  var P = placer(DISPOSITION, function(t){ return visibles.indexOf(t) < 0; });
   for (var k = 0; k < P.places.length; k++) {
     var V = P.places[k];
     html += '<div class="tuile l' + V.w + ' h' + V.h + '" id="t-' + V.t.id + '" style="grid-column:' + (V.c + 1) + ' / span ' + V.w + ';grid-row:' + (V.r + 1) + ' / span ' + V.h + '"></div>';
@@ -690,6 +701,8 @@ chargerAgenda(); setInterval(chargerAgenda, 5 * 60000);
 chargerMaison(); setInterval(chargerMaison, 30000);
 chargerVigi(); setInterval(chargerVigi, 5 * 60000);
 setInterval(afficher, 20000);
+// Une fois les polices chargées, les textes changent de taille : on recalcule ce qui tient
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(function(){ afficher(); });
 </script>
 </body>
 </html>
