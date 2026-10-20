@@ -74,6 +74,7 @@ body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;fon
 .mh-t{font-size:16px;font-weight:600;color:var(--muted)}
 .mh-v{font-size:21px;font-weight:600}
 .wx-haut{display:flex;align-items:center;flex:none}
+.wx-haut.compact .wx-temp{font-size:80px}
 .wx-cote{flex:1;min-width:0;margin-left:28px;display:flex;flex-direction:column;justify-content:center}
 .wx-cote .alert,.wx-cote .vigi{margin-top:10px}
 .wx-puces{display:flex;flex-wrap:wrap;margin:-4px}
@@ -333,7 +334,7 @@ function tuileDate(T, now){
   T.className += ' nu';
   T.innerHTML = '<div class="greet h">' + (h < 5 ? 'Bonne nuit' : (h < 12 ? 'Bonjour' : (h < 18 ? 'Bon après-midi' : 'Bonsoir'))) + '</div>' +
     '<div class="date">' + majuscule(JOURS[now.getDay()]) + ' ' + now.getDate() + ' ' + MOIS[now.getMonth()] + (prive() ? '' : ' <span class="demo">exemple</span>') + '</div>' +
-    meteoActuelle(now) +
+    (VISIBLES.meteo ? '' : meteoActuelle(now)) +   // pas de doublon si la tuile Météo est déjà à l'écran
     (MESSAGE ? '<div class="msg" data-p="1">' + echapper(MESSAGE) + '</div>' : '');
   taillerParPriorite(T);
 }
@@ -449,16 +450,16 @@ function tuileMeteo(T, now, l, h){
     }
   }
   var gauche;
-  if (l >= 2 && h >= 2) {
+  if (l >= 2 && h >= 1.5) {
     // Grande tuile : à droite de la température, ressenti / vent / humidité, vigilance et pluie
     var cur = meteo ? meteo.current : null, puces = '';
     if (cur && cur.apparent_temperature != null) {
-      puces = '<div class="wx-puces">' +
+      puces = '<div class="wx-puces" data-p="5">' +
         '<span><b>Ressenti</b> ' + Math.round(cur.apparent_temperature) + '°</span>' +
         '<span><b>Vent</b> ' + Math.round(cur.wind_speed_10m) + ' km/h ' + ['N', 'NE', 'E', 'SE', 'S', 'SO', 'O', 'NO'][Math.round(cur.wind_direction_10m / 45) % 8] + '</span>' +
         '<span><b>Humidité</b> ' + Math.round(cur.relative_humidity_2m) + ' %</span></div>';
     }
-    gauche = '<div class="wx-haut"><div class="wx-gauche"><div class="wx-main">' + iconeMeteo(code, jour, 112) + '<div class="wx-temp h">' + temp + '°</div></div>' +
+    gauche = '<div class="wx-haut' + (h < 2 ? ' compact' : '') + '"><div class="wx-gauche"><div class="wx-main">' + iconeMeteo(code, jour, h < 2 ? 84 : 112) + '<div class="wx-temp h">' + temp + '°</div></div>' +
       '<div class="wx-hl">Max ' + max + '° · Min ' + min + '°</div></div>' +
       '<div class="wx-cote">' + puces + texteVigi() + '<div data-p="3">' + textePluie(now) + '</div></div></div>';
   } else {
@@ -728,6 +729,7 @@ function placer(liste, masquee){
   return { rangees: R, places: [] };
 }
 
+var VISIBLES = {};
 var FABRIQUES = { date: tuileDate, meteo: tuileMeteo, transports: tuileTransports, anniversaires: tuileAnniversaires, agenda: tuileAgenda, maison: tuileMaison };
 function afficher(){
   var now = new Date(), G = $('grille'), html = '', visibles = [];
@@ -741,6 +743,7 @@ function afficher(){
     }
     visibles.push(D);
   }
+  VISIBLES = {}; for (var vz = 0; vz < visibles.length; vz++) VISIBLES[visibles[vz].id] = true;
   var P = placer(DISPOSITION, function(t){ return visibles.indexOf(t) < 0; });
   for (var k = 0; k < P.places.length; k++) {
     var V = P.places[k];
