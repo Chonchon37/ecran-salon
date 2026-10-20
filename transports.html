@@ -27,7 +27,10 @@ body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;fon
 .demo{margin-left:10px;font-size:12px;letter-spacing:.06em;padding:3px 9px;border-radius:20px;background:var(--warn-soft);color:var(--warn)}
 
 .top{display:flex;align-items:center;justify-content:space-between;height:28px;margin-bottom:16px}
-.upd{font-size:17px;color:var(--muted)}
+.upd{font-size:17px;color:var(--muted);display:flex;align-items:center}
+.leg{margin-right:22px;display:inline-flex;align-items:center}
+.leg i{display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--muted);margin:0 6px 0 12px}
+.leg i.p{background:transparent;border:2px solid var(--muted);width:6px;height:6px}
 .upd.vieux{color:var(--warn);font-weight:700}
 .lines{flex:1;display:flex;min-height:0}
 .line{flex:1;display:flex;flex-direction:column;min-width:0}
@@ -45,11 +48,14 @@ body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;fon
 .ln-sub .sep{margin:0 8px}
 .ln-status{margin-left:auto;font-size:16px;font-weight:700;padding:7px 13px;border-radius:16px;background:var(--card2);color:var(--ok);align-self:flex-start;white-space:nowrap}
 .ln-status.pb{background:var(--warn-soft);color:var(--warn)}
-.alerte{margin-top:14px;padding:11px 16px;border-radius:14px;background:var(--warn-soft);color:var(--warn);font-size:18px;font-weight:500;line-height:1.3;flex:none}
+.alerte{margin-top:14px;padding:10px 16px 10px 14px;border-radius:12px;background:var(--card2);color:var(--ink);border-left:5px solid var(--warn);font-size:18px;font-weight:500;line-height:1.3;flex:none}
+.alerte b{color:var(--warn)}
 .alerte b{font-weight:700}
 .al-t{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
 .al-plus{display:block;margin-top:4px;font-size:15px;font-weight:600;opacity:.85;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.alerte.bientot{background:var(--card2);color:var(--ink)}
+.alerte.bientot{border-left-color:var(--muted)}
+.alerte.bientot b{color:var(--ink)}
+.al-plus{color:var(--muted)}
 .ln-status.av{background:var(--card2);color:var(--muted)}
 
 /* Bloc principal : quand partir, lisible de loin */
@@ -77,7 +83,7 @@ body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;fon
 @keyframes pulse{50%{opacity:.25}}
 
 /* Badge « trop tard à pied » */
-.rate{align-self:flex-start;margin-top:12px;display:inline-flex;align-items:center;padding:7px 14px;border-radius:12px;background:var(--warn-soft);color:var(--warn);font-size:18px;font-weight:700}
+.rate{align-self:flex-start;margin-top:10px;display:inline-flex;align-items:center;padding:4px 2px;color:var(--warn);font-size:18px;font-weight:700}
 .rate svg{width:20px;height:20px;margin-right:8px;flex:none}
 
 /* Frise des 60 prochaines minutes (zone hachurée = temps de marche) */
@@ -87,7 +93,9 @@ body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;fon
 .fr-walk{position:absolute;left:0;top:38px;height:8px;border-radius:4px 0 0 4px;background:repeating-linear-gradient(135deg,var(--warn) 0 6px,transparent 6px 11px);opacity:.8}
 .fr-dot{position:absolute;top:30px;width:24px;height:24px;margin-left:-12px;border-radius:50%;box-sizing:border-box;border:4px solid;background:var(--card)}
 .fr-dot.passe{opacity:.35}
-.fr-lab{position:absolute;top:62px;white-space:nowrap;font-size:17px;color:var(--muted);-webkit-transform:translateX(-50%);transform:translateX(-50%)}
+.fr-lab{position:absolute;top:60px;white-space:nowrap;font-size:18px;font-weight:600;color:var(--muted);-webkit-transform:translateX(-50%);transform:translateX(-50%)}
+.fr-lab.cible{color:var(--ink);font-weight:700}
+.fr-bout{position:absolute;right:0;top:0;font-size:15px;color:var(--muted)}
 .fr-lab.g{-webkit-transform:none;transform:none}
 .fr-lab.d{-webkit-transform:translateX(-100%);transform:translateX(-100%)}
 
@@ -246,10 +254,15 @@ function carte(cfg, D){
     if (mf < 0 || mf > 60) continue;
     html += '<div class="fr-dot' + (mf < cfg.marche ? ' passe' : '') + '" style="left:' + (mf / 60 * 100).toFixed(1) + '%;border-color:' + coul + (P[f].tempsReel ? ';background:' + coul : '') + '"></div>';
   }
-  var reperes = [0, 15, 30, 45, 60];
-  for (var r = 0; r < reperes.length; r++) {
-    html += '<div class="fr-lab' + (r === 0 ? ' g' : (r === 4 ? ' d' : '')) + '" style="left:' + (reperes[r] / 60 * 100) + '%">' + (r === 0 ? 'maint.' : '+' + reperes[r] + ' min') + '</div>';
+  // Sous chaque passage attrapable : son heure (en gras pour celui à prendre), sans chevauchement
+  var dernierePos = -100;
+  for (var g = 0; g < P.length; g++) {
+    var mg = (P[g].heure - Date.now()) / 60000, pos = mg / 60 * 100;
+    if (mg < cfg.marche || mg > 60 || pos - dernierePos < 10) continue;
+    dernierePos = pos;
+    html += '<div class="fr-lab' + (pos > 93 ? ' d' : '') + (g === cible ? ' cible' : '') + '" style="left:' + pos.toFixed(1) + '%">' + hm(P[g].heure) + '</div>';
   }
+  html += '<div class="fr-bout">+1 h</div>';
   html += '</div>';
 
   // Les 2 départs suivants, sur une ligne
@@ -273,7 +286,7 @@ function majTexte(){
   var s = Math.round((Date.now() - derniereMaj) / 1000), z = $('upd');
   if (s > 180) { z.className = 'upd vieux'; z.innerHTML = 'Pas de mise à jour depuis ' + Math.floor(s / 60) + ' min : vérifie la connexion'; return; }
   z.className = 'upd';
-  z.innerHTML = (tempsReelOk ? '' : 'Temps réel indisponible, horaires prévus · ') + (s < 15 ? 'À jour' : 'Mis à jour il y a ' + (s < 60 ? s + ' s' : Math.floor(s / 60) + ' min'));
+  z.innerHTML = '<span class="leg"><i></i>temps réel <i class="p"></i>horaire prévu</span>' + (tempsReelOk ? '' : 'Temps réel indisponible · ') + (s < 15 ? 'À jour' : 'Mis à jour il y a ' + (s < 60 ? s + ' s' : Math.floor(s / 60) + ' min'));
 }
 var dernieresDonnees = null;
 function charger(){
