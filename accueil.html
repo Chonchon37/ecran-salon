@@ -97,6 +97,14 @@ body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;fon
 .scene:last-child{margin-right:0}
 .scene svg{width:26px;height:26px;margin-right:9px}
 .scene.on{background:var(--accent);color:var(--on-ink)}
+.vigi{display:inline-flex;align-items:center;border-radius:12px;font-weight:700;letter-spacing:0;text-transform:none;white-space:nowrap}
+.vigi svg{flex:none}
+.vigi.jaune{background:#F5D33C;color:#3B3000}
+.vigi.orange{background:#EE8323;color:#2B1400}
+.vigi.rouge{background:#D42F2F;color:#FFFFFF}
+#vigi .vigi{margin-top:14px;font-size:18px;padding:9px 14px;display:flex;white-space:normal;line-height:1.25}
+#vigi .vigi svg{width:22px;height:22px;margin-right:9px}
+#vigi .vigi + *{}
 </style>
 </head>
 <body>
@@ -112,6 +120,7 @@ body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;fon
       <div class="wx-main"><div id="wxIcon"></div><div class="wx-temp h" id="wxTemp"></div></div>
       <div class="wx-cond" id="wxCond"></div>
       <div class="wx-hl" id="wxHL"></div>
+      <div id="vigi"></div>
       <div id="wxAlert"></div>
       <div class="mini"><div class="mini-t" id="wxHoursTitre"></div><div class="mini-h" id="wxHours"></div></div>
     </div>
@@ -545,6 +554,26 @@ document.addEventListener('click', function(e){
 
 afficher();
 setInterval(afficher, 20000);
+
+/* ---------- Vigilance Météo-France (via Home Assistant, par le Worker) ---------- */
+var VIGI_ICONE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5 2.8 19.5h18.4z"/><path d="M12 10v4.5M12 17.2v.1"/></svg>';
+function texteVigi(v){
+  if (!v || !v.trouve || ['jaune', 'orange', 'rouge'].indexOf(v.niveau) < 0) return '';
+  var noms = [];
+  for (var i = 0; i < v.phenomenes.length; i++) if (v.phenomenes[i].niveau !== 'vert') noms.push(v.phenomenes[i].nom);
+  return '<span class="vigi ' + v.niveau + '">' + VIGI_ICONE + 'Vigilance ' + v.niveau + (noms.length ? ' · ' + noms.join(', ') : '') + '</span>';
+}
+function chargerVigi(quandOk){
+  var cle = (/[?&]cle=([^&#]*)/.exec(location.search) || [])[1];
+  if (!cle) return;
+  var x = new XMLHttpRequest();
+  x.open('GET', 'https://ecran-salon.nico-michon37.workers.dev/vigilance?cle=' + cle, true);
+  x.timeout = 20000;
+  x.onload = function(){ if (x.status === 200) { try { quandOk(JSON.parse(x.responseText)); } catch (e) {} } };
+  x.send();
+}
+function majVigi(){ chargerVigi(function(v){ $('vigi').innerHTML = texteVigi(v); }); }
+majVigi(); setInterval(majVigi, 5 * 60000);
 </script>
 </body>
 </html>
