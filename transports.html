@@ -48,6 +48,8 @@ body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;fon
 .ln-sub .sep{margin:0 8px}
 .ln-status{margin-left:auto;font-size:16px;font-weight:700;padding:7px 13px;border-radius:16px;background:var(--card2);color:var(--ok);align-self:flex-start;white-space:nowrap}
 .ln-status.pb{background:var(--warn-soft);color:var(--warn)}
+.ln-status.lien{cursor:pointer;font-size:18px;padding:10px 14px 10px 16px;display:flex;align-items:center}
+.ln-status .chev{font-size:24px;line-height:16px;margin-left:8px;font-weight:700}
 .alerte{margin-top:14px;padding:10px 16px 10px 14px;border-radius:12px;background:var(--card2);color:var(--ink);border-left:5px solid var(--warn);font-size:18px;font-weight:500;line-height:1.3;flex:none}
 .alerte b{color:var(--warn)}
 .alerte{position:relative;padding-right:92px;cursor:pointer;height:92px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:center}
@@ -220,12 +222,13 @@ function retardMax(P){
   return m;
 }
 // Pastille : alerte publiée > retard constaté > travaux à venir > aucune alerte (rien si l'info trafic est injoignable)
-function etatTrafic(D, P){
+function etatTrafic(D, P, cfg){
   if (!D) return '';
   var n = enCours(D).length + (D.perturbation ? 1 : 0), r = retardMax(P);
-  if (n) return '<div class="ln-status pb">' + (n > 1 ? n + ' perturbations' : 'Perturbé') + '</div>';
+  var lien = ' lien" data-ligne="' + cfg.ligne + '"';
+  if (n) return '<div class="ln-status pb' + lien + '>' + (n > 1 ? n + ' perturbations' : 'Perturbé') + '<span class="chev">›</span></div>';
   if (r >= 5) return '<div class="ln-status pb">Retard ~' + r + ' min</div>';
-  if (aVenir(D).length) return '<div class="ln-status av">Travaux à venir</div>';
+  if (aVenir(D).length) return '<div class="ln-status av' + lien + '>Travaux à venir<span class="chev">›</span></div>';
   if (D.infoDispo === false) return '';
   return '<div class="ln-status">Aucune alerte</div>';
 }
@@ -243,13 +246,11 @@ function encadreAlerte(D, cfg){
 }
 function carte(cfg, D){
   var P = (D ? D.passages : []).filter(function(p){ return p.heure > Date.now() - 30000; });
-  var alerte = encadreAlerte(D, cfg);
-  if (!alerte && ALIGNER) alerte = '<div class="alerte calme"><span class="al-t">' + (D && D.infoDispo === false ? 'Info trafic indisponible pour le moment' : 'Aucune perturbation signalée sur cette ligne') + '</span></div>';
   var html = '<div class="card line' + (ALIGNER ? ' serre' : '') + '"><div class="ln-head">' +
     '<div class="badge ' + cfg.type + '">' + cfg.ligne + '</div>' +
     '<div class="ln-txt"><div class="ln-stop h">' + cfg.arret + '</div>' +
     '<div class="ln-sub">vers ' + cfg.direction + '<span class="sep">·</span>' + PIETON + cfg.marche + ' min à pied</div></div>' +
-    etatTrafic(D, P) + '</div>' + alerte;
+    etatTrafic(D, P, cfg) + '</div>';
 
   // Premier passage qu'on peut encore attraper à pied
   var cible = -1;
@@ -305,8 +306,7 @@ var tempsReelOk = true;
 var ALIGNER = false;   // une ligne a un encadré : l'autre en reçoit un de même taille
 function afficher(D){
   var html = '';
-  ALIGNER = false;
-  for (var a = 0; a < CONFIG.LIGNES.length; a++) if (CONFIG.LIGNES[a].actif !== false && encadreAlerte(D[CONFIG.LIGNES[a].ligne], CONFIG.LIGNES[a])) ALIGNER = true;
+  ALIGNER = false;   // plus d'encadré : le détail s'ouvre en touchant la pastille
   for (var i = 0; i < CONFIG.LIGNES.length; i++) if (CONFIG.LIGNES[i].actif !== false) html += carte(CONFIG.LIGNES[i], D[CONFIG.LIGNES[i].ligne]);
   $('lines').innerHTML = html;
   $('demo').style.display = CONFIG.WORKER ? 'none' : '';
