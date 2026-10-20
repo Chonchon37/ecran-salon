@@ -145,7 +145,7 @@ button.discret{background:transparent;color:var(--muted);padding:8px 10px;font-s
 
     <section data-groupe="accueil">
       <h2>Taille des tuiles</h2>
-      <p class="aide">L'accueil est une grille de 4 colonnes sur 3 rangées (une tuile peut faire une demi-rangée). <b>Glisse une tuile</b> sur une autre pour changer l'ordre, et <b>tire le coin en bas à droite</b> pour l'agrandir ou la réduire. Plus une tuile est grande, plus elle montre d'informations (plus d'heures et de jours de météo, plus d'événements et de jours d'agenda, les passages suivants, les lumières…). Quand une tuile est masquée à certains moments, les autres gardent leur place et s'agrandissent dans l'espace libéré.</p>
+      <p class="aide">L'accueil est une grille de 4 colonnes sur 3 rangées (une tuile peut faire une demi-rangée). <b>Glisse une tuile</b> sur une autre pour changer l'ordre, et <b>tire le coin en bas à droite</b> pour l'agrandir ou la réduire. Plus une tuile est grande, plus elle montre d'informations (plus d'heures et de jours de météo, plus d'événements et de jours d'agenda, les passages suivants, les lumières…). Les tuiles ne s'agrandissent jamais toutes seules : une case libre reste vide sur l'écran (et une tuile masquée à certains moments laisse sa place vide).</p>
       <div class="rang" style="margin-bottom:10px"><label for="apercuMoment">Aperçu</label><select id="apercuMoment"></select></div>
       <div class="apercu" id="apercu" aria-label="Aperçu de l'accueil"></div>
       <p class="aide" id="cases" style="margin:8px 0 0"></p>
@@ -325,9 +325,8 @@ const NOMS_TUILES = { date: 'Date & message', meteo: 'Météo', transports: 'Tra
 const DISPO_ORIGINE = [{ id: 'date', l: 1, h: 1 }, { id: 'transports', l: 2, h: 1 }, { id: 'anniversaires', l: 1, h: 1 }, { id: 'meteo', l: 1, h: 2 }, { id: 'agenda', l: 3, h: 1.5 }, { id: 'maison', l: 3, h: 0.5 }];
 function dispo() { return R.reglages.accueil.disposition || (R.reglages.accueil.disposition = JSON.parse(JSON.stringify(DISPO_ORIGINE))); }
 // Même placement que sur l'écran (accueil.html)
-// Placement des tuiles sur 4 colonnes × 3 rangées, sans trous (on place d'abord toutes les tuiles réglées) :
+// Placement des tuiles sur 4 colonnes × 3 rangées (on place d'abord toutes les tuiles réglées) :
 // 1) chaque tuile prend la première place libre (si elle ne tient pas, on la rétrécit avant d'ajouter une rangée) ;
-// 2) puis chaque tuile s'étire à droite et vers le bas dans les cases restées vides.
 function placer(liste, masquee){
   // Tout se compte en demi-rangées : 6 demi-rangées = les 3 rangées de l'écran
   var R = 6, i, r, c, x, y;
@@ -352,7 +351,7 @@ function placer(liste, masquee){
       res.push({ t: t, r: place.r, c: place.c, w: place.w, h: place.h });
     }
     if (!ok) { R++; continue; }
-    // Tuiles masquées (moment de la journée, plus de transports…) : les autres gardent leur place et s'étirent dans le vide laissé
+    // Tuiles masquées (moment de la journée) : les autres gardent leur place, le vide reste
     if (masquee) {
       var gardees = [];
       for (r = 0; r < R; r++) occ[r] = [false, false, false, false];
@@ -362,20 +361,7 @@ function placer(liste, masquee){
       }
       res = gardees;
     }
-    // Étirement dans les cases vides
-    var change = true;
-    while (change) {
-      change = false;
-      for (i = 0; i < res.length; i++) {
-        var P = res[i], k;
-        var droite = P.c + P.w < 4;
-        for (k = P.r; droite && k < P.r + P.h; k++) if (occ[k][P.c + P.w]) droite = false;
-        if (droite) { for (k = P.r; k < P.r + P.h; k++) occ[k][P.c + P.w] = true; P.w++; change = true; continue; }
-        var bas = P.r + P.h < R;
-        for (k = P.c; bas && k < P.c + P.w; k++) if (occ[P.r + P.h][k]) bas = false;
-        if (bas) { for (k = P.c; k < P.c + P.w; k++) occ[P.r + P.h][k] = true; P.h++; change = true; }
-      }
-    }
+    // Pas d'étirement : les cases vides restent vides, c'est l'utilisateur qui règle les tailles
     return { rangees: R, places: res };
   }
   return { rangees: R, places: [] };
@@ -397,8 +383,8 @@ function dessinerDispo() {
   const reduites = P.places.filter(p => p.w < p.t.l || p.h < Math.round(p.t.h * 2)).length;
   $('cases').textContent = P.rangees > 6
     ? 'Trop de tuiles pour 3 rangées : l\'écran passe à ' + demi(P.rangees / 2) + ' rangées et toutes les tuiles deviennent moins hautes.'
-    : reduites ? 'Certaines tuiles sont réduites pour tenir sur l\'écran (« ajusté »). Les tuiles s\'étirent aussi pour combler les vides.'
-    : 'Les tuiles s\'étirent pour combler les cases vides : ce qui est affiché ici est exactement ce que montrera l\'écran.';
+    : reduites ? 'Certaines tuiles sont réduites pour tenir sur l\'écran (« → » indique leur taille réelle).'
+    : 'Ce qui est affiché ici est exactement ce que montrera l\'écran ; les zones vides restent vides.';
   $('cases').style.color = P.rangees > 6 ? 'var(--warn)' : '';
   $('dispo').innerHTML = L.map((t, i) => `
     <div class="ligne dispo-l">

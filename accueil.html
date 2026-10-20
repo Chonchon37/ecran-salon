@@ -115,7 +115,7 @@ body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;fon
 /* Maison */
 .home-s{font-size:19px;font-weight:600;flex:none}
 .sc{display:flex;flex-wrap:wrap;margin:6px -5px 0}
-.h1 .sc{margin-top:auto}
+.tuile > .sc:first-child{margin-top:auto;margin-bottom:auto}
 .l1 .scene{height:56px;font-size:18px}
 .scene{box-sizing:border-box;height:72px;margin:5px;border-radius:16px;background:var(--card2);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:19px;font-weight:600;padding:0 10px;white-space:nowrap;overflow:hidden;transition:background-color .3s,color .3s}
 .scene svg{width:26px;height:26px;margin-right:9px;flex:none}
@@ -601,10 +601,10 @@ function tuileMaison(T, now, l, h){
   var L = scenesAffichees(), lum = lumieresAffichees(), nb = 0, i;
   for (i = 0; i < lum.length; i++) if (lum[i].allumee) nb++;
   // Boutons par rangée selon la largeur réelle de la tuile (au moins ~170 px chacun)
-  var parRang = Math.max(1, Math.floor((T.clientWidth - 48 + 10 - (h < 1 ? 170 : 0)) / 180));
+  var parRang = Math.max(1, Math.floor((T.clientWidth - 48 + 10) / 180));
   var largeur = 'calc(' + (100 / Math.min(parRang, Math.max(1, L.length))).toFixed(3) + '% - 10px)';
   if (h < 1) T.className += ' maison-demi';
-  var html = '<div class="home-s">' + ((prive() && !maisonReelle) ? 'Chargement…' : (nb === 0 ? 'Tout est éteint' : nb + (nb > 1 ? ' lumières allumées' : ' lumière allumée'))) + '</div><div class="sc">';
+  var html = (prive() && !maisonReelle ? '<div class="home-s">Chargement…</div>' : '') + '<div class="sc">';
   if (h < 1) largeur = 'calc(' + (100 / Math.min(parRang, Math.max(1, L.length))).toFixed(3) + '% - 10px)';
   for (i = 0; i < L.length; i++) html += '<div class="scene' + (L[i].id === sceneActive ? ' on' : '') + '" data-scene="' + i + '" style="width:' + largeur + '">' + SVG + ICONES_SC[iconeScene(L[i].nom)] + '</svg><span>' + echapper(L[i].nom) + '</span></div>';
   html += '</div>';
@@ -644,9 +644,8 @@ document.addEventListener('click', function(e){
 });
 
 /* ---------- Mise en page ---------- */
-// Placement des tuiles sur 4 colonnes × 3 rangées, sans trous (on place d'abord toutes les tuiles réglées) :
+// Placement des tuiles sur 4 colonnes × 3 rangées (on place d'abord toutes les tuiles réglées) :
 // 1) chaque tuile prend la première place libre (si elle ne tient pas, on la rétrécit avant d'ajouter une rangée) ;
-// 2) puis chaque tuile s'étire à droite et vers le bas dans les cases restées vides.
 function placer(liste, masquee){
   // Tout se compte en demi-rangées : 6 demi-rangées = les 3 rangées de l'écran
   var R = 6, i, r, c, x, y;
@@ -671,7 +670,7 @@ function placer(liste, masquee){
       res.push({ t: t, r: place.r, c: place.c, w: place.w, h: place.h });
     }
     if (!ok) { R++; continue; }
-    // Tuiles masquées (moment de la journée, plus de transports…) : les autres gardent leur place et s'étirent dans le vide laissé
+    // Tuiles masquées (moment de la journée) : les autres gardent leur place, le vide reste
     if (masquee) {
       var gardees = [];
       for (r = 0; r < R; r++) occ[r] = [false, false, false, false];
@@ -681,20 +680,7 @@ function placer(liste, masquee){
       }
       res = gardees;
     }
-    // Étirement dans les cases vides
-    var change = true;
-    while (change) {
-      change = false;
-      for (i = 0; i < res.length; i++) {
-        var P = res[i], k;
-        var droite = P.c + P.w < 4;
-        for (k = P.r; droite && k < P.r + P.h; k++) if (occ[k][P.c + P.w]) droite = false;
-        if (droite) { for (k = P.r; k < P.r + P.h; k++) occ[k][P.c + P.w] = true; P.w++; change = true; continue; }
-        var bas = P.r + P.h < R;
-        for (k = P.c; bas && k < P.c + P.w; k++) if (occ[P.r + P.h][k]) bas = false;
-        if (bas) { for (k = P.c; k < P.c + P.w; k++) occ[P.r + P.h][k] = true; P.h++; change = true; }
-      }
-    }
+    // Pas d'étirement : les cases vides restent vides, c'est l'utilisateur qui règle les tailles
     return { rangees: R, places: res };
   }
   return { rangees: R, places: [] };
