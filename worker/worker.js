@@ -26,8 +26,10 @@ const ROUTES = { 'TTR:LINE:A': 'A', 'TTR:LINE:2': '2' };
 const ORIGINE_AUTORISEE = '*';   // tu pourras mettre 'https://chonchon37.github.io'
 const FLUX_TR = 'https://data.filbleu.fr/ws-tr/gtfs-rt/opendata/trip-updates';
 const FLUX_ALERTES = 'https://data.filbleu.fr/ws-tr/gtfs-rt/opendata/service-alerts';
+const FLUX_INCIDENTS = 'https://www.filbleu.fr/rss-incident.xml';   // l'info trafic du site filbleu.fr (travaux, déviations…)
+const NOMS_ARRETS = { 'A': 'Monconseil', '2': 'Maréchal Juin' };
 const CACHE_SECONDES = 20;
-const VERSION = '11';   // à changer à chaque mise à jour du code : vide les caches
+const VERSION = '12';   // à changer à chaque mise à jour du code : vide les caches
 
 // Horaires prévus, format compact : "jours" = n° de grille pour chaque jour depuis "debut",
 // chaque ligne "g=" = minutes depuis minuit, écrites en écarts successifs.
@@ -181,6 +183,62 @@ function lireAlertes(b, maintenant) {
   return res;
 }
 
+/* ---------------- Info trafic du site filbleu.fr (flux RSS) ---------------- */
+function decoderXml(t) {
+  // le site encode deux fois (« &amp;nbsp; », « &lt;p&gt; ») : on décode en deux passes
+  return decoder1(decoder1(t)).replace(/[\u274C\u26A0\uFE0F]/g, '').replace(/\s+/g, ' ').trim();
+}
+function decoder1(t) {
+  return t.replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/g, ' ').replace(/&gt;/g, '>').replace(/&lt;/g, '<').replace(/&quot;/g, '"').replace(/&#0?39;|&rsquo;|&apos;/g, "'")
+    .replace(/&eacute;/g, 'é').replace(/&egrave;/g, 'è').replace(/&agrave;/g, 'à').replace(/&ccedil;/g, 'ç').replace(/&ecirc;/g, 'ê')
+    .replace(/&#(\d+);/g, (m, n) => String.fromCharCode(+n)).replace(/&amp;/g, '&');
+}
+// Lignes citées dans un texte : « lignes 2, 10, 72 et N1 », « ligne 2 direction CHU Trousseau, 5… », « Tram A »
+function lignesCitees(t) {
+  const res = new Set(), re = /\blignes?\s+/gi; let m;
+  if (/\btram\s*A\b/i.test(t)) res.add('A');
+  while ((m = re.exec(t))) {
+    let i = re.lastIndex;
+    for (;;) {
+      const c = /^([0-9]{1,3}[a-z]?|[A-Z][0-9A-Za-z]{0,3})(?![\wÀ-ÿ])/.exec(t.slice(i));
+      if (!c) break;
+      res.add(c[1]); i += c[1].length;
+      const d = /^\s+direction\s+[^,.;>]*?(?=,|\s+et\s|[.;>]|$)/i.exec(t.slice(i)); if (d) i += d[0].length;
+      const sep = /^(\s*,\s*|\s+et\s+)/.exec(t.slice(i)); if (!sep) break;
+      i += sep[0].length;
+    }
+  }
+  return res;
+}
+function lireIncidents(xml, maintenant) {
+  const res = {}, vus = {};
+  for (const l in ARRETS) { res[l] = []; vus[l] = new Set(); }
+  const items = xml.match(/<item[\s>][\s\S]*?<\/item>/g) || [];
+  for (const it of items) {
+    const champ = n => { const m = new RegExp('<' + n + '[^>]*>([\\s\\S]*?)</' + n + '>').exec(it); return m ? decoderXml(m[1]) : ''; };
+    const titre = champ('title'), texte = champ('description'), debut = Date.parse(champ('pubDate')) || 0;
+    if (!titre || debut > maintenant + 36 * 3600000) continue;          // plus de 36 h à l'avance : pas encore utile
+    const lignes = lignesCitees(titre + ' . ' + texte);
+    const court = titre.replace(/^\[[^\]]*\]\s*-\s*/, '').replace(/^[^-]{2,40}\s-\s(?=\S)/, '');   // sans « [Info réseau] - » ni « Tours - »
+    const cle = court.toLowerCase();
+    for (const l in ARRETS) {
+      if (!lignes.has(l) || vus[l].has(cle)) continue;
+      vus[l].add(cle);
+      res[l].push({
+        titre: court.slice(0, 90),
+        texte: texte.split(/Arrêt\(s\) de report|Voir le plan|Consulter le plan/i)[0].replace(/([a-zé])\.?\s*$/, '$1.').replace(/:\s*-\s*/g, ' : ').replace(/\s*-\s+du /g, ', du ').replace(/^En raison d[e'’][^,]{0,60},\s*(\S)/i, (m, c) => c.toUpperCase()).trim().slice(0, 200),
+        debut: debut,
+        aVenir: debut > maintenant,
+        arret: texte.indexOf(NOMS_ARRETS[l]) >= 0 || titre.indexOf(NOMS_ARRETS[l]) >= 0
+      });
+    }
+  }
+  for (const l in res) res[l].sort((a, b) => (a.aVenir - b.aVenir) || (b.arret - a.arret) || (b.debut - a.debut));
+  return res;
+}
+
 /* ---------------- Fusion prévu + temps réel ---------------- */
 function fusionner(prevus, reels, maintenant) {
   const utilise = new Array(prevus.length).fill(false), out = [];
@@ -193,12 +251,17 @@ function fusionner(prevus, reels, maintenant) {
       if (d >= -6 * 60000 && d <= 15 * 60000 && Math.abs(d) < ecart) { ecart = Math.abs(d); meilleur = i; }
     }
     if (meilleur >= 0) utilise[meilleur] = true;
-    out.push({ t: t, tempsReel: true });
+    out.push({ t: t, tempsReel: true, retard: meilleur >= 0 ? Math.round((t - prevus[meilleur]) / 60000) : null });
   }
   for (let i = 0; i < prevus.length; i++) if (!utilise[i] && prevus[i] >= maintenant) out.push({ t: prevus[i], tempsReel: false });
   return out.sort((a, b) => a.t - b.t).slice(0, 6);
 }
 
+async function texteDistant(url) {
+  const r = await fetch(url, { cf: { cacheTtl: 300, cacheEverything: true }, headers: { 'User-Agent': 'ecran-salon (cadre photo perso)' } });
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  return r.text();
+}
 async function binaire(url) {
   const r = await fetch(url, { cf: { cacheTtl: 15, cacheEverything: true } });
   if (!r.ok) throw new Error('HTTP ' + r.status);
@@ -208,20 +271,24 @@ async function binaire(url) {
 async function construire() {
   const maintenant = Date.now(), fin = maintenant + 2 * 3600000;
   const stops = new Set(Object.values(ARRETS));
-  const [tr, al] = await Promise.allSettled([binaire(FLUX_TR), binaire(FLUX_ALERTES)]);
+  const [tr, al, inc] = await Promise.allSettled([binaire(FLUX_TR), binaire(FLUX_ALERTES), texteDistant(FLUX_INCIDENTS)]);
   const reels = tr.status === 'fulfilled' ? lirePassagesTR(tr.value, stops) : {};
   const alertes = al.status === 'fulfilled' ? lireAlertes(al.value, maintenant) : {};
+  let incidents = null;
+  if (inc.status === 'fulfilled') { try { incidents = lireIncidents(inc.value, maintenant); } catch (e) {} }
   const lignes = {};
   for (const l in ARRETS) {
     lignes[l] = {
       passages: fusionner(passagesPrevus(ARRETS[l], maintenant, fin), reels[ARRETS[l]] || [], maintenant),
-      perturbation: alertes[l] || null
+      perturbation: alertes[l] || null,
+      incidents: incidents ? incidents[l] : null      // null = info trafic indisponible
     };
   }
   const P = lirePrevus();
   return {
     maj: maintenant,
     tempsReelDisponible: tr.status === 'fulfilled',
+    infoTraficDisponible: !!incidents || al.status === 'fulfilled',
     horairesJusqua: P.jusqua,
     horairesAMettreAJour: joursEntre(ymd(...(() => { const p = partiesParis(maintenant); return [+p.year, +p.month, +p.day]; })()), P.jusqua) < 7,
     lignes: lignes
