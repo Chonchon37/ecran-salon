@@ -28,8 +28,9 @@ def lire(z, nom):
 
 
 def minutes(hms):
-    h, m, *_ = hms.strip().split(':')
-    return int(h) * 60 + int(m)
+    # arrondi à la minute la plus proche (le tram a des horaires à la seconde)
+    p = [int(x) for x in hms.strip().split(':')] + [0, 0]
+    return (p[0] * 3600 + p[1] * 60 + p[2] + 30) // 60
 
 
 def jour(s):
