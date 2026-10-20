@@ -585,7 +585,13 @@ const REGLAGES_DEFAUT = {
   theme: { mode: 'auto', nuitDebut: 19, nuitFin: 7 },
   veille: { actif: true, debut: '23:00', fin: '07:00', reveil: 120 },
   // Accueil selon le moment de la journée : tuiles affichées et « demain d'abord » (agenda + météo)
-  accueil: { moments: [
+  accueil: {
+    // Tuiles de l'accueil, dans l'ordre : largeur l (1-4 colonnes) et hauteur h (1-3 rangées)
+    disposition: [
+      { id: 'date', l: 1, h: 1 }, { id: 'transports', l: 2, h: 1 }, { id: 'anniversaires', l: 1, h: 1 },
+      { id: 'meteo', l: 1, h: 2 }, { id: 'agenda', l: 3, h: 1 }, { id: 'maison', l: 3, h: 1 }
+    ],
+    moments: [
     { nom: 'Soir', debut: '21:00', fin: '05:00', tuiles: { meteo: true, transports: false, anniversaires: true, agenda: true, maison: true }, demain: true }
   ] },
   transports: { A: { actif: true, marche: 7 }, '2': { actif: true, marche: 9 } },
@@ -642,8 +648,15 @@ function nettoyerReglages(r) {
     const so = acc.soir;
     brutsMoments = so ? (so.actif === false ? [] : [{ nom: 'Soir', debut: so.debut, fin: so.fin, tuiles: { transports: !!so.transports }, demain: true }]) : D.accueil.moments;
   }
-  const TUILES = ['meteo', 'transports', 'anniversaires', 'agenda', 'maison'];
-  res.accueil = { moments: [] };
+  const TUILES = ['date', 'meteo', 'transports', 'anniversaires', 'agenda', 'maison'];
+  const dispo = [], vuesT = new Set();
+  for (const t of Array.isArray(acc.disposition) ? acc.disposition : []) {
+    if (!t || !TUILES.includes(t.id) || vuesT.has(t.id)) continue;
+    vuesT.add(t.id);
+    dispo.push({ id: t.id, l: entier(t.l, 1, 4, 1), h: entier(t.h, 1, 3, 1) });
+  }
+  for (const t of D.accueil.disposition) if (!vuesT.has(t.id)) dispo.push(Object.assign({}, t));
+  res.accueil = { disposition: dispo, moments: [] };
   for (const m of brutsMoments) {
     if (!m) continue;
     const debut = hv(m.debut), fin = hv(m.fin);

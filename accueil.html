@@ -21,132 +21,111 @@ html.nuit{
 html,body{margin:0;width:1280px;height:728px;overflow:hidden;background:var(--bg)}
 body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;transition:background-color .8s,color .8s}
 .h{font-family:"Bricolage Grotesque",Figtree,Arial,sans-serif}
-.wrap{box-sizing:border-box;width:1280px;height:728px;padding:24px 36px;display:flex}
-.card{background:var(--card);border-radius:20px;box-sizing:border-box;padding:20px 24px;transition:background-color .8s}
-.label{font-size:15px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);display:flex;align-items:center}
+[hidden]{display:none!important}
+.demo{font-size:12px;letter-spacing:.06em;padding:3px 9px;border-radius:20px;background:var(--warn-soft);color:var(--warn);font-weight:700;text-transform:uppercase;display:inline-block;vertical-align:middle}
+
+/* Grille de tuiles : 4 colonnes ; les rangées se partagent la hauteur.
+   Chaque tuile occupe « l » colonnes et « h » rangées (réglable dans la page admin). */
+.grille{box-sizing:border-box;width:1280px;height:728px;padding:24px 36px;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));grid-auto-rows:minmax(0,1fr);grid-auto-flow:row dense;grid-gap:16px}
+.tuile{background:var(--card);border-radius:20px;box-sizing:border-box;padding:20px 24px;overflow:hidden;min-width:0;min-height:0;display:flex;flex-direction:column;transition:background-color .8s}
+.tuile.nu{background:transparent;padding:6px 4px}
 .lien{cursor:pointer;transition:transform .15s}
 .lien:active{-webkit-transform:scale(.985);transform:scale(.985)}
-.voir{margin-left:auto;font-size:30px;line-height:.6;font-weight:600;color:var(--muted);letter-spacing:0}
-.row.seul .tr{margin-right:0}
-.wrap.sans-meteo .left{width:340px}
-.right.sans-agenda .row{flex:1;height:auto}
-.right.sans-agenda.sans-rang .home{flex:1;height:auto}
-.right.sans-maison .ag{margin-bottom:0}
-.right.sans-maison.sans-agenda .row{margin-bottom:0}
-.tr{justify-content:center}
-.tr .tl:first-child{margin-top:0}
-.home-top{justify-content:flex-start !important}
-.wx-cond:empty{display:none}
-.ag{position:relative}
-.demo{font-size:12px;letter-spacing:.06em;padding:3px 9px;border-radius:20px;background:var(--warn-soft);color:var(--warn);font-weight:700;text-transform:uppercase;display:inline-block}
+.vide{font-size:19px;color:var(--muted);margin-top:12px}
+.plus{font-size:16px;font-weight:700;color:var(--muted);margin-top:8px}
 
-/* Colonne gauche : bonjour + météo */
-.left{width:450px;margin-right:16px;display:flex;flex-direction:column}
-.hello{padding:6px 4px 20px}
-.greet{font-size:68px;font-weight:600;line-height:1;letter-spacing:-.02em}
-.date{font-size:30px;font-weight:500;margin-top:10px}
-.msg{display:inline-block;margin-top:12px;padding:8px 14px;border-radius:12px;background:var(--fete-soft);color:var(--fete);font-size:21px;font-weight:700;line-height:1.3;max-width:420px}
-[hidden]{display:none!important}
-.wx{flex:1;display:flex;flex-direction:column}
-.wx-main{display:flex;align-items:center;margin-top:6px}
+/* Date */
+.greet{font-size:46px;font-weight:600;line-height:1;letter-spacing:-.02em}
+.l2 .greet,.l3 .greet,.l4 .greet{font-size:68px}
+.date{font-size:26px;font-weight:500;margin-top:10px}
+.l2 .date,.l3 .date,.l4 .date{font-size:30px}
+.msg{display:inline-block;margin-top:12px;padding:8px 14px;border-radius:12px;background:var(--fete-soft);color:var(--fete);font-size:20px;font-weight:700;line-height:1.3;align-self:flex-start}
+
+/* Météo */
+.wx-corps{display:flex;flex-direction:column;flex:1;min-height:0}
+.wx-large .wx-corps{flex-direction:row}
+.wx-gauche{display:flex;flex-direction:column;flex:none}
+.wx-large .wx-gauche{margin-right:28px;max-width:46%}
+.wx-large .wx-temp{font-size:84px}
+.wx-droite{display:flex;flex-direction:column;flex:1;min-width:0;min-height:0}
+.wx-main{display:flex;align-items:center}
 .wx-temp{font-size:100px;font-weight:600;line-height:1;letter-spacing:-.03em;margin-left:6px}
-.wx-cond{font-size:26px;font-weight:600}
+.petit .wx-temp{font-size:72px}
 .wx-hl{font-size:19px;color:var(--muted);margin-top:4px}
-.alert{display:flex;align-items:center;margin-top:16px;padding:11px 14px;border-radius:14px;background:var(--rain-soft);color:var(--rain);font-size:19px;font-weight:700}
+.alert{display:flex;align-items:center;margin-top:14px;padding:10px 14px;border-radius:14px;background:var(--rain-soft);color:var(--rain);font-size:18px;font-weight:700;line-height:1.25}
 .alert svg{width:24px;height:24px;margin-right:10px;flex:none}
 .alert.sec{background:var(--card2);color:var(--muted)}
-.mini{margin-top:auto;border-top:2px solid var(--line);padding-top:10px}
-.mini-t{font-size:14px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
-.mini-h{display:flex}
-.mh{flex:1;display:flex;flex-direction:column;align-items:center}
-.mh-t{font-size:16px;font-weight:600;color:var(--muted)}
-.mh-v{font-size:21px;font-weight:600}
-
-/* Colonne droite */
-.right{flex:1;display:flex;flex-direction:column;min-width:0}
-.row{display:flex;height:214px;margin-bottom:16px}
-.tr{flex:1.3;margin-right:16px;display:flex;flex-direction:column;min-width:0}
-.tl{display:flex;align-items:center;margin-top:14px}
-.badge{width:48px;height:48px;display:flex;align-items:center;justify-content:center;font-family:"Bricolage Grotesque",Figtree,Arial,sans-serif;font-size:27px;font-weight:700;color:var(--badge-ink);margin-right:14px;flex:none}
-.badge.tram{background:var(--tram);border-radius:50%}
-.badge.bus{background:var(--bus);border-radius:11px}
-.tl > div:nth-child(2){flex:1;min-width:0}
-.tl-s{font-size:21px;font-weight:600;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.tl-d{font-size:16px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.tl-m{margin-left:12px;text-align:right;flex:none}
-.tl-m b{font-family:"Bricolage Grotesque",Figtree,Arial,sans-serif;font-size:46px;font-weight:600;line-height:1}
-.tl-m small{font-size:18px;font-weight:600;margin-left:4px}
-.tl-m b{letter-spacing:-.02em}
-.tl-n{font-size:16px;color:var(--ok);font-weight:700;white-space:nowrap}
-.tl-n.vite{color:var(--warn)}
-.bd{flex:1;display:flex;flex-direction:column;min-width:0;justify-content:center}
-.bd-q{font-size:30px;font-weight:600;line-height:1.05;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.bd-j{font-size:20px;font-weight:700;color:var(--fete);margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.bd-d{font-size:17px;color:var(--muted);margin-top:4px;font-weight:400}
-.bd-j .bd-d{margin-top:0}
-.bd-suite{margin-top:10px;border-top:1.5px solid var(--line);padding-top:6px}
-.bd-l{display:flex;align-items:baseline;font-size:18px;line-height:1.5}
-.bd-n{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}
-.bd-w{color:var(--muted);margin-left:10px;white-space:nowrap}
-
-.ag{flex:1;margin-bottom:16px;display:flex;flex-direction:column;min-height:0}
-.ev{display:flex;align-items:center;margin-top:12px}
-.ev-h{width:86px;font-size:20px;font-weight:700;flex:none}
-.ev i{width:12px;height:12px;border-radius:50%;margin-right:14px;flex:none}
-.ev-n{font-size:21px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
-.ev-sub{font-size:15px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-top:12px}
-.ag-cols{flex:1;display:flex;min-height:0}
-.ag-col{flex:1;min-width:0;overflow:hidden}
-.ag-col + .ag-col{margin-left:22px;padding-left:22px;border-left:2px solid var(--line)}
-.vide{font-size:20px;color:var(--muted);margin-top:14px}
-
-.home{height:166px;display:flex;flex-direction:column}
-.home-top{display:flex;align-items:baseline;justify-content:space-between}
-.home-s{font-size:19px;font-weight:600}
-.sc{display:flex;margin-top:auto}
-.scene{flex:1;height:76px;margin-right:10px;border-radius:16px;background:var(--card2);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:19px;font-weight:600;transition:background-color .3s,color .3s}
-.scene:last-child{margin-right:0}
-.scene svg{width:26px;height:26px;margin-right:9px}
-.scene.on{background:var(--accent);color:var(--on-ink)}
-.vigi{display:inline-flex;align-items:center;border-radius:12px;font-weight:700;letter-spacing:0;text-transform:none;white-space:nowrap}
-.vigi svg{flex:none}
+.vigi{display:flex;align-items:center;border-radius:12px;font-weight:700;margin-top:14px;font-size:18px;padding:9px 14px;line-height:1.25}
+.vigi svg{width:22px;height:22px;margin-right:9px;flex:none}
 .vigi.jaune{background:#F5D33C;color:#3B3000}
 .vigi.orange{background:#EE8323;color:#2B1400}
 .vigi.rouge{background:#D42F2F;color:#FFFFFF}
-#vigi .vigi{margin-top:14px;font-size:18px;padding:9px 14px;display:flex;white-space:normal;line-height:1.25}
-#vigi .vigi svg{width:22px;height:22px;margin-right:9px}
-#vigi .vigi + *{}
+.mini{margin-top:auto;border-top:2px solid var(--line);padding-top:10px}
+.wx-large .mini{margin-top:0;border-top:0;padding-top:0}
+.mini-t{font-size:14px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+.mini-h{display:flex}
+.mh{flex:1;display:flex;flex-direction:column;align-items:center;min-width:0}
+.mh-t{font-size:16px;font-weight:600;color:var(--muted)}
+.mh-v{font-size:21px;font-weight:600}
+.jours-p{border-top:2px solid var(--line);margin-top:12px;padding-top:8px}
+.jp{display:flex;align-items:center;font-size:19px;line-height:1.9}
+.jp-n{width:70px;font-weight:600}
+.jp-i{width:40px;display:flex;align-items:center}
+.jp-t{margin-left:auto;color:var(--muted)}
+.jp-t b{color:var(--ink)}
+
+/* Transports */
+.tr{justify-content:center}
+.tl{display:flex;align-items:center}
+.tl + .tl{margin-top:14px}
+.badge{width:48px;height:48px;display:flex;align-items:center;justify-content:center;font-family:"Bricolage Grotesque",Figtree,Arial,sans-serif;font-size:27px;font-weight:700;color:var(--badge-ink);margin-right:14px;flex:none}
+.badge.tram{background:var(--tram);border-radius:50%}
+.badge.bus{background:var(--bus);border-radius:11px}
+.tl-txt{flex:1;min-width:0}
+.tl-s{font-size:21px;font-weight:600;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tl-d{font-size:16px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tl-m{margin-left:12px;text-align:right;flex:none}
+.l1 .tl-m{margin-left:auto}
+.tl-m b{font-family:"Bricolage Grotesque",Figtree,Arial,sans-serif;font-size:46px;font-weight:600;line-height:1;letter-spacing:-.02em}
+.tl-n{font-size:16px;color:var(--ok);font-weight:700;white-space:nowrap}
+.tl-n.vite{color:var(--warn)}
+.tl-puis{font-size:16px;color:var(--muted);white-space:nowrap;margin-top:2px}
+
+/* Anniversaires */
+.bd{justify-content:center}
+.bd-q{font-size:30px;font-weight:600;line-height:1.05;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bd-j{font-size:20px;font-weight:700;color:var(--fete);margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bd-d{font-size:17px;color:var(--muted);font-weight:400}
+.bd-suite{margin-top:10px;border-top:1.5px solid var(--line);padding-top:6px}
+.bd-l{display:flex;align-items:baseline;font-size:18px;line-height:1.55}
+.bd-n{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}
+.bd-w{color:var(--muted);margin-left:10px;white-space:nowrap}
+
+/* Agenda */
+.ag-cols{flex:1;display:flex;min-height:0}
+.ag-col{flex:1;min-width:0;overflow:hidden;display:flex;flex-direction:column}
+.ag-col + .ag-col{margin-left:22px;padding-left:22px;border-left:2px solid var(--line)}
+.ev-sub{font-size:15px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);flex:none}
+.ev{display:flex;align-items:center;margin-top:12px;flex:none}
+.ev-h{width:86px;font-size:20px;font-weight:700;flex:none}
+.ev i{width:12px;height:12px;border-radius:50%;margin-right:14px;flex:none}
+.ev-n{font-size:21px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+
+/* Maison */
+.home-s{font-size:19px;font-weight:600;flex:none}
+.sc{display:flex;flex-wrap:wrap;margin:6px -5px 0}
+.h1 .sc{margin-top:auto}
+.l1 .scene{height:56px;font-size:18px}
+.scene{box-sizing:border-box;height:72px;margin:5px;border-radius:16px;background:var(--card2);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:19px;font-weight:600;padding:0 10px;white-space:nowrap;overflow:hidden;transition:background-color .3s,color .3s}
+.scene svg{width:26px;height:26px;margin-right:9px;flex:none}
+.scene.on{background:var(--accent);color:var(--on-ink)}
+.lums{display:flex;flex-wrap:wrap;margin:8px -4px 0}
+.lum{margin:4px;padding:9px 14px;border-radius:12px;background:var(--card2);font-size:17px;font-weight:600;cursor:pointer;white-space:nowrap}
+.lum.on{background:var(--fete-soft);color:var(--fete)}
 </style>
 </head>
 <body>
-<div class="wrap">
-  <div class="left">
-    <div class="hello">
-      <div class="greet h" id="greet"></div>
-      <div class="date" id="date"></div>
-      <div class="msg" id="msg" hidden></div>
-    </div>
-    <div class="card wx lien" data-page="meteo">
-      <div class="wx-main"><div id="wxIcon"></div><div class="wx-temp h" id="wxTemp"></div></div>
-      <div class="wx-cond" id="wxCond"></div>
-      <div class="wx-hl" id="wxHL"></div>
-      <div id="vigi"></div>
-      <div id="wxAlert"></div>
-      <div class="mini"><div class="mini-t" id="wxHoursTitre"></div><div class="mini-h" id="wxHours"></div></div>
-    </div>
-  </div>
-  <div class="right">
-    <div class="row">
-      <div class="card tr lien" data-page="transports"><div id="tr"></div></div>
-      <div class="card bd lien" id="bd" data-page="anniversaires"></div>
-    </div>
-    <div class="card ag lien" id="ag" data-page="agenda"></div>
-    <div class="card home">
-      <div class="home-top"><div class="home-s" id="homeS"></div></div>
-      <div class="sc" id="sc"></div>
-    </div>
-  </div>
-</div>
+<div class="grille" id="grille"></div>
 
 <script>
 /* ===================== RÉGLAGES ===================== */
@@ -157,6 +136,11 @@ var CONFIG = {
   WORKER: 'https://ecran-salon.nico-michon37.workers.dev',
   LAT: 47.418, LON: 0.688
 };
+// Disposition par défaut (modifiable dans la page admin) : ordre, largeur l (1-4 colonnes), hauteur h (1-3 rangées)
+var DISPOSITION = [
+  { id: 'date', l: 1, h: 1 }, { id: 'transports', l: 2, h: 1 }, { id: 'anniversaires', l: 1, h: 1 },
+  { id: 'meteo', l: 1, h: 2 }, { id: 'agenda', l: 3, h: 1 }, { id: 'maison', l: 3, h: 1 }
+];
 /* ==================================================== */
 
 function param(n){ var m = new RegExp('[?&]' + n + '=([^&#]*)').exec(location.search); return m ? decodeURIComponent(m[1]) : null; }
@@ -170,10 +154,12 @@ document.addEventListener('touchstart', signalerToucher, true);
 document.addEventListener('mousedown', signalerToucher, true);
 function $(id){ return document.getElementById(id); }
 var JOURS = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
-function hhmm(ms){ var d = new Date(ms); return (d.getHours() < 10 ? '0' : '') + d.getHours() + ':' + (d.getMinutes() < 10 ? '0' : '') + d.getMinutes(); }
+var JOURS_C = ['Dim.', 'Lun.', 'Mar.', 'Mer.', 'Jeu.', 'Ven.', 'Sam.'];
 var MOIS_C = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
 var MOIS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
 function majuscule(s){ return s.charAt(0).toUpperCase() + s.slice(1); }
+function hhmm(ms){ var d = new Date(ms); return pad(d.getHours()) + ':' + pad(d.getMinutes()); }
+function echapper(t){ return String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 
 /* ---------- Icônes météo (identiques à meteo.html) ---------- */
 function iSoleil(cx, cy, r, r1, r2){
@@ -207,16 +193,8 @@ function iconeMeteo(code, jour, taille){
   else s += iNuage();
   return s + '</svg>';
 }
-function libelleMeteo(c, jour){
-  if (c === 0) return jour ? 'Ensoleillé' : 'Ciel dégagé';
-  if (c === 1) return 'Peu nuageux'; if (c === 2) return 'Éclaircies'; if (c === 3) return 'Couvert';
-  if (c === 45 || c === 48) return 'Brouillard'; if (c >= 51 && c <= 57) return 'Bruine';
-  if (c >= 61 && c <= 67) return 'Pluie'; if (c >= 71 && c <= 77) return 'Neige';
-  if (c >= 80 && c <= 82) return 'Averses'; if (c >= 95) return 'Orage';
-  return '';
-}
 
-/* ---------- Données d'exemple ---------- */
+/* ---------- Données d'exemple (sans clé) ---------- */
 function mockTemp(h){ return Math.round(12.5 + 3.5 * Math.cos((h - 15) / 24 * 2 * Math.PI)); }
 function mockCode(h){
   if (h === 20 || h === 21) return 80; if (h === 22) return 61;
@@ -224,96 +202,104 @@ function mockCode(h){
 }
 function jourA(h){ return h >= 9 && h < 19; }
 var t0 = Date.now();
-var DEMO_TR = [
-  { ligne: 'A', type: 'tram', arret: 'Monconseil', direction: 'Jean Monnet', marche: 7, passages: [3.6, 11.2, 19.4] },
-  { ligne: '2', type: 'bus', arret: 'Maréchal Juin', direction: 'CHU Trousseau', marche: 9, passages: [7.3, 21.5, 35.2] }
+var LIGNES = [
+  { ligne: 'A', type: 'tram', arret: 'Monconseil', direction: 'Jean Monnet', marche: 7, passages: [3.6, 11.2, 19.4, 27.0] },
+  { ligne: '2', type: 'bus', arret: 'Maréchal Juin', direction: 'CHU Trousseau', marche: 9, passages: [7.3, 21.5, 35.2, 49.0] }
 ];
 var DEMO_AG = [
   { j: 0, debut: '08:30', titre: 'Point d\'équipe', qui: 'moi' },
   { j: 0, debut: '20:30', titre: 'Cinéma avec Flo', qui: 'flo' },
   { j: 1, debut: '12:30', titre: 'Déjeuner avec Marc', qui: 'moi' },
-  { j: 1, debut: '18:30', titre: 'Yoga Flo', qui: 'flo' }
+  { j: 1, debut: '18:30', titre: 'Yoga Flo', qui: 'flo' },
+  { j: 2, debut: '19:00', titre: 'Apéro chez Cam', qui: 'nous' }
 ];
 var COULEURS = { moi: 'var(--accent)', flo: 'var(--p2)', nous: 'var(--nous)' };
-var DEMO_ANNIV = [{ nom: 'Lucie', jour: 22, mois: 10, annee: 1995 }, { nom: 'Papa', jour: 3, mois: 11, annee: 1962 }, { nom: 'Julien', jour: 14, mois: 11, annee: 1990 }];
-var lumieres = 3, sceneActive = 'soiree';
+var DEMO_ANNIV = [{ nom: 'Lucie', jour: 22, mois: 10, annee: 1995 }, { nom: 'Papa', jour: 3, mois: 11, annee: 1962 }, { nom: 'Julien', jour: 14, mois: 11, annee: 1990 }, { nom: 'Mamie', jour: 28, mois: 11, annee: 1940 }];
+var DEMO_LUM = [{ id: 'l1', nom: 'Salon', allumee: true }, { id: 'l2', nom: 'Cuisine', allumee: true }, { id: 'l3', nom: 'Bureau', allumee: false }, { id: 'l4', nom: 'Entrée', allumee: true }];
+var DEMO_SCENES = [{ id: 'soiree', nom: 'Soirée' }, { id: 'film', nom: 'Film' }, { id: 'diner', nom: 'Dîner' }, { id: 'eteindre', nom: 'Tout éteindre' }];
+var sceneActive = 'soiree';
 
-/* ---------- Météo : réelle (Open-Meteo) ou exemple ---------- */
-var meteo = null;
-var PARAPLUIE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3a9 9 0 0 1 9 9H3a9 9 0 0 1 9-9zM12 12v6a2 2 0 0 0 4 0"/></svg>';
-function lireDate(s){ var p = s.split(/[-T:]/); return new Date(+p[0], +p[1] - 1, +p[2], +(p[3] || 0), +(p[4] || 0)); }
-function chargerMeteo(){
-  if (!CONFIG.METEO_REELLE) return;
+/* ---------- Chargement des données ---------- */
+var CLE = param('cle');
+function prive(){ return !!(CONFIG.WORKER && CLE); }
+function lireJson(url, quandOk){
   var xhr = new XMLHttpRequest();
-  xhr.open('GET', 'https://api.open-meteo.com/v1/forecast?latitude=' + CONFIG.LAT + '&longitude=' + CONFIG.LON +
-    '&current=temperature_2m,weather_code,is_day&minutely_15=precipitation&forecast_minutely_15=26' +
-    '&hourly=temperature_2m,weather_code,is_day,precipitation&forecast_hours=24' +
-    '&daily=temperature_2m_max,temperature_2m_min&timezone=Europe%2FParis&forecast_days=1', true);
-  xhr.timeout = 20000;
-  xhr.onload = function(){
-    if (xhr.status !== 200) return;
-    try { meteo = JSON.parse(xhr.responseText); afficherMeteo(); } catch (e) {}
-  };
+  xhr.open('GET', url, true);
+  xhr.timeout = 25000;
+  xhr.onload = function(){ if (xhr.status === 200) { try { quandOk(JSON.parse(xhr.responseText)); } catch (e) {} } };
   xhr.send();
 }
-function afficherMeteo(){
-  var h = new Date().getHours(), mh = '', i;
-  if (!meteo) {
-    if (CONFIG.METEO_REELLE) { $('wxCond').innerHTML = 'Chargement…'; return; }
-    var code = mockCode(h);
-    $('wxIcon').innerHTML = iconeMeteo(code, jourA(h), 112);
-    $('wxTemp').innerHTML = mockTemp(h) + '°';
-    $('wxCond').innerHTML = '';
-    $('wxHL').innerHTML = 'Max 16° · Min 9°';
-    $('wxAlert').innerHTML = '<div class="alert">' + PARAPLUIE + textePluie() + '</div>';
-    for (i = 1; i <= 5; i++) {
-      var hh = (h + i * 2) % 24;
-      mh += '<div class="mh"><div class="mh-t">' + hh + ' h</div>' + iconeMeteo(mockCode(hh), jourA(hh), 40) + '<div class="mh-v">' + mockTemp(hh) + '°</div></div>';
-    }
-    $('wxHoursTitre').innerHTML = 'Prochaines heures';
-    $('wxHours').innerHTML = mh;
-    return;
-  }
-  var c = meteo.current, now = new Date();
-  $('wxIcon').innerHTML = iconeMeteo(c.weather_code, c.is_day === 1, 112);
-  $('wxTemp').innerHTML = Math.round(c.temperature_2m) + '°';
-  $('wxCond').innerHTML = '';   // l'icône suffit
-  $('wxHL').innerHTML = 'Max ' + Math.round(meteo.daily.temperature_2m_max[0]) + '° · Min ' + Math.round(meteo.daily.temperature_2m_min[0]) + '°';
-  // Pluie : combien de temps il pleut, ou quand ça commence
-  $('wxAlert').innerHTML = textePluieReel(now);
-
-  // Mini prévisions : le soir, on montre déjà demain (7 h → 15 h)
-  var H = meteo.hourly, debutHeure = new Date(now.getTime()); debutHeure.setMinutes(0, 0, 0);
-  var liste = [], titre = '';
-  var soirMeteo = demainDabord(now) || (h < 5 && !momentActif(now));
-  if (soirMeteo) {
-    var cible = new Date(now.getFullYear(), now.getMonth(), now.getDate() + (h >= 12 ? 1 : 0));
-    titre = h >= 12 ? 'Demain' : 'Ce matin';
-    for (i = 0; i < H.time.length; i++) {
-      var dt = lireDate(H.time[i]);
-      if (dt.getDate() === cible.getDate() && dt.getHours() >= 7 && dt.getHours() <= 15 && (dt.getHours() - 7) % 2 === 0) liste.push(i);
-    }
-  } else {
-    titre = 'Prochaines heures';
-    var avenir = [];
-    for (i = 0; i < H.time.length; i++) if (lireDate(H.time[i]) >= debutHeure) avenir.push(i);
-    for (var k = 2; k < avenir.length && k <= 10; k += 2) liste.push(avenir[k]);
-  }
-  for (var n = 0; n < liste.length && n < 5; n++) {
-    var j = liste[n];
-    mh += '<div class="mh"><div class="mh-t">' + lireDate(H.time[j]).getHours() + ' h</div>' + iconeMeteo(H.weather_code[j], H.is_day[j] === 1, 40) + '<div class="mh-v">' + Math.round(H.temperature_2m[j]) + '°</div></div>';
-  }
-  $('wxHoursTitre').innerHTML = titre;
-  $('wxHours').innerHTML = mh;
+var meteo = null, transportsReels = null, agendaReel = null, maisonReelle = null, vigilance = null;
+function chargerMeteo(){
+  if (!CONFIG.METEO_REELLE) return;
+  lireJson('https://api.open-meteo.com/v1/forecast?latitude=' + CONFIG.LAT + '&longitude=' + CONFIG.LON +
+    '&current=temperature_2m,weather_code,is_day&minutely_15=precipitation&forecast_minutely_15=26' +
+    '&hourly=temperature_2m,weather_code,is_day,precipitation&forecast_hours=36' +
+    '&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=Europe%2FParis&forecast_days=5', function(j){ meteo = j; afficher(); });
 }
+function chargerTransports(){ if (CONFIG.WORKER_TRANSPORTS) lireJson(CONFIG.WORKER_TRANSPORTS, function(j){ transportsReels = j; afficher(); }); }
+function chargerAgenda(){ if (prive()) lireJson(CONFIG.WORKER + '/agenda?cle=' + encodeURIComponent(CLE), function(j){ agendaReel = j; afficher(); }); }
+function chargerMaison(){ if (prive()) lireJson(CONFIG.WORKER + '/maison?cle=' + encodeURIComponent(CLE), function(j){ maisonReelle = j; afficher(); }); }
+function chargerVigi(){ if (prive()) lireJson(CONFIG.WORKER + '/vigilance?cle=' + encodeURIComponent(CLE), function(j){ vigilance = j; afficher(); }); }
+var AGENDAS = { GOOGLE_ICS1: 'flo', GOOGLE_ICS2: 'moi', GOOGLE_ICS3: 'nous', commun: 'nous' };
+function quiPour(e){ return AGENDAS[e.agenda] || 'moi'; }
+
+/* ---------- Moments de la journée (page admin) ---------- */
+var MESSAGE = '';
+var MOMENTS = [{ nom: 'Soir', debut: '21:00', fin: '05:00', tuiles: { meteo: true, transports: false, anniversaires: true, agenda: true, maison: true }, demain: true }];
+function enMinutes(t){ var p = t.split(':'); return parseInt(p[0], 10) * 60 + parseInt(p[1], 10); }
+function momentActif(now){
+  var m = now.getHours() * 60 + now.getMinutes();
+  for (var i = 0; i < MOMENTS.length; i++) {
+    var a = enMinutes(MOMENTS[i].debut), b = enMinutes(MOMENTS[i].fin);
+    if (a < b ? (m >= a && m < b) : (m >= a || m < b)) return MOMENTS[i];
+  }
+  return null;
+}
+function tuileVisible(id, now){ var M = momentActif(now); return !M || !M.tuiles || M.tuiles[id] !== false; }
+function demainDabord(now){ var M = momentActif(now); return !!(M && M.demain); }
+
+/* ---------- Ajustement : on retire ce qui dépasse de la tuile ---------- */
+function deborde(el){ return el.scrollHeight > el.clientHeight + 1; }
+// Retire des éléments (du dernier au premier) tant que la boîte déborde ; renvoie le nombre retiré
+function tailler(boite, elements){
+  var n = 0;
+  for (var i = elements.length - 1; i >= 0 && deborde(boite); i--) { elements[i].style.display = 'none'; n++; }
+  return n;
+}
+// Retire d'abord les éléments de priorité la plus faible (data-p le plus grand)
+function taillerParPriorite(boite){
+  var el = boite.querySelectorAll('[data-p]'), liste = [];
+  for (var i = 0; i < el.length; i++) liste.push(el[i]);
+  liste.sort(function(a, b){ return +b.getAttribute('data-p') - +a.getAttribute('data-p'); });
+  for (var k = 0; k < liste.length && deborde(boite); k++) liste[k].style.display = 'none';
+}
+
+/* ---------- Tuile Date ---------- */
+function tuileDate(T, now){
+  var h = now.getHours();
+  T.className += ' nu';
+  T.innerHTML = '<div class="greet h">' + (h < 5 ? 'Bonne nuit' : (h < 12 ? 'Bonjour' : (h < 18 ? 'Bon après-midi' : 'Bonsoir'))) + '</div>' +
+    '<div class="date">' + majuscule(JOURS[now.getDay()]) + ' ' + now.getDate() + ' ' + MOIS[now.getMonth()] + (prive() ? '' : ' <span class="demo">exemple</span>') + '</div>' +
+    (MESSAGE ? '<div class="msg" data-p="1">' + echapper(MESSAGE) + '</div>' : '');
+}
+
+/* ---------- Tuile Météo ---------- */
+var PARAPLUIE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3a9 9 0 0 1 9 9H3a9 9 0 0 1 9-9zM12 12v6a2 2 0 0 0 4 0"/></svg>';
+var VIGI_ICONE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5 2.8 19.5h18.4z"/><path d="M12 10v4.5M12 17.2v.1"/></svg>';
+function lireDate(s){ var p = s.split(/[-T:]/); return new Date(+p[0], +p[1] - 1, +p[2], +(p[3] || 0), +(p[4] || 0)); }
 function duree(min){
   min = Math.max(15, Math.round(min / 15) * 15);
   if (min < 60) return min + ' min';
   return Math.floor(min / 60) + ' h' + (min % 60 ? ' ' + pad(min % 60) : '');
 }
-function hh(d){ return d.getHours() + ' h ' + pad(d.getMinutes()); }
-// Série « pluie oui/non » : quarts d'heure sur 6 h, puis heures jusqu'à 24 h
-function textePluieReel(now){
+function hhTxt(d){ return d.getHours() + ' h ' + pad(d.getMinutes()); }
+// Pluie : combien de temps il pleut encore, ou quand ça commence et pour combien de temps
+function textePluie(now){
+  if (!meteo) {
+    var t = new Date(now.getTime() + 35 * 60000); t.setMinutes(Math.ceil(t.getMinutes() / 5) * 5);
+    return '<div class="alert">' + PARAPLUIE + 'Pluie vers ' + hhTxt(t) + ', pendant ~1 h</div>';
+  }
   var serie = [], M = meteo.minutely_15, H = meteo.hourly, i, finQuarts = now.getTime();
   for (i = 0; i < M.time.length; i++) {
     var fin = lireDate(M.time[i]).getTime();
@@ -322,8 +308,8 @@ function textePluieReel(now){
     finQuarts = fin;
   }
   for (i = 0; i < H.time.length; i++) {
-    var fh = lireDate(H.time[i]).getTime() + 3600000;     // cumul de l'heure qui commence
-    if (fh <= finQuarts) continue;
+    var fh = lireDate(H.time[i]).getTime() + 3600000;
+    if (fh <= finQuarts || fh - now.getTime() > 24 * 3600000) continue;
     serie.push({ debut: fh - 3600000, fin: fh, pluie: (H.precipitation[i] || 0) >= 0.1 });
   }
   if (!serie.length) return '';
@@ -333,7 +319,7 @@ function textePluieReel(now){
     for (i = 1; i < serie.length; i++) if (!serie[i].pluie) break;
     if (i >= serie.length) return '<div class="alert">' + PARAPLUIE + 'Pluie au moins jusqu\'à ' + new Date(limite).getHours() + ' h</div>';
     var fin1 = arrondi(serie[i].debut);
-    return '<div class="alert">' + PARAPLUIE + 'Pluie encore ' + duree((fin1 - now) / 60000) + ' · fin vers ' + hh(fin1) + '</div>';
+    return '<div class="alert">' + PARAPLUIE + 'Pluie encore ' + duree((fin1 - now) / 60000) + ' · fin vers ' + hhTxt(fin1) + '</div>';
   }
   for (i = 0; i < serie.length; i++) if (serie[i].pluie) break;
   if (i >= serie.length) return '<div class="alert sec">' + PARAPLUIE + (limite - now > 18 * 3600000 ? 'Pas de pluie prévue dans les 24 h' : 'Pas de pluie prévue d\'ici ' + new Date(limite).getHours() + ' h') + '</div>';
@@ -341,175 +327,198 @@ function textePluieReel(now){
   for (var k = i + 1; k < serie.length; k++) if (!serie[k].pluie) break;
   var dureeTxt = k >= serie.length ? 'un bon moment' : '~' + duree((serie[k].debut - serie[i].debut) / 60000);
   if (deb - now > 3 * 3600000) return '<div class="alert sec">' + PARAPLUIE + 'Sec jusqu\'à ' + deb.getHours() + ' h, puis pluie</div>';
-  return '<div class="alert">' + PARAPLUIE + 'Pluie vers ' + hh(deb) + ', pendant ' + dureeTxt + '</div>';
+  return '<div class="alert">' + PARAPLUIE + 'Pluie vers ' + hhTxt(deb) + ', pendant ' + dureeTxt + '</div>';
 }
-chargerMeteo();
-setInterval(chargerMeteo, 15 * 60000);
-
-var transportsReels = null;
-function chargerTransports(){
-  if (!CONFIG.WORKER_TRANSPORTS) return;
-  var xhr = new XMLHttpRequest();
-  xhr.open('GET', CONFIG.WORKER_TRANSPORTS, true);
-  xhr.timeout = 20000;
-  xhr.onload = function(){ if (xhr.status === 200) { try { transportsReels = JSON.parse(xhr.responseText); afficher(); } catch (e) {} } };
-  xhr.send();
+function texteVigi(){
+  var v = vigilance;
+  if (!v || !v.trouve || ['jaune', 'orange', 'rouge'].indexOf(v.niveau) < 0) return '';
+  var noms = [];
+  for (var i = 0; i < v.phenomenes.length; i++) if (v.phenomenes[i].niveau !== 'vert') noms.push(v.phenomenes[i].nom);
+  return '<div class="vigi ' + v.niveau + '" data-p="2">' + VIGI_ICONE + 'Vigilance ' + v.niveau + (noms.length ? ' · ' + noms.join(', ') : '') + '</div>';
 }
-chargerTransports();
-setInterval(chargerTransports, 30000);
-
-function textePluie(){
-  // même logique que meteo.html : début de pluie dans 7 tranches de 5 min
-  var t = new Date(Date.now() + 7 * 5 * 60000);
-  t.setMinutes(Math.ceil(t.getMinutes() / 5) * 5);
-  return 'Pluie modérée vers ' + t.getHours() + ' h ' + pad(t.getMinutes());
-}
-
-/* ---------- Agenda, anniversaires et maison réels (via le Worker, avec la clé) ---------- */
-var CLE = param('cle');
-function prive(){ return !!(CONFIG.WORKER && CLE); }
-function echapper(t){ return String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
-var agendaReel = null, maisonReelle = null;
-function lireJson(url, quandOk){
-  var xhr = new XMLHttpRequest();
-  xhr.open('GET', url, true);
-  xhr.timeout = 25000;
-  xhr.onload = function(){ if (xhr.status === 200) { try { quandOk(JSON.parse(xhr.responseText)); } catch (e) {} } };
-  xhr.send();
-}
-function chargerAgenda(){ if (prive()) lireJson(CONFIG.WORKER + '/agenda?cle=' + encodeURIComponent(CLE), function(j){ agendaReel = j; afficher(); }); }
-function chargerMaison(){ if (prive()) lireJson(CONFIG.WORKER + '/maison?cle=' + encodeURIComponent(CLE), function(j){ maisonReelle = j; afficherMaison(); }); }
-chargerAgenda(); setInterval(chargerAgenda, 5 * 60000);
-chargerMaison(); setInterval(chargerMaison, 30000);
-var AGENDAS = { GOOGLE_ICS1: 'flo', GOOGLE_ICS2: 'moi', GOOGLE_ICS3: 'nous', commun: 'nous' };   // même réglage que agenda.html
-function quiPour(e){ return AGENDAS[e.agenda] || 'moi'; }
-
-/* ---------- Affichage ---------- */
-function afficher(){
-  var now = new Date(), h = now.getHours(), minNow = h * 60 + now.getMinutes();
-
-  // Bonjour
-  $('greet').innerHTML = h < 5 ? 'Bonne nuit' : (h < 12 ? 'Bonjour' : (h < 18 ? 'Bon après-midi' : 'Bonsoir'));
-  $('date').innerHTML = majuscule(JOURS[now.getDay()]) + ' ' + now.getDate() + ' ' + MOIS[now.getMonth()];
-  $('msg').hidden = !MESSAGE; $('msg').innerHTML = echapper(MESSAGE);
-  $('date').innerHTML += prive() ? '' : ' <span class="demo" style="vertical-align:middle">exemple</span>';
-
-  // Météo
-  afficherMeteo();
-
-  // Transports
-  var tr = '', prochainMin = 9999;
-  for (var k = 0; k < DEMO_TR.length; k++) {
-    var L = DEMO_TR[k], restants = [], heurePassage = 0;
-    if (L.actif === false) continue;
-    if (transportsReels) {
-      var PR = transportsReels.lignes[L.ligne] ? transportsReels.lignes[L.ligne].passages : [];
-      for (var q = 0; q < PR.length; q++) { var mq = Math.floor((PR[q].t - Date.now()) / 60000); if (mq >= L.marche) { restants.push(mq); if (!heurePassage) heurePassage = PR[q].t; } }
-    } else {
-      for (var p = 0; p < L.passages.length; p++) {
-        var m = Math.floor((t0 + L.passages[p] * 60000 - Date.now()) / 60000);
-        if (m >= L.marche) restants.push(m);
-      }
-      if (!restants.length) { t0 = Date.now(); restants = [12]; }
-    }
-    if (restants.length) prochainMin = Math.min(prochainMin, restants[0]);
-    if (!restants.length) { tr += '<div class="tl"><div class="badge ' + L.type + '">' + L.ligne + '</div><div><div class="tl-s">' + L.arret + '</div><div class="tl-d">Aucun passage attrapable</div></div></div>'; continue; }
-    tr += '<div class="tl"><div class="badge ' + L.type + '">' + L.ligne + '</div>' +
-      '<div><div class="tl-s">' + L.arret + '</div><div class="tl-d">vers ' + L.direction + '</div></div>' +
-      '<div class="tl-m"><b>' + hhmm(heurePassage || (Date.now() + restants[0] * 60000)) + '</b>' +
-      '<div class="tl-n' + (restants[0] - L.marche <= 1 ? ' vite' : '') + '">' + (restants[0] - L.marche <= 1 ? 'pars maintenant' : 'pars dans ' + (restants[0] - L.marche) + ' min') + '</div></div></div>';
+// Heures à afficher : prochaines heures, ou demain matin quand « demain d'abord »
+function heuresPrevues(now, nb){
+  var h = now.getHours(), res = [], titre, i;
+  var demain = demainDabord(now) || (h < 5 && !momentActif(now));
+  if (!meteo) {
+    for (i = 1; i <= nb; i++) { var hh = (h + i * 2) % 24; res.push({ h: hh, code: mockCode(hh), jour: jourA(hh), t: mockTemp(hh) }); }
+    return { titre: 'Prochaines heures', liste: res };
   }
-  $('tr').innerHTML = tr;
-  // Tuile masquée le soir (réglage) ou quand plus rien ne passe dans l'heure et demie
-  var T = tuiles(now), soir = demainDabord(now), trCache = !T.transports || (transportsReels && prochainMin > 90);
+  var H = meteo.hourly, debutHeure = new Date(now.getTime()); debutHeure.setMinutes(0, 0, 0);
+  var pas = nb > 6 ? 1 : 2;
+  if (demain) {
+    var cible = new Date(now.getFullYear(), now.getMonth(), now.getDate() + (h >= 12 ? 1 : 0));
+    titre = h >= 12 ? 'Demain' : 'Ce matin';
+    for (i = 0; i < H.time.length && res.length < nb; i++) {
+      var dt = lireDate(H.time[i]);
+      if (dt.getDate() === cible.getDate() && dt.getHours() >= 7 && (dt.getHours() - 7) % pas === 0) res.push({ h: dt.getHours(), code: H.weather_code[i], jour: H.is_day[i] === 1, t: Math.round(H.temperature_2m[i]) });
+    }
+  } else {
+    titre = 'Prochaines heures';
+    var n = 0;
+    for (i = 0; i < H.time.length && res.length < nb; i++) {
+      var d = lireDate(H.time[i]);
+      if (d < debutHeure) continue;
+      n++;
+      if (n > 1 && (n - 1) % pas === 0) res.push({ h: d.getHours(), code: H.weather_code[i], jour: H.is_day[i] === 1, t: Math.round(H.temperature_2m[i]) });
+    }
+  }
+  return { titre: titre, liste: res };
+}
+function tuileMeteo(T, now, l, h){
+  var large = l >= 2 && h === 1, petit = l === 1 && h === 1;
+  T.className += ' lien' + (large ? ' wx-large' : '') + (petit ? ' petit' : '');
+  T.setAttribute('data-page', 'meteo');
+  var hr = now.getHours(), code, jour, temp, max, min;
+  if (meteo) { code = meteo.current.weather_code; jour = meteo.current.is_day === 1; temp = Math.round(meteo.current.temperature_2m); max = Math.round(meteo.daily.temperature_2m_max[0]); min = Math.round(meteo.daily.temperature_2m_min[0]); }
+  else if (CONFIG.METEO_REELLE) { T.innerHTML = '<div class="vide">Chargement…</div>'; return; }
+  else { code = mockCode(hr); jour = jourA(hr); temp = mockTemp(hr); max = 16; min = 9; }
+  // Nombre d'heures selon la largeur disponible
+  var nbH = large ? Math.min(12, (l - 1) * 6) : Math.min(10, l * 5);
+  var P = heuresPrevues(now, nbH), mh = '';
+  for (var i = 0; i < P.liste.length; i++) mh += '<div class="mh"><div class="mh-t">' + P.liste[i].h + ' h</div>' + iconeMeteo(P.liste[i].code, P.liste[i].jour, 40) + '<div class="mh-v">' + P.liste[i].t + '°</div></div>';
+  // Jours suivants, si la tuile est grande
+  var jp = '';
+  if (meteo && meteo.daily.time && h >= 2) {
+    for (var d = 1; d < meteo.daily.time.length && d <= h + 1; d++) {
+      var dj = lireDate(meteo.daily.time[d]);
+      jp += '<div class="jp" data-p="' + (4 + d) + '"><div class="jp-n">' + (d === 1 ? 'Dem.' : JOURS_C[dj.getDay()]) + '</div><div class="jp-i">' + iconeMeteo(meteo.daily.weather_code[d], true, 30) + '</div>' +
+        '<div class="jp-t">' + Math.round(meteo.daily.temperature_2m_min[d]) + '° · <b>' + Math.round(meteo.daily.temperature_2m_max[d]) + '°</b></div></div>';
+    }
+  }
+  var gauche = '<div class="wx-gauche"><div class="wx-main">' + iconeMeteo(code, jour, petit || large ? 84 : 112) + '<div class="wx-temp h">' + temp + '°</div></div>' +
+    '<div class="wx-hl">Max ' + max + '° · Min ' + min + '°</div>' + texteVigi() + '<div data-p="3">' + textePluie(now) + '</div></div>';
+  var mini = '<div class="mini" data-p="4"><div class="mini-t">' + P.titre + '</div><div class="mini-h">' + mh + '</div></div>';
+  T.innerHTML = '<div class="wx-corps">' + gauche + (large ? '<div class="wx-droite">' + mini + '</div>' : mini + (jp ? '<div class="jours-p">' + jp + '</div>' : '')) + '</div>';
+  if (!large && jp) { var m = T.querySelector('.mini'); m.style.marginTop = '14px'; T.querySelector('.jours-p').style.marginTop = 'auto'; }
+  taillerParPriorite(T);
+}
 
-  // Anniversaires : les 3 prochains (réels si disponibles)
-  var auj = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  var AN = [];
+/* ---------- Tuile Transports ---------- */
+function passagesLigne(L){
+  var res = [];
+  if (transportsReels) {
+    var PR = transportsReels.lignes[L.ligne] ? transportsReels.lignes[L.ligne].passages : [];
+    for (var q = 0; q < PR.length; q++) { var mq = Math.floor((PR[q].t - Date.now()) / 60000); if (mq >= L.marche) res.push({ min: mq, t: PR[q].t }); }
+  } else {
+    for (var p = 0; p < L.passages.length; p++) {
+      var tt = t0 + L.passages[p] * 60000, m = Math.floor((tt - Date.now()) / 60000);
+      if (m >= L.marche) res.push({ min: m, t: tt });
+    }
+    if (!res.length) { t0 = Date.now(); return passagesLigne(L); }
+  }
+  return res;
+}
+function prochainPassage(){
+  var mini = 9999;
+  for (var k = 0; k < LIGNES.length; k++) if (LIGNES[k].actif !== false) { var P = passagesLigne(LIGNES[k]); if (P.length) mini = Math.min(mini, P[0].min); }
+  return mini;
+}
+function tuileTransports(T, now, l, h){
+  T.className += ' tr lien'; T.setAttribute('data-page', 'transports');
+  var html = '', avecNoms = l >= 2, avecSuite = l >= 3 || h >= 2;
+  for (var k = 0; k < LIGNES.length; k++) {
+    var L = LIGNES[k];
+    if (L.actif === false) continue;
+    var P = passagesLigne(L), badge = '<div class="badge ' + L.type + '">' + L.ligne + '</div>';
+    var noms = avecNoms ? '<div class="tl-txt"><div class="tl-s">' + L.arret + '</div><div class="tl-d">vers ' + L.direction + '</div></div>' : '';
+    if (!P.length) { html += '<div class="tl">' + badge + '<div class="tl-txt"><div class="tl-s">' + (avecNoms ? L.arret : '') + '</div><div class="tl-d">Plus de passage</div></div></div>'; continue; }
+    var marge = P[0].min - L.marche, suite = '';
+    if (avecSuite && P.length > 1) suite = '<div class="tl-puis">puis ' + P.slice(1, 3).map(function(x){ return hhmm(x.t); }).join(' · ') + '</div>';
+    html += '<div class="tl">' + badge + noms +
+      '<div class="tl-m"><b>' + hhmm(P[0].t) + '</b><div class="tl-n' + (marge <= 1 ? ' vite' : '') + '">' + (marge <= 1 ? 'pars maintenant' : 'pars dans ' + marge + ' min') + '</div>' + suite + '</div></div>';
+  }
+  T.innerHTML = html;
+}
+
+/* ---------- Tuile Anniversaires ---------- */
+function anniversaires(now, horizonJours){
+  var auj = new Date(now.getFullYear(), now.getMonth(), now.getDate()), AN = [];
   if (agendaReel && agendaReel.anniversaires) {
-    for (var b = 0; b < agendaReel.anniversaires.length && AN.length < 3; b++) {
-      var x = agendaReel.anniversaires[b], dx = new Date(x.date);
-      var dj = new Date(dx.getFullYear(), dx.getMonth(), dx.getDate());
-      if (dj >= auj && dj - auj <= 30 * 86400000) AN.push({ nom: x.nom, date: dj, age: x.annee ? dj.getFullYear() - x.annee : 0 });
+    for (var b = 0; b < agendaReel.anniversaires.length; b++) {
+      var x = agendaReel.anniversaires[b], dx = new Date(x.date), dj = new Date(dx.getFullYear(), dx.getMonth(), dx.getDate());
+      if (dj >= auj && dj - auj <= horizonJours * 86400000) AN.push({ nom: x.nom, date: dj, age: x.annee ? dj.getFullYear() - x.annee : 0 });
     }
   } else if (!prive()) {
     for (var dm = 0; dm < DEMO_ANNIV.length; dm++) {
       var Dd = DEMO_ANNIV[dm], dA = new Date(auj.getFullYear(), Dd.mois - 1, Dd.jour);
       if (dA < auj) dA = new Date(auj.getFullYear() + 1, Dd.mois - 1, Dd.jour);
-      AN.push({ nom: Dd.nom, date: dA, age: dA.getFullYear() - Dd.annee });
+      if (dA - auj <= horizonJours * 86400000) AN.push({ nom: Dd.nom, date: dA, age: dA.getFullYear() - Dd.annee });
     }
     AN.sort(function(p, q){ return p.date - q.date; });
   }
-  function dansJours(d){ var n = Math.round((d - auj) / 86400000); return n === 0 ? 'Aujourd\'hui !' : (n === 1 ? 'Demain' : 'Dans ' + n + ' jours'); }
-  var titreBd = '';
-  // Pas d'anniversaire dans les 30 jours : la tuile disparaît et les transports prennent toute la largeur
-  var sansAnniv = !T.anniversaires || (!AN.length && (!prive() || agendaReel));
-  $('bd').style.display = sansAnniv ? 'none' : '';
-  $('tr').parentNode.style.display = trCache ? 'none' : '';
-  $('bd').parentNode.className = 'row' + (sansAnniv || trCache ? ' seul' : '');
-  $('bd').parentNode.style.display = sansAnniv && trCache ? 'none' : '';
-  if (AN.length) {
-    var A = AN[0], bd = titreBd +
-      '<div class="bd-q h">' + echapper(A.nom) + '</div>' +
-      '<div class="bd-j">' + dansJours(A.date) + '<span class="bd-d"> · ' + A.date.getDate() + ' ' + MOIS_C[A.date.getMonth()] + (A.age ? ' · ' + A.age + ' ans' : '') + '</span></div>';
-    if (AN.length > 1) {
-      bd += '<div class="bd-suite">';
-      for (var k = 1; k < AN.length; k++) {
-        bd += '<div class="bd-l"><span class="bd-n">' + echapper(AN[k].nom) + '</span><span class="bd-w">' + JOURS[AN[k].date.getDay()].slice(0, 3) + '. ' + AN[k].date.getDate() + ' ' + MOIS_C[AN[k].date.getMonth()] + '</span></div>';
-      }
-      bd += '</div>';
-    }
-    $('bd').innerHTML = bd;
-  } else {
-    $('bd').innerHTML = titreBd + '<div class="bd-d" style="margin-top:auto">' + (prive() && !agendaReel ? 'Chargement…' : 'Aucun 🎂 dans l\'agenda') + '</div>';
+  return { liste: AN, auj: auj };
+}
+function tuileAnniversaires(T, now, l, h, A){
+  T.className += ' bd lien'; T.setAttribute('data-page', 'anniversaires');
+  var AN = A.liste, auj = A.auj;
+  if (!AN.length) { T.innerHTML = '<div class="bd-d">' + (prive() && !agendaReel ? 'Chargement…' : 'Aucun anniversaire proche') + '</div>'; return; }
+  function dans(d){ var n = Math.round((d - auj) / 86400000); return n === 0 ? 'Aujourd\'hui !' : (n === 1 ? 'Demain' : 'Dans ' + n + ' jours'); }
+  var P = AN[0];
+  var html = '<div class="bd-q h">' + echapper(P.nom) + '</div>' +
+    '<div class="bd-j">' + dans(P.date) + '<span class="bd-d"> · ' + P.date.getDate() + ' ' + MOIS_C[P.date.getMonth()] + (P.age ? ' · ' + P.age + ' ans' : '') + '</span></div>';
+  if (AN.length > 1) {
+    html += '<div class="bd-suite">';
+    for (var k = 1; k < AN.length; k++) html += '<div class="bd-l"><span class="bd-n">' + echapper(AN[k].nom) + (l >= 2 && AN[k].age ? ' <span class="bd-d">· ' + AN[k].age + ' ans</span>' : '') + '</span><span class="bd-w">' + JOURS_C[AN[k].date.getDay()].toLowerCase() + ' ' + AN[k].date.getDate() + ' ' + MOIS_C[AN[k].date.getMonth()] + '</span></div>';
+    html += '</div>';
   }
+  T.innerHTML = html;
+  T.style.justifyContent = 'flex-start';
+  var lignes = T.querySelectorAll('.bd-l'), caches = tailler(T, lignes);
+  if (caches === lignes.length && lignes.length) T.querySelector('.bd-suite').style.display = 'none';
+  if (!deborde(T) && h === 1) T.style.justifyContent = 'center';
+}
 
-  // Agenda : ce qui reste aujourd'hui, puis demain
-  var ag = '', restAuj = [], demain = [];
+/* ---------- Tuile Agenda ---------- */
+function tuileAgenda(T, now, l, h){
+  T.className += ' ag lien'; T.setAttribute('data-page', 'agenda');
+  var hr = now.getHours(), minNow = hr * 60 + now.getMinutes(), jours = [[], [], []];
+  var j0 = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime(), j1 = j0 + 86400000, j2 = j1 + 86400000, j3 = j2 + 86400000;
   if (agendaReel && agendaReel.evenements) {
-    var demain0 = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).getTime(), demain1 = demain0 + 86400000;
     for (var e = 0; e < agendaReel.evenements.length; e++) {
       var E = agendaReel.evenements[e], dd = new Date(E.debut);
-      var item = { debut: E.journee ? null : pad(dd.getHours()) + ':' + pad(dd.getMinutes()), titre: E.titre, qui: quiPour(E) };
-      if (E.debut < demain0 && E.fin > now.getTime()) { if (E.debut < auj.getTime()) item.debut = null; restAuj.push(item); }
-      else if (E.debut >= demain0 && E.debut < demain1) demain.push(item);
-      else if (E.journee && E.debut < demain0 && E.fin > demain0) demain.push(item);
+      var it = { debut: E.journee ? null : pad(dd.getHours()) + ':' + pad(dd.getMinutes()), titre: E.titre, qui: quiPour(E) };
+      if (E.debut < j1 && E.fin > now.getTime()) { if (E.debut < j0) it.debut = null; jours[0].push(it); }
+      else if ((E.debut >= j1 && E.debut < j2) || (E.journee && E.debut < j1 && E.fin > j1)) jours[1].push(it);
+      else if ((E.debut >= j2 && E.debut < j3) || (E.journee && E.debut < j2 && E.fin > j2)) jours[2].push(it);
     }
   } else if (!prive()) {
     for (var e2 = 0; e2 < DEMO_AG.length; e2++) {
-      var ev = DEMO_AG[e2], hm = ev.debut.split(':'), mEv = parseInt(hm[0], 10) * 60 + parseInt(hm[1], 10);
-      if (ev.j === 0 && mEv + 30 >= minNow) restAuj.push(ev);
-      if (ev.j === 1) demain.push(ev);
+      var ev = DEMO_AG[e2];
+      if (ev.j === 0 && enMinutes(ev.debut) + 30 < minNow) continue;
+      jours[ev.j].push(ev);
     }
   }
-  function ligneEv(x){ return '<div class="ev"><div class="ev-h">' + (x.debut ? x.debut.replace(':', ' h ') : 'Journée') + '</div><i style="background:' + (COULEURS[x.qui] || COULEURS.moi) + '"></i><div class="ev-n">' + echapper(x.titre) + '</div></div>'; }
-  var MAX = 4;
-  function colonne(titre, L, vide){
-    var c = '<div class="ag-col"><div class="ev-sub">' + titre + '</div>';
-    if (!L.length) c += '<div class="vide">' + (prive() && !agendaReel ? 'Chargement…' : vide) + '</div>';
-    for (var r = 0; r < L.length && r < MAX; r++) c += ligneEv(L[r]);
-    if (L.length > MAX) c += '<div class="vide">+ ' + (L.length - MAX) + ' autre' + (L.length - MAX > 1 ? 's' : '') + '</div>';
-    return c + '</div>';
+  var dj2 = new Date(j2);
+  var cols = [
+    { t: 'Aujourd\'hui', L: jours[0], v: 'Plus rien de prévu' },
+    { t: 'Demain', L: jours[1], v: 'Rien de prévu' },
+    { t: majuscule(JOURS[dj2.getDay()]), L: jours[2], v: 'Rien de prévu' }
+  ];
+  if (demainDabord(now) && hr >= 12) { cols[0].t = 'Ce soir'; cols[0].v = 'Plus rien ce soir'; cols = [cols[1], cols[0], cols[2]]; }
+  var nb = Math.min(3, l), html = '<div class="ag-cols">';
+  for (var c = 0; c < nb; c++) {
+    html += '<div class="ag-col"><div class="ev-sub">' + cols[c].t + '</div>';
+    if (!cols[c].L.length) html += '<div class="vide">' + (prive() && !agendaReel ? 'Chargement…' : cols[c].v) + '</div>';
+    for (var r = 0; r < cols[c].L.length; r++) {
+      var x = cols[c].L[r];
+      html += '<div class="ev"><div class="ev-h">' + (x.debut ? x.debut.replace(':', ' h ') : 'Journée') + '</div><i style="background:' + (COULEURS[x.qui] || COULEURS.moi) + '"></i><div class="ev-n">' + echapper(x.titre) + '</div></div>';
+    }
+    html += '</div>';
   }
-  // Le soir, demain passe en premier
-  var soirAg = soir && h >= 12;
-  ag += '<div class="ag-cols">' + (soirAg
-    ? colonne('Demain', demain, 'Rien de prévu') + colonne('Ce soir', restAuj, 'Plus rien ce soir')
-    : colonne('Aujourd\'hui', restAuj, 'Plus rien de prévu') + colonne('Demain', demain, 'Rien de prévu')) + '</div>';
-  $('ag').innerHTML = ag;
-
-  // Tuiles cochées pour ce moment de la journée
-  var cacheRang = sansAnniv && trCache;
-  document.querySelector('.wx').style.display = T.meteo ? '' : 'none';
-  $('ag').style.display = T.agenda ? '' : 'none';
-  document.querySelector('.home').style.display = T.maison ? '' : 'none';
-  document.querySelector('.wrap').className = 'wrap' + (T.meteo ? '' : ' sans-meteo');
-  document.querySelector('.right').className = 'right' + (T.agenda ? '' : ' sans-agenda') + (T.maison ? '' : ' sans-maison') + (cacheRang ? ' sans-rang' : '');
-
-  afficherMaison();
+  T.innerHTML = html + '</div>';
+  // Autant d'événements que la tuile peut en contenir, puis « + N autres »
+  var colEls = T.querySelectorAll('.ag-col');
+  for (var k = 0; k < colEls.length; k++) {
+    var col = colEls[k], evs = col.querySelectorAll('.ev');
+    if (!deborde(col)) continue;
+    var plus = document.createElement('div'); plus.className = 'plus'; col.appendChild(plus);
+    var n = 0;
+    for (var z = evs.length - 1; z >= 0 && deborde(col); z--) { evs[z].style.display = 'none'; n++; plus.innerHTML = '+ ' + n + ' autre' + (n > 1 ? 's' : ''); }
+  }
 }
 
-/* ---------- Maison : 4 scènes en raccourci ---------- */
+/* ---------- Tuile Maison ---------- */
 var SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">';
 var ICONES_SC = {
   soleil: '<circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4"/>',
@@ -531,67 +540,129 @@ function iconeScene(nom){
   if (/matin|bonjour|réveil|reveil|jour|lumineux|travail/.test(n)) return 'soleil';
   return 'etoile';
 }
-var DEMO_SCENES = [
-  { id: 'soiree', nom: 'Soirée', nb: 3 }, { id: 'film', nom: 'Film', nb: 1 },
-  { id: 'diner', nom: 'Dîner', nb: 3 }, { id: 'eteindre', nom: 'Tout éteindre', nb: 0 }
-];
-function scenesAffichees(){ return maisonReelle ? maisonReelle.scenes.slice(0, 4) : (prive() ? [] : DEMO_SCENES); }
-function afficherMaison(){
-  var nb = lumieres;
-  if (maisonReelle) { nb = 0; for (var k = 0; k < maisonReelle.lumieres.length; k++) if (maisonReelle.lumieres[k].allumee) nb++; }
-  $('homeS').innerHTML = (prive() && !maisonReelle) ? 'Chargement…' : (nb === 0 ? 'Tout est éteint' : nb + (nb > 1 ? ' lumières allumées' : ' lumière allumée'));
-  var L = scenesAffichees(), s = '';
-  for (var i = 0; i < L.length; i++) s += '<div class="scene' + (L[i].id === sceneActive ? ' on' : '') + '" data-i="' + i + '">' + SVG + ICONES_SC[iconeScene(L[i].nom)] + '</svg>' + echapper(L[i].nom) + '</div>';
-  $('sc').innerHTML = s;
+function scenesAffichees(){ return maisonReelle ? maisonReelle.scenes.slice(0, 5) : (prive() ? [] : DEMO_SCENES); }
+function lumieresAffichees(){ return maisonReelle ? maisonReelle.lumieres : (prive() ? [] : DEMO_LUM); }
+function tuileMaison(T, now, l, h){
+  var L = scenesAffichees(), lum = lumieresAffichees(), nb = 0, i;
+  for (i = 0; i < lum.length; i++) if (lum[i].allumee) nb++;
+  var parRang = l === 1 ? 1 : (h === 1 ? (l === 2 ? 4 : 5) : (l === 2 ? 2 : 3));
+  var largeur = 'calc(' + (100 / Math.min(parRang, Math.max(1, L.length))).toFixed(3) + '% - 10px)';
+  var html = '<div class="home-s">' + ((prive() && !maisonReelle) ? 'Chargement…' : (nb === 0 ? 'Tout est éteint' : nb + (nb > 1 ? ' lumières allumées' : ' lumière allumée'))) + '</div><div class="sc">';
+  for (i = 0; i < L.length; i++) html += '<div class="scene' + (L[i].id === sceneActive ? ' on' : '') + '" data-scene="' + i + '" style="width:' + largeur + '">' + SVG + ICONES_SC[iconeScene(L[i].nom)] + '</svg>' + echapper(L[i].nom) + '</div>';
+  html += '</div>';
+  // Grande tuile : les lumières, à toucher pour allumer / éteindre
+  if (h >= 2 && lum.length) {
+    html += '<div class="lums">';
+    for (i = 0; i < lum.length; i++) html += '<div class="lum' + (lum[i].allumee ? ' on' : '') + '" data-lum="' + i + '">' + echapper(lum[i].nom) + '</div>';
+    html += '</div>';
+  }
+  T.innerHTML = html;
+  tailler(T, T.querySelectorAll('.lum'));
+  if (deborde(T)) { var lm = T.querySelector('.lums'); if (lm) lm.style.display = 'none'; }
+  tailler(T, T.querySelectorAll('.scene'));
 }
-$('sc').addEventListener('click', function(e){
+document.addEventListener('click', function(e){
   var el = e.target;
-  while (el && el.getAttribute && el.getAttribute('data-i') === null) el = el.parentNode;
+  while (el && el.getAttribute && el.getAttribute('data-scene') === null && el.getAttribute('data-lum') === null) el = el.parentNode;
   if (!el || !el.getAttribute) return;
-  var S = scenesAffichees()[parseInt(el.getAttribute('data-i'), 10)];
-  if (!S) return;
-  sceneActive = S.id;
-  if (!maisonReelle) { lumieres = S.nb || 0; afficherMaison(); return; }
-  afficherMaison();
+  var corps = null;
+  if (el.getAttribute('data-scene') !== null) {
+    var S = scenesAffichees()[parseInt(el.getAttribute('data-scene'), 10)];
+    if (!S) return;
+    sceneActive = S.id; corps = { action: 'scene', id: S.id };
+  } else {
+    var Lm = lumieresAffichees()[parseInt(el.getAttribute('data-lum'), 10)];
+    if (!Lm) return;
+    Lm.allumee = !Lm.allumee; corps = { action: 'basculer', id: Lm.id };
+  }
+  afficher();
+  if (!maisonReelle) return;
   var xhr = new XMLHttpRequest();
   xhr.open('POST', CONFIG.WORKER + '/maison/action?cle=' + encodeURIComponent(CLE), true);
   xhr.setRequestHeader('Content-Type', 'text/plain');
   xhr.onload = function(){ setTimeout(chargerMaison, 1500); };
-  xhr.send(JSON.stringify({ action: 'scene', id: S.id }));
+  xhr.send(JSON.stringify(corps));
 });
 
-// Réglages envoyés par l'écran (page admin) : temps de marche, agendas, message
-var MESSAGE = '';
-// Accueil du soir (réglable dans la page admin)
-// Accueil selon le moment de la journée (réglable dans la page admin) :
-// pour chaque moment, les tuiles affichées et « demain d'abord »
-var TOUT = { meteo: true, transports: true, anniversaires: true, agenda: true, maison: true };
-var MOMENTS = [{ nom: 'Soir', debut: '21:00', fin: '05:00', tuiles: { meteo: true, transports: false, anniversaires: true, agenda: true, maison: true }, demain: true }];
-function enMinutes(hhmm){ var p = hhmm.split(':'); return parseInt(p[0], 10) * 60 + parseInt(p[1], 10); }
-function momentActif(now){
-  var m = now.getHours() * 60 + now.getMinutes();
-  for (var i = 0; i < MOMENTS.length; i++) {
-    var a = enMinutes(MOMENTS[i].debut), b = enMinutes(MOMENTS[i].fin);
-    if (a < b ? (m >= a && m < b) : (m >= a || m < b)) return MOMENTS[i];
+/* ---------- Mise en page ---------- */
+// Placement des tuiles sur 4 colonnes × 3 rangées, sans trous :
+// 1) chaque tuile prend la première place libre (si elle ne tient pas, on la rétrécit avant d'ajouter une rangée) ;
+// 2) puis chaque tuile s'étire à droite et vers le bas dans les cases restées vides.
+function placer(liste){
+  var R = 3, i, r, c, x, y;
+  for (var essai = 0; essai < 6; essai++) {
+    var occ = [], res = [], ok = true;
+    for (r = 0; r < R; r++) occ.push([false, false, false, false]);
+    var libre = function(r0, c0, w, h){
+      if (c0 + w > 4 || r0 + h > R) return false;
+      for (y = r0; y < r0 + h; y++) for (x = c0; x < c0 + w; x++) if (occ[y][x]) return false;
+      return true;
+    };
+    for (i = 0; i < liste.length && ok; i++) {
+      var t = liste[i], place = null;
+      for (var w = Math.min(4, t.l); w >= 1 && !place; w--) {
+        for (var h = Math.min(R, t.h); h >= 1 && !place; h--) {
+          if (w < t.l && h < t.h) continue;          // on ne rétrécit que dans un sens à la fois
+          for (r = 0; r < R && !place; r++) for (c = 0; c < 4 && !place; c++) if (libre(r, c, w, h)) place = { r: r, c: c, w: w, h: h };
+        }
+      }
+      if (!place) { ok = false; break; }
+      for (y = place.r; y < place.r + place.h; y++) for (x = place.c; x < place.c + place.w; x++) occ[y][x] = true;
+      res.push({ t: t, r: place.r, c: place.c, w: place.w, h: place.h });
+    }
+    if (!ok) { R++; continue; }
+    // Étirement dans les cases vides
+    var change = true;
+    while (change) {
+      change = false;
+      for (i = 0; i < res.length; i++) {
+        var P = res[i], k;
+        var droite = P.c + P.w < 4;
+        for (k = P.r; droite && k < P.r + P.h; k++) if (occ[k][P.c + P.w]) droite = false;
+        if (droite) { for (k = P.r; k < P.r + P.h; k++) occ[k][P.c + P.w] = true; P.w++; change = true; continue; }
+        var bas = P.r + P.h < R;
+        for (k = P.c; bas && k < P.c + P.w; k++) if (occ[P.r + P.h][k]) bas = false;
+        if (bas) { for (k = P.c; k < P.c + P.w; k++) occ[P.r + P.h][k] = true; P.h++; change = true; }
+      }
+    }
+    return { rangees: R, places: res };
   }
-  return null;
+  return { rangees: R, places: [] };
 }
-function tuiles(now){ var M = momentActif(now); return M ? M.tuiles : TOUT; }
-function demainDabord(now){ var M = momentActif(now); return !!(M && M.demain); }
-window.addEventListener('message', function(e){
-  if (!e.data || e.data.type !== 'reglages' || !e.data.value) return;
-  var g = e.data.value, k;
-  if (g.transports) for (k = 0; k < DEMO_TR.length; k++) { var t = g.transports[DEMO_TR[k].ligne]; if (t) { DEMO_TR[k].marche = t.marche; DEMO_TR[k].actif = t.actif; } }
-  if (g.agenda) { for (k in g.agenda.agendas) AGENDAS[k] = g.agenda.agendas[k]; }
-  MESSAGE = g.message || '';
-  if (g.accueil && g.accueil.moments) MOMENTS = g.accueil.moments;
-  afficher(); afficherMeteo();
-});
 
-// Toucher une carte ouvre la page détaillée correspondante
+var FABRIQUES = { date: tuileDate, meteo: tuileMeteo, transports: tuileTransports, anniversaires: tuileAnniversaires, agenda: tuileAgenda, maison: tuileMaison };
+function afficher(){
+  var now = new Date(), G = $('grille'), html = '', visibles = [];
+  var A = null;
+  for (var i = 0; i < DISPOSITION.length; i++) {
+    var D = DISPOSITION[i];
+    if (!FABRIQUES[D.id] || !tuileVisible(D.id, now)) continue;
+    // Transports : rien à afficher quand plus aucun passage dans l'heure et demie
+    if (D.id === 'transports' && transportsReels && prochainPassage() > 90) continue;
+    if (D.id === 'anniversaires') {
+      A = anniversaires(now, D.h >= 2 ? 60 : 30);
+      if (!A.liste.length && (!prive() || agendaReel)) continue;
+    }
+    visibles.push(D);
+  }
+  var P = placer(visibles);
+  for (var k = 0; k < P.places.length; k++) {
+    var V = P.places[k];
+    html += '<div class="tuile l' + V.w + ' h' + V.h + '" id="t-' + V.t.id + '" style="grid-column:' + (V.c + 1) + ' / span ' + V.w + ';grid-row:' + (V.r + 1) + ' / span ' + V.h + '"></div>';
+  }
+  G.innerHTML = html;
+  G.style.gridTemplateRows = 'repeat(' + P.rangees + ', minmax(0, 1fr))';
+  for (var m = 0; m < P.places.length; m++) {
+    var W = P.places[m], T = $('t-' + W.t.id);
+    try { FABRIQUES[W.t.id](T, now, W.w, W.h, A); } catch (err) { T.innerHTML = '<div class="vide">Indisponible</div>'; }
+  }
+}
+
+// Toucher une tuile ouvre la page détaillée correspondante (sauf boutons de la maison)
 document.addEventListener('click', function(e){
   var el = e.target;
   while (el && el !== document.body) {
+    if (el.getAttribute && (el.getAttribute('data-scene') !== null || el.getAttribute('data-lum') !== null)) return;
     if (el.getAttribute && el.getAttribute('data-page')) {
       if (window.parent !== window) { try { window.parent.postMessage({ type: 'aller', page: el.getAttribute('data-page') }, '*'); } catch (err) {} }
       return;
@@ -600,28 +671,25 @@ document.addEventListener('click', function(e){
   }
 });
 
-afficher();
-setInterval(afficher, 20000);
+// Réglages envoyés par l'écran (page admin)
+window.addEventListener('message', function(e){
+  if (!e.data || e.data.type !== 'reglages' || !e.data.value) return;
+  var g = e.data.value, k;
+  if (g.transports) for (k = 0; k < LIGNES.length; k++) { var t = g.transports[LIGNES[k].ligne]; if (t) { LIGNES[k].marche = t.marche; LIGNES[k].actif = t.actif; } }
+  if (g.agenda) { for (k in g.agenda.agendas) AGENDAS[k] = g.agenda.agendas[k]; }
+  MESSAGE = g.message || '';
+  if (g.accueil && g.accueil.moments) MOMENTS = g.accueil.moments;
+  if (g.accueil && g.accueil.disposition && g.accueil.disposition.length) DISPOSITION = g.accueil.disposition;
+  afficher();
+});
 
-/* ---------- Vigilance Météo-France (via Home Assistant, par le Worker) ---------- */
-var VIGI_ICONE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5 2.8 19.5h18.4z"/><path d="M12 10v4.5M12 17.2v.1"/></svg>';
-function texteVigi(v){
-  if (!v || !v.trouve || ['jaune', 'orange', 'rouge'].indexOf(v.niveau) < 0) return '';
-  var noms = [];
-  for (var i = 0; i < v.phenomenes.length; i++) if (v.phenomenes[i].niveau !== 'vert') noms.push(v.phenomenes[i].nom);
-  return '<span class="vigi ' + v.niveau + '">' + VIGI_ICONE + 'Vigilance ' + v.niveau + (noms.length ? ' · ' + noms.join(', ') : '') + '</span>';
-}
-function chargerVigi(quandOk){
-  var cle = (/[?&]cle=([^&#]*)/.exec(location.search) || [])[1];
-  if (!cle) return;
-  var x = new XMLHttpRequest();
-  x.open('GET', 'https://ecran-salon.nico-michon37.workers.dev/vigilance?cle=' + cle, true);
-  x.timeout = 20000;
-  x.onload = function(){ if (x.status === 200) { try { quandOk(JSON.parse(x.responseText)); } catch (e) {} } };
-  x.send();
-}
-function majVigi(){ chargerVigi(function(v){ $('vigi').innerHTML = texteVigi(v); }); }
-majVigi(); setInterval(majVigi, 5 * 60000);
+afficher();
+chargerMeteo(); setInterval(chargerMeteo, 15 * 60000);
+chargerTransports(); setInterval(chargerTransports, 30000);
+chargerAgenda(); setInterval(chargerAgenda, 5 * 60000);
+chargerMaison(); setInterval(chargerMaison, 30000);
+chargerVigi(); setInterval(chargerVigi, 5 * 60000);
+setInterval(afficher, 20000);
 </script>
 </body>
 </html>
