@@ -1,0 +1,40 @@
+name: Horaires Fil Bleu
+
+# Chaque lundi à 4 h 17 (heure de Paris en hiver), puis à chaque changement du script
+on:
+  schedule:
+    - cron: '17 3 * * 1'
+  workflow_dispatch:
+  push:
+    paths:
+      - 'outils/horaires.py'
+      - '.github/workflows/horaires.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: horaires
+  cancel-in-progress: false
+
+jobs:
+  horaires:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Télécharger le GTFS et régénérer horaires.txt
+        run: python outils/horaires.py - horaires.txt
+      - name: Publier si quelque chose a changé
+        run: |
+          if git diff --quiet -- horaires.txt && git ls-files --error-unmatch horaires.txt >/dev/null 2>&1; then
+            echo "Horaires inchangés"
+            exit 0
+          fi
+          git config user.name "horaires-auto"
+          git config user.email "horaires-auto@users.noreply.github.com"
+          git add horaires.txt
+          git commit -m "Horaires Fil Bleu mis à jour automatiquement"
+          git push

@@ -58,16 +58,30 @@ g=313,32,27,20,14,7,6,8,7,9,6,10,5,7,8,8,7,8,7,8,6,9,8,8,8,8,7,8,7,8,7,8,7,8,7,8
 
 /* ---------------- Horaires prévus ---------------- */
 let PREVU = null;
+// Horaires à jour publiés chaque semaine par GitHub (outils/horaires.py) ; sinon, ceux écrits ci-dessus
+const URL_HORAIRES = 'https://chonchon37.github.io/ecran-salon/horaires.txt';
+let HORAIRES_DISTANT = null, HORAIRES_LUS = 0;
+async function chargerHoraires() {
+  if (Date.now() - HORAIRES_LUS < 3600000) return;
+  HORAIRES_LUS = Date.now();
+  try {
+    const r = await fetch(URL_HORAIRES, { cf: { cacheTtl: 21600, cacheEverything: true } });
+    if (!r.ok) return;
+    const t = await r.text(), d = /^debut=(\d{8})$/m.exec(t), j = /^jusqua=(\d{8})$/m.exec(t);
+    const p = partiesParis(Date.now()), auj = p.year + p.month + p.day;
+    if (d && j && /^arret=/m.test(t) && d[1] <= auj && j[1] > auj && t !== HORAIRES_DISTANT) { HORAIRES_DISTANT = t; PREVU = null; }
+  } catch (e) {}
+}
 function lirePrevus() {
   if (PREVU) return PREVU;
-  const res = { arrets: {} };
+  const res = { arrets: {}, source: HORAIRES_DISTANT ? 'github' : 'integre' };
   let cur = null;
-  for (const ligne of HORAIRES.trim().split('\n')) {
+  for (const ligne of (HORAIRES_DISTANT || HORAIRES).trim().split('\n')) {
     const i = ligne.indexOf('='), k = ligne.slice(0, i), v = ligne.slice(i + 1);
     if (k === 'debut' || k === 'jusqua') res[k] = v;
     else if (k === 'arret') { cur = { jours: '', grilles: [] }; res.arrets[v] = cur; }
     else if (k === 'jours') cur.jours = v;
-    else if (k === 'g') { let acc = 0; cur.grilles.push(v.split(',').map(d => (acc += +d))); }
+    else if (k === 'g') { let acc = 0; cur.grilles.push(v ? v.split(',').map(d => (acc += +d)) : []); }
   }
   PREVU = res;
   return res;
@@ -105,7 +119,7 @@ function passagesPrevus(stop, maintenant, finFenetre) {
     const D = ymd(+p.year, +p.month, +p.day + delta);
     const idx = joursEntre(P.debut, D);
     if (idx < 0 || idx >= A.jours.length) continue;
-    const grille = A.grilles[+A.jours[idx]];
+    const grille = A.grilles[parseInt(A.jours[idx], 36)] || [];
     const minuitUTC = Date.UTC(+D.slice(0, 4), +D.slice(4, 6) - 1, +D.slice(6, 8));
     for (const m of grille) {
       let t = minuitUTC + m * 60000;
@@ -278,7 +292,7 @@ async function binaire(url) {
 async function construire() {
   const maintenant = Date.now(), fin = maintenant + 2 * 3600000;
   const stops = new Set(Object.values(ARRETS));
-  const [tr, al, inc] = await Promise.allSettled([binaire(FLUX_TR), binaire(FLUX_ALERTES), texteDistant(FLUX_INCIDENTS)]);
+  const [tr, al, inc] = await Promise.allSettled([binaire(FLUX_TR), binaire(FLUX_ALERTES), texteDistant(FLUX_INCIDENTS), chargerHoraires()]);
   const reels = tr.status === 'fulfilled' ? lirePassagesTR(tr.value, stops) : {};
   const alertes = al.status === 'fulfilled' ? lireAlertes(al.value, maintenant) : {};
   let incidents = null;
@@ -297,6 +311,7 @@ async function construire() {
     tempsReelDisponible: tr.status === 'fulfilled',
     infoTraficDisponible: !!incidents || al.status === 'fulfilled',
     horairesJusqua: P.jusqua,
+    horairesSource: P.source,
     horairesAMettreAJour: joursEntre(ymd(...(() => { const p = partiesParis(maintenant); return [+p.year, +p.month, +p.day]; })()), P.jusqua) < 7,
     lignes: lignes
   };
