@@ -68,11 +68,31 @@ input[type=time]{font:inherit;color:var(--ink);background:var(--bg);border:1.5px
 .jours label:has(input:focus-visible){outline:2px solid var(--accent);outline-offset:2px}
 .jours.tuiles label{width:auto;padding:0 14px}
 [hidden]{display:none!important}
+/* Résumé et rubriques */
+.resume{background:var(--card2);padding:16px 20px}
+.resume-t{font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+.res{display:flex;flex-wrap:wrap;gap:8px}
+.res span{background:var(--card);border-radius:10px;padding:6px 11px;font-size:14px;font-weight:600}
+.res span b{color:var(--muted);font-weight:600;margin-right:4px}
+.onglets{position:sticky;top:0;z-index:5;display:flex;gap:6px;overflow-x:auto;padding:10px 0;margin:4px 0 6px;background:var(--bg);scrollbar-width:none}
+.onglets::-webkit-scrollbar{display:none}
+.onglets button{flex:none;border-radius:999px;padding:9px 16px;background:var(--card)}
+.onglets button[aria-current="true"]{background:var(--accent);color:var(--accent-ink)}
+.intro{color:var(--muted);font-size:15px;margin:4px 2px 14px}
+section[data-groupe]{scroll-margin-top:70px}
+.tete{display:flex;align-items:center;gap:12px}
+.tete h1{flex:1}
+button.discret{background:transparent;color:var(--muted);padding:8px 10px;font-size:14px;text-decoration:underline;text-underline-offset:3px}
+@media (max-width:520px){
+  .barre .dedans{flex-wrap:wrap;gap:8px 10px}
+  .barre .etat{flex-basis:100%}
+  .barre button{flex:1}
+}
 </style>
 </head>
 <body>
 <div class="page">
-  <h1>Réglages de l'écran</h1>
+  <div class="tete"><h1>Réglages de l'écran</h1><button id="deconnexion" type="button" class="discret" hidden>Se déconnecter</button></div>
   <p class="sous">Écran du salon · les changements s'affichent sur le cadre en quelques minutes.</p>
 
   <!-- Connexion -->
@@ -90,14 +110,35 @@ input[type=time]{font:inherit;color:var(--ink);background:var(--bg);border:1.5px
   <div id="reglages" hidden>
     <div id="avertissement" class="bandeau alerte" hidden></div>
 
-    <section>
+    <!-- Ce que l'écran affiche en ce moment, d'après les réglages -->
+    <section class="resume" aria-live="polite">
+      <div class="resume-t">Sur l'écran en ce moment</div>
+      <div id="resume"></div>
+    </section>
+
+    <nav class="onglets" id="onglets" aria-label="Rubriques">
+      <button type="button" data-g="accueil">Accueil</button>
+      <button type="button" data-g="pages">Pages</button>
+      <button type="button" data-g="jour-nuit">Jour & nuit</button>
+      <button type="button" data-g="donnees">Transports, agenda, maison</button>
+    </nav>
+    <p class="intro" id="intro"></p>
+
+    <section data-groupe="accueil">
       <h2>Message de l'accueil</h2>
       <p class="aide">Un petit mot affiché sous la date (rappel, info du jour…). Laisse vide pour ne rien afficher.</p>
       <textarea id="message" maxlength="140" placeholder="Ex. : Pense à sortir les poubelles ce soir"></textarea>
       <div class="compteur"><span id="compteur">0</span> / 140</div>
     </section>
 
-    <section>
+    <section data-groupe="accueil">
+      <h2>Accueil selon le moment</h2>
+      <p class="aide">Pour chaque moment de la journée, cochez les tuiles à afficher sur l'accueil. « Demain d'abord » met l'agenda de demain en premier et donne la météo de demain. En dehors de ces moments, tout est affiché. La tuile Transports s'efface aussi toute seule quand plus rien ne passe dans l'heure et demie.</p>
+      <div id="moments"></div>
+      <button type="button" id="ajouterMoment" style="margin-top:12px">Ajouter un moment</button>
+    </section>
+
+    <section data-groupe="pages">
       <h2>Pages et rotation</h2>
       <p class="aide">Ordre des pages et combien de secondes chacune reste à l'écran. « Onglet seulement » : la page reste accessible en touchant la barre du bas, mais ne passe pas toute seule.</p>
       <div id="slides"></div>
@@ -107,14 +148,14 @@ input[type=time]{font:inherit;color:var(--ink);background:var(--bg);border:1.5px
       </div>
     </section>
 
-    <section>
+    <section data-groupe="pages">
       <h2>Écran fixe selon l'heure</h2>
       <p class="aide">Pendant ces plages, l'écran reste sur une seule page au lieu de tourner (ex. : Transports le matin). Un toucher permet toujours de naviguer ; l'écran y revient ensuite tout seul.</p>
       <div id="plages"></div>
       <button type="button" id="ajouterPlage" style="margin-top:12px">Ajouter une plage</button>
     </section>
 
-    <section>
+    <section data-groupe="jour-nuit">
       <h2>Thème</h2>
       <div class="rang">
         <div class="segment" role="radiogroup" aria-label="Thème">
@@ -132,14 +173,7 @@ input[type=time]{font:inherit;color:var(--ink);background:var(--bg);border:1.5px
       </div>
     </section>
 
-    <section>
-      <h2>Accueil selon le moment</h2>
-      <p class="aide">Pour chaque moment de la journée, cochez les tuiles à afficher sur l'accueil. « Demain d'abord » met l'agenda de demain en premier et donne la météo de demain. En dehors de ces moments, tout est affiché. La tuile Transports s'efface aussi toute seule quand plus rien ne passe dans l'heure et demie.</p>
-      <div id="moments"></div>
-      <button type="button" id="ajouterMoment" style="margin-top:12px">Ajouter un moment</button>
-    </section>
-
-    <section>
+    <section data-groupe="jour-nuit">
       <h2>Veille de nuit</h2>
       <p class="aide">L'écran devient noir sur cette plage. Un toucher le rallume quelques minutes, puis il se rendort.</p>
       <div class="rang">
@@ -155,13 +189,13 @@ input[type=time]{font:inherit;color:var(--ink);background:var(--bg);border:1.5px
       </div>
     </section>
 
-    <section>
+    <section data-groupe="donnees">
       <h2>Transports</h2>
       <p class="aide">Temps de marche de chez vous jusqu'à l'arrêt : il sert à calculer « Pars dans… ».</p>
       <div id="lignes"></div>
     </section>
 
-    <section>
+    <section data-groupe="donnees">
       <h2>Agenda</h2>
       <div class="rang">
         <label for="prenomMoi">Prénom 1</label><input type="text" id="prenomMoi" maxlength="20" style="width:150px">
@@ -171,13 +205,13 @@ input[type=time]{font:inherit;color:var(--ink);background:var(--bg);border:1.5px
       <div id="agendas"></div>
     </section>
 
-    <section>
+    <section data-groupe="donnees">
       <h2>Maison · lumières</h2>
       <p class="aide">Jusqu'à 8 lumières. Sans choix, l'écran affiche automatiquement toutes les lumières sauf les « segments ».</p>
       <div id="lumieres"></div>
     </section>
 
-    <section>
+    <section data-groupe="donnees">
       <h2>Maison · boutons de modes</h2>
       <p class="aide">Jusqu'à 5 boutons (automatisations, scènes ou scripts de Home Assistant). Les 4 premiers apparaissent aussi sur l'accueil. Tu peux changer le nom affiché sur chaque bouton.</p>
       <div id="modes"></div>
@@ -188,7 +222,7 @@ input[type=time]{font:inherit;color:var(--ink);background:var(--bg);border:1.5px
 <div class="barre" id="barre" hidden>
   <div class="dedans">
     <div class="etat" id="etat">Aucune modification</div>
-    <button id="deconnexion" type="button">Se déconnecter</button>
+    <button id="annuler" type="button" disabled>Annuler</button>
     <button class="principal" id="enregistrer" type="button" disabled>Enregistrer</button>
   </div>
 </div>
@@ -226,10 +260,13 @@ async function connecter(cle) {
     if (!j.admin) throw new Error('Cette clé permet d\'afficher l\'écran, mais pas de modifier les réglages.');
     if ($('souvenir').checked) memoire('ecrire', cle);
     R = j;
-    $('connexion').hidden = true; $('reglages').hidden = false; $('barre').hidden = false;
+    $('connexion').hidden = true; $('reglages').hidden = false; $('barre').hidden = false; $('deconnexion').hidden = false;
     $('avertissement').hidden = j.stockage;
     $('avertissement').textContent = 'Le stockage des réglages n\'est pas encore configuré dans Cloudflare : tu peux consulter, mais pas enregistrer.';
+    SAUVE = JSON.stringify(R.reglages);
     remplir();
+    let onglet = 'accueil'; try { onglet = localStorage.getItem('ecran-admin-onglet') || 'accueil'; } catch (e) {}
+    ouvrirGroupe(onglet);
     // Infos complémentaires (catalogue Home Assistant, noms des agendas) : en parallèle
     appel('/maison/catalogue').then(c => { catalogue = c; dessinerMaison(); }).catch(err => { $('lumieres').innerHTML = $('modes').innerHTML = '<p class="vide">Home Assistant injoignable : ' + echapper(err.message) + '</p>'; });
     appel('/agenda').then(a => { agendasConnus = a.agendas || []; dessinerAgendas(); }).catch(() => dessinerAgendas());
@@ -254,6 +291,7 @@ function remplir() {
   dessinerMoments();
   dessinerSlides(); dessinerPlages(); dessinerLignes(); dessinerAgendas();
   $('lumieres').innerHTML = $('modes').innerHTML = '<p class="vide">Lecture de Home Assistant…</p>';
+  majResume();
 }
 function majVeille() { $('veilleDetails').hidden = $('veilleReveil').hidden = !R.reglages.veille.actif; }
 $('veilleActif').addEventListener('change', () => { R.reglages.veille.actif = $('veilleActif').checked; majVeille(); aChange(); });
@@ -492,8 +530,52 @@ $('nuitFin').addEventListener('change', () => { R.reglages.theme.nuitFin = +$('n
   R.reglages.agenda.personnes[id === 'prenomMoi' ? 'moi' : 'flo'] = $(id).value; aChange(); dessinerAgendas();
 }));
 
+/* ---------- Rubriques ---------- */
+const INTROS = {
+  'accueil': 'Ce que montre la page d\'accueil, et comment elle change selon le moment de la journée.',
+  'pages': 'Quelles pages tournent sur l\'écran, combien de temps, et lesquelles restent fixes à certaines heures.',
+  'jour-nuit': 'Thème clair ou sombre, et mise en veille la nuit.',
+  'donnees': 'Temps de marche jusqu\'aux arrêts, agendas Google et commandes Home Assistant.'
+};
+function ouvrirGroupe(g) {
+  if (!INTROS[g]) g = 'accueil';
+  document.querySelectorAll('section[data-groupe]').forEach(s => { s.hidden = s.dataset.groupe !== g; });
+  document.querySelectorAll('#onglets button').forEach(b => b.setAttribute('aria-current', b.dataset.g === g ? 'true' : 'false'));
+  $('intro').textContent = INTROS[g];
+  try { localStorage.setItem('ecran-admin-onglet', g); } catch (e) {}
+}
+$('onglets').addEventListener('click', e => { const g = e.target.dataset.g; if (g) { ouvrirGroupe(g); window.scrollTo({ top: $('onglets').offsetTop - 4, behavior: 'smooth' }); } });
+
+/* ---------- Résumé : ce que l'écran affiche maintenant ---------- */
+function minutesDe(hhmm) { const [h, m] = hhmm.split(':').map(Number); return h * 60 + m; }
+function dansPlage(debut, fin, m) { const a = minutesDe(debut), b = minutesDe(fin); return a < b ? (m >= a && m < b) : (m >= a || m < b); }
+function majResume() {
+  if (!R) return;
+  const g = R.reglages, n = new Date(), m = n.getHours() * 60 + n.getMinutes(), morceaux = [];
+  const veille = g.veille.actif && dansPlage(g.veille.debut, g.veille.fin, m);
+  if (veille) morceaux.push(['Veille', 'écran noir jusqu\'à ' + g.veille.fin.replace(':', ' h ')]);
+  const plage = (g.rotation.plages || []).find(p => p.jours.includes(n.getDay()) && dansPlage(p.debut, p.fin, m));
+  morceaux.push(['Pages', plage ? NOMS_SLIDES[plage.page] + ' en fixe jusqu\'à ' + plage.fin.replace(':', ' h ') : g.rotation.slides.filter(s => s.actif).length + ' en rotation']);
+  const mo = (g.accueil.moments || []).find(x => dansPlage(x.debut, x.fin, m));
+  const NT = { meteo: 'météo', transports: 'transports', anniversaires: 'anniversaires', agenda: 'agenda', maison: 'maison' };
+  morceaux.push(['Accueil', mo ? '« ' + mo.nom + ' » : ' + Object.keys(NT).filter(k => mo.tuiles[k]).map(k => NT[k]).join(', ') + (mo.demain ? ' · demain d\'abord' : '') : 'toutes les tuiles']);
+  const th = g.theme.mode;
+  morceaux.push(['Thème', th === 'jour' ? 'toujours clair' : th === 'nuit' ? 'toujours sombre' : th === 'soleil' ? 'selon le soleil' : 'sombre de ' + g.theme.nuitDebut + ' h à ' + g.theme.nuitFin + ' h']);
+  if (g.message) morceaux.push(['Message', g.message.length > 40 ? g.message.slice(0, 40) + '…' : g.message]);
+  $('resume').innerHTML = '<div class="res">' + morceaux.map(([k, v]) => '<span><b>' + k + '</b>' + echapper(v) + '</span>').join('') + '</div>';
+}
+setInterval(majResume, 60000);
+
 /* ---------- Enregistrement ---------- */
-function aChange() { modifie = true; $('enregistrer').disabled = !R.stockage; $('etat').textContent = 'Modifications non enregistrées'; $('etat').style.color = 'var(--warn)'; }
+let SAUVE = null;   // copie des derniers réglages enregistrés, pour « Annuler »
+function aChange() { modifie = true; $('enregistrer').disabled = !R.stockage; $('annuler').disabled = false; $('etat').textContent = 'Modifications non enregistrées'; $('etat').style.color = 'var(--warn)'; majResume(); }
+$('annuler').addEventListener('click', () => {
+  if (!SAUVE) return;
+  R.reglages = JSON.parse(SAUVE); modifie = false;
+  remplir(); dessinerMaison();
+  $('enregistrer').disabled = true; $('annuler').disabled = true;
+  $('etat').textContent = 'Changements annulés'; $('etat').style.color = '';
+});
 function alerteEtat(t) { $('etat').textContent = t; $('etat').style.color = 'var(--warn)'; }
 $('enregistrer').addEventListener('click', async () => {
   const sansJour = (R.reglages.rotation.plages || []).findIndex(p => !p.jours.length || !p.debut || !p.fin || p.debut === p.fin);
@@ -501,8 +583,8 @@ $('enregistrer').addEventListener('click', async () => {
   $('enregistrer').disabled = true; $('etat').textContent = 'Enregistrement…'; $('etat').style.color = '';
   try {
     const j = await appel('/reglages', { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(R.reglages) });
-    R.reglages = j.reglages; R.maj = j.maj; modifie = false;
-    remplir(); dessinerMaison();
+    R.reglages = j.reglages; R.maj = j.maj; modifie = false; SAUVE = JSON.stringify(R.reglages);
+    remplir(); dessinerMaison(); $('annuler').disabled = true;
     $('etat').textContent = 'Enregistré à ' + new Date(j.maj).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) + '. L\'écran se met à jour d\'ici quelques minutes.';
     $('etat').style.color = 'var(--ok)';
   } catch (err) {
