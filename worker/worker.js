@@ -2,7 +2,7 @@
  * Worker « ecran-salon » : les données de l'écran du salon.
  *
  *  /transports      Fil Bleu : horaires prévus + temps réel + alertes (public, open data)
- *  /agenda          Google Agenda : 7 prochains jours + anniversaires 🎂   (clé requise)
+ *  /agenda          Google Agenda : 14 prochains jours + anniversaires 🎂   (clé requise)
  *  /maison          Home Assistant : lumières et scènes                     (clé requise)
  *  /maison/action   Home Assistant : allumer/éteindre, lancer une scène     (clé requise)
  *
@@ -29,7 +29,7 @@ const FLUX_ALERTES = 'https://data.filbleu.fr/ws-tr/gtfs-rt/opendata/service-ale
 const FLUX_INCIDENTS = 'https://www.filbleu.fr/rss-incident.xml';   // l'info trafic du site filbleu.fr (travaux, déviations…)
 const NOMS_ARRETS = { 'A': 'Monconseil', '2': 'Maréchal Juin' };
 const CACHE_SECONDES = 20;
-const VERSION = '13';   // à changer à chaque mise à jour du code : vide les caches
+const VERSION = '14';   // à changer à chaque mise à jour du code : vide les caches
 
 // Horaires prévus, format compact : "jours" = n° de grille pour chaque jour depuis "debut",
 // chaque ligne "g=" = minutes depuis minuit, écrites en écarts successifs.
@@ -494,7 +494,7 @@ async function construireAgenda(env) {
   if (!sources.length) throw new Error(String(reponses[0].reason && reponses[0].reason.message || 'agendas illisibles'));
   const agendasEnErreur = reponses.length - sources.length;
   const maintenant = Date.now(), aujourdhui = minuitParis(maintenant);
-  const finAgenda = aujourdhui + 8 * 86400000, finAnniv = aujourdhui + 367 * 86400000;
+  const finAgenda = aujourdhui + 15 * 86400000, finAnniv = aujourdhui + 367 * 86400000;
   let evts = [];
   for (const src of sources) {
     const liste = lireEvenements(src.texte, ymdParis(aujourdhui - 40 * 86400000));
@@ -538,7 +538,7 @@ async function construireAgenda(env) {
   // un anniversaire n'apparaît qu'une fois (le prochain)
   const vus = new Set(), annivUniques = [];
   for (const a of anniversaires) { if (vus.has(a.nom)) continue; vus.add(a.nom); annivUniques.push(a); }
-  return { maj: maintenant, aujourdhui: aujourdhui, agendas: sources.map(x => ({ cle: x.cle, nom: x.nom })), agendasEnErreur: agendasEnErreur, evenements: agenda.slice(0, 80), anniversaires: annivUniques.slice(0, 12) };
+  return { maj: maintenant, aujourdhui: aujourdhui, agendas: sources.map(x => ({ cle: x.cle, nom: x.nom })), agendasEnErreur: agendasEnErreur, evenements: agenda.slice(0, 200), anniversaires: annivUniques.slice(0, 12) };
 }
 
 /* =====================================================================

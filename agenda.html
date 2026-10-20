@@ -26,29 +26,32 @@ body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;fon
 .legend span{display:flex;align-items:center;margin-left:22px}
 .legend i{width:12px;height:12px;border-radius:50%;margin-right:8px}
 
-.week{flex:1;display:flex;min-height:0}
-.day{flex:1;display:flex;flex-direction:column;padding:16px 12px;border-radius:20px;margin-right:8px;min-width:0;overflow:hidden}
+.week{flex:1;display:flex;flex-direction:column;min-height:0}
+.sem{flex:1;display:flex;min-height:0}
+.sem + .sem{margin-top:10px}
+.day{flex:1;display:flex;flex-direction:column;padding:12px 10px;border-radius:18px;margin-right:8px;min-width:0;overflow:hidden;background:var(--card)}
 .day:last-child{margin-right:0}
-.day.today{background:var(--card);flex:1.45;padding:16px 16px}
-.day-h{display:flex;align-items:baseline;margin-bottom:14px;padding:0 4px}
-.day-n{font-size:17px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-right:8px}
-.day-d{font-size:34px;font-weight:600;line-height:1}
+.day.loin{background:transparent;border:2px solid var(--line);padding:10px 8px}
+.day.today{box-shadow:inset 0 0 0 3px var(--accent)}
+.day-h{display:flex;align-items:baseline;margin-bottom:10px;padding:0 4px}
+.day-n{font-size:16px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-right:7px}
+.day-d{font-size:28px;font-weight:600;line-height:1}
+.day-m{font-size:15px;font-weight:600;color:var(--muted);margin-left:6px}
 .today .day-n{color:var(--accent)}
 .we .day-n{color:var(--ink)}
-.ev{background:var(--card);border-radius:14px;padding:11px 13px;margin-bottom:9px}
-.today .ev{background:var(--card2)}
+.ev{background:var(--card2);border-radius:10px;padding:6px 9px 7px;margin-bottom:6px;border-left:5px solid var(--accent)}
+.loin .ev{background:var(--card)}
 .ev.passe{opacity:.45}
-.ev-t{display:flex;align-items:center;font-size:16px;font-weight:700;color:var(--muted)}
-.ev-t i{width:10px;height:10px;border-radius:50%;margin-right:7px;flex:none}
-.ev-n{font-size:20px;font-weight:600;line-height:1.2;margin-top:4px}
-.today .ev-n{font-size:23px}
-.vide{font-size:17px;color:var(--muted);padding:4px}
+.ev-t{font-size:15px;font-weight:700;color:var(--muted)}
+.ev-n{font-size:18px;font-weight:600;line-height:1.2;margin-top:1px;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
+.plus{font-size:15px;font-weight:700;color:var(--muted);padding:2px 4px}
+.vide{font-size:17px;color:var(--line);padding:2px 4px;font-weight:700}
 </style>
 </head>
 <body>
 <div class="wrap">
   <div class="top">
-    <div class="label">Agenda · 7 prochains jours<span class="demo" id="demo">exemple</span></div>
+    <div class="label">Agenda · 2 prochaines semaines<span class="demo" id="demo">exemple</span></div>
     <div class="legend" id="legend"></div>
   </div>
   <div class="week" id="week"></div>
@@ -80,13 +83,15 @@ document.addEventListener('touchstart', signalerToucher, true);
 document.addEventListener('mousedown', signalerToucher, true);
 function $(id){ return document.getElementById(id); }
 var JOURS_COURTS = ['Dim.', 'Lun.', 'Mar.', 'Mer.', 'Jeu.', 'Ven.', 'Sam.'];
+var MOIS_COURTS = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
 var CLE = param('cle');
 function echapper(t){ return String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 function quiPour(e){ return CONFIG.AGENDAS[e.agenda] || 'moi'; }
-// Événements du Worker → { j, debut 'HH:MM' ou null, titre, qui } pour chacun des 7 jours qu'ils touchent
+var NB_JOURS = 14;   // deux semaines, sur deux rangées de 7 jours
+// Événements du Worker → { j, debut 'HH:MM' ou null, titre, qui } pour chacun des jours qu'ils touchent
 function convertir(evts){
   var now = new Date(), res = [];
-  for (var j = 0; j < 7; j++) {
+  for (var j = 0; j < NB_JOURS; j++) {
     var d0 = new Date(now.getFullYear(), now.getMonth(), now.getDate() + j).getTime();
     var d1 = new Date(now.getFullYear(), now.getMonth(), now.getDate() + j + 1).getTime();
     for (var k = 0; k < evts.length; k++) {
@@ -108,32 +113,53 @@ function donneesDemo(){
     { j: 1, debut: '18:30', titre: 'Yoga Flo', qui: 'flo' },
     { j: 3, debut: '17:30', titre: 'Récupérer le colis', qui: 'moi' },
     { j: 5, debut: '10:00', titre: 'Marché des Halles', qui: 'moi' },
-    { j: 6, debut: null,    titre: 'Déjeuner en famille', qui: 'moi' }
+    { j: 6, debut: null,    titre: 'Déjeuner en famille', qui: 'moi' },
+    { j: 8, debut: '19:00', titre: 'Apéro chez Cam', qui: 'nous' },
+    { j: 9, debut: '09:00', titre: 'Dentiste', qui: 'flo' },
+    { j: 9, debut: '14:00', titre: 'Réunion budget', qui: 'moi' },
+    { j: 9, debut: '18:00', titre: 'Course à pied', qui: 'moi' },
+    { j: 9, debut: '20:30', titre: 'Match', qui: 'nous' },
+    { j: 9, debut: '21:30', titre: 'Appel maman', qui: 'flo' },
+    { j: 12, debut: null,   titre: 'Week-end à Nantes', qui: 'nous' }
   ];
 }
 
 /* ---------- Affichage ---------- */
 function afficher(evts){
   var now = new Date(), minNow = now.getHours() * 60 + now.getMinutes(), html = '';
-  for (var j = 0; j < 7; j++) {
+  for (var j = 0; j < NB_JOURS; j++) {
+    if (j % 7 === 0) html += '<div class="sem">';
     var d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + j);
     var jour = evts.filter(function(e){ return e.j === j; });
     jour.sort(function(a, b){ return (a.debut || '00:00') < (b.debut || '00:00') ? -1 : 1; });
     var we = d.getDay() === 0 || d.getDay() === 6;
-    html += '<div class="day' + (j === 0 ? ' today' : '') + (we ? ' we' : '') + '">' +
-      '<div class="day-h"><span class="day-n">' + (j === 0 ? 'Auj.' : JOURS_COURTS[d.getDay()]) + '</span>' +
-      '<span class="day-d h">' + d.getDate() + '</span></div>';
-    if (!jour.length) html += '<div class="vide">Rien de prévu</div>';
-    for (var k = 0; k < jour.length; k++) {
+    html += '<div class="day' + (j === 0 ? ' today' : '') + (we ? ' we' : '') + (j >= 7 ? ' loin' : '') + '">' +
+      '<div class="day-h"><span class="day-n">' + (j === 0 ? 'Auj.' : (j === 1 ? 'Dem.' : JOURS_COURTS[d.getDay()])) + '</span>' +
+      '<span class="day-d h">' + d.getDate() + '</span>' + (d.getDate() === 1 || j === 0 ? '<span class="day-m">' + MOIS_COURTS[d.getMonth()] + '</span>' : '') + '</div>';
+    if (!jour.length) html += '<div class="vide">—</div>';
+    var montre = jour.length;
+    for (var k = 0; k < montre; k++) {
       var e = jour[k], p = CONFIG.PERSONNES[e.qui] || CONFIG.PERSONNES.moi;
       var passe = false;
       if (j === 0 && e.debut) { var hm = e.debut.split(':'); passe = parseInt(hm[0], 10) * 60 + parseInt(hm[1], 10) + 60 < minNow; }
-      html += '<div class="ev' + (passe ? ' passe' : '') + '"><div class="ev-t"><i style="background:' + p.couleur + '"></i>' +
+      html += '<div class="ev' + (passe ? ' passe' : '') + '" style="border-left-color:' + p.couleur + '"><div class="ev-t">' +
         (e.debut ? e.debut.replace(':', ' h ') : 'Journée') + '</div><div class="ev-n">' + echapper(e.titre) + '</div></div>';
     }
     html += '</div>';
+    if (j % 7 === 6) html += '</div>';
   }
   $('week').innerHTML = html;
+  // Autant d'événements que la case peut en contenir ; le reste devient « + N autres »
+  var cases = $('week').querySelectorAll('.day');
+  for (var c = 0; c < cases.length; c++) {
+    var cs = cases[c], evs = cs.querySelectorAll('.ev'), caches = 0;
+    if (cs.scrollHeight <= cs.clientHeight) continue;
+    var plus = document.createElement('div'); plus.className = 'plus'; cs.appendChild(plus);
+    for (var n = evs.length - 1; n >= 0 && cs.scrollHeight > cs.clientHeight; n--) {
+      evs[n].style.display = 'none'; caches++;
+      plus.innerHTML = '+ ' + caches + ' autre' + (caches > 1 ? 's' : '');
+    }
+  }
 
   var leg = '';
   for (var cle in CONFIG.PERSONNES) leg += '<span><i style="background:' + CONFIG.PERSONNES[cle].couleur + '"></i>' + CONFIG.PERSONNES[cle].nom + '</span>';
