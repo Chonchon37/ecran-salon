@@ -43,13 +43,22 @@ body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;fon
 .rb.zero{background:var(--line)}
 .rain-axis{display:flex;justify-content:space-between;font-size:15px;color:var(--muted);margin-top:8px}
 
-.hourly{height:176px;display:flex;align-items:stretch;padding:14px 12px;margin-bottom:16px}
-.hr{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding:4px 0}
+.hourly{height:176px;padding:14px 12px;margin-bottom:16px;position:relative;box-sizing:border-box}
+.bande{height:100%;display:flex;align-items:stretch;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;scrollbar-width:none;scroll-behavior:smooth}
+.bande::-webkit-scrollbar{display:none}
+.hr-jour{flex:none;width:44px;margin:0 6px;border-left:2px solid var(--line);display:flex;align-items:center;justify-content:center}
+.hr-jour span{-webkit-writing-mode:vertical-rl;writing-mode:vertical-rl;-webkit-transform:rotate(180deg);transform:rotate(180deg);font-size:17px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);white-space:nowrap}
+.fleche{position:absolute;top:50%;width:52px;height:52px;margin-top:-26px;border-radius:50%;background:var(--card);box-shadow:0 2px 10px rgba(0,0,0,.18);display:flex;align-items:center;justify-content:center;font-size:36px;font-weight:700;line-height:1;color:var(--ink);cursor:pointer;padding-bottom:4px;box-sizing:border-box}
+.fleche.g{left:-10px}
+.fleche.d{right:-10px}
+.fleche.cache{display:none}
+.jour-vu{position:absolute;top:-15px;left:50%;-webkit-transform:translateX(-50%);transform:translateX(-50%);padding:5px 16px;border-radius:14px;background:var(--ink);color:var(--card);font-size:16px;font-weight:700;white-space:nowrap;display:none}
+.hr{flex:none;width:89px;display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding:4px 0}
 .hr-t{font-size:18px;color:var(--muted);font-weight:600}
 .hr.first .hr-t{color:var(--ink);font-weight:700}
 .hr-temp{font-size:26px;font-weight:600}
 .hr-p{font-size:16px;font-weight:700;color:var(--rain);height:20px}
-.hr.mark{background:var(--card2);border-radius:14px;flex:1.15;margin:0 4px}
+.hr.mark{background:var(--card2);border-radius:14px;width:96px;margin:0 4px}
 .hr.mark .hr-temp{font-size:17px;color:var(--muted);font-weight:600}
 
 .daily{flex:1;display:flex;flex-direction:column;justify-content:space-around;padding:10px 30px}
@@ -86,7 +95,12 @@ body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;fon
       <div class="rain-axis"><span>maint.</span><span>+15</span><span>+30</span><span>+45</span><span>+60 min</span></div>
     </div>
   </div>
-  <div class="card hourly" id="hourly"></div>
+  <div class="card hourly" id="hourly">
+    <div class="bande" id="bande"></div>
+    <div class="fleche g" id="flecheG">‹</div>
+    <div class="fleche d" id="flecheD">›</div>
+    <div class="jour-vu" id="jourVu"></div>
+  </div>
   <div class="card daily" id="daily"></div>
 </div>
 
@@ -183,7 +197,7 @@ function donneesDemo(){
   var now = new Date(), base = new Date(now.getTime());
   base.setMinutes(0, 0, 0);
   var heures = [];
-  for (var i = 0; i < 13; i++) {
+  for (var i = 0; i < 49; i++) {
     var d = new Date(base.getTime() + i * 3600000), h = d.getHours();
     heures.push({ date: d, temp: mockTemp(h), code: mockCode(h), proba: mockProba(h) });
   }
@@ -239,21 +253,33 @@ function afficher(D){
       : 'Pluie ' + noms[maxi] + ' vers ' + t.getHours() + ' h ' + pad(t.getMinutes()) + '<br><span style="font-size:20px;color:var(--muted);font-weight:500">Pense au parapluie si tu sors.</span>';
   }
 
-  // Bande horaire, avec lever et coucher du soleil insérés au bon endroit
+  // Bande horaire sur 48 h (on la fait glisser au doigt ou avec les flèches),
+  // avec un séparateur à minuit et le lever / coucher du soleil insérés au bon endroit
   var html = '', lev = minutesDe(D.lever), cou = minutesDe(D.coucher);
+  var astres = D.astres || [];
+  if (!D.astres) for (var q = 0; q < 3; q++) {
+    var b0 = new Date(now.getFullYear(), now.getMonth(), now.getDate() + q);
+    astres.push({ t: new Date(b0.getTime() + lev * 60000), lever: true }, { t: new Date(b0.getTime() + cou * 60000), lever: false });
+  }
   for (var j = 0; j < D.heures.length; j++) {
     var H = D.heures[j], hh = H.date.getHours();
-    html += '<div class="hr' + (j === 0 ? ' first' : '') + '"><div class="hr-t">' + (j === 0 ? 'Maint.' : hh + ' h') + '</div>' +
+    if (j > 0 && hh === 0) html += '<div class="hr-jour"><span>' + JOURS_COURTS[H.date.getDay()] + ' ' + H.date.getDate() + '</span></div>';
+    html += '<div class="hr' + (j === 0 ? ' first' : '') + '" data-jour="' + H.date.getDay() + '-' + H.date.getDate() + '-' + H.date.getMonth() + '"><div class="hr-t">' + (j === 0 ? 'Maint.' : hh + ' h') + '</div>' +
       '<div>' + iconeMeteo(H.code, estJour(H.date, D), 48) + '</div>' +
       '<div class="hr-temp">' + H.temp + '°</div>' +
       '<div class="hr-p">' + (H.proba >= 20 ? H.proba + ' %' : '') + '</div></div>';
     if (j < D.heures.length - 1) {
-      var m0 = hh * 60, m1 = m0 + 60;
-      if (lev >= m0 && lev < m1 && !(j === 0 && now.getHours() * 60 + now.getMinutes() > lev)) html += marque(D.lever, true);
-      if (cou >= m0 && cou < m1 && !(j === 0 && now.getHours() * 60 + now.getMinutes() > cou)) html += marque(D.coucher, false);
+      var t0 = H.date.getTime(), t1 = t0 + 3600000;
+      for (var x = 0; x < astres.length; x++) {
+        var A = astres[x].t.getTime();
+        if (A >= t0 && A < t1 && A > now.getTime()) html += marque(pad(astres[x].t.getHours()) + ':' + pad(astres[x].t.getMinutes()), astres[x].lever);
+      }
     }
   }
-  $('hourly').innerHTML = html;
+  var bande = $('bande'), pos = bande.scrollLeft;
+  bande.innerHTML = html;
+  bande.scrollLeft = pos;
+  majFleches();
 
   // Prévisions sur 5 jours
   var tmin = 99, tmax = -99, k;
@@ -272,6 +298,29 @@ function afficher(D){
   }
   $('daily').innerHTML = lignes;
 }
+/* ---------- Bande horaire : flèches et retour au début ---------- */
+var PAS = 89 * 12, minuteurRetour = null;
+var JOURS_LONGS = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
+var MOIS_L = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
+function majFleches(){
+  var b = $('bande');
+  // jour de l'heure affichée au milieu de la bande
+  var cols = b.querySelectorAll('.hr[data-jour]'), milieu = b.scrollLeft + b.clientWidth / 2, vu = null;
+  for (var i = 0; i < cols.length; i++) if (cols[i].offsetLeft - b.offsetLeft <= milieu) vu = cols[i].getAttribute('data-jour');
+  var z = $('jourVu'), auj = new Date();
+  if (b.scrollLeft > 10 && vu) {
+    var p = vu.split('-'), demain = new Date(auj.getFullYear(), auj.getMonth(), auj.getDate() + 1);
+    var txt = +p[1] === auj.getDate() ? 'Aujourd\'hui' : (+p[1] === demain.getDate() ? 'Demain' : JOURS_LONGS[+p[0]].charAt(0).toUpperCase() + JOURS_LONGS[+p[0]].slice(1));
+    z.innerHTML = txt + ' ' + p[1] + ' ' + MOIS_L[+p[2]]; z.style.display = 'block';
+  } else z.style.display = 'none';
+  $('flecheG').className = 'fleche g' + (b.scrollLeft > 10 ? '' : ' cache');
+  $('flecheD').className = 'fleche d' + (b.scrollLeft + b.clientWidth < b.scrollWidth - 10 ? '' : ' cache');
+}
+function retourPlusTard(){ clearTimeout(minuteurRetour); minuteurRetour = setTimeout(function(){ $('bande').scrollLeft = 0; }, 60000); }
+$('flecheD').addEventListener('click', function(){ var b = $('bande'); b.scrollLeft = b.scrollLeft + PAS; retourPlusTard(); });
+$('flecheG').addEventListener('click', function(){ var b = $('bande'); b.scrollLeft = Math.max(0, b.scrollLeft - PAS); retourPlusTard(); });
+$('bande').addEventListener('scroll', function(){ majFleches(); if (this.scrollLeft > 0) retourPlusTard(); });
+
 function marque(heure, lever){
   return '<div class="hr mark"><div class="hr-t">' + heure + '</div><div>' + iconeHorizon(lever) + '</div>' +
     '<div class="hr-temp">' + (lever ? 'Lever' : 'Coucher') + '</div><div class="hr-p"></div></div>';
@@ -282,7 +331,7 @@ function urlOpenMeteo(){
   return 'https://api.open-meteo.com/v1/forecast?latitude=' + CONFIG.LAT + '&longitude=' + CONFIG.LON +
     '&current=temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m,wind_direction_10m' +
     '&minutely_15=precipitation&forecast_minutely_15=8' +
-    '&hourly=temperature_2m,weather_code,precipitation_probability&forecast_hours=16' +
+    '&hourly=temperature_2m,weather_code,precipitation_probability&forecast_hours=50' +
     '&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset' +
     '&timezone=Europe%2FParis&forecast_days=5';
 }
@@ -302,9 +351,11 @@ function convertir(j){
     vent: Math.round(c.wind_speed_10m), dir: cardinal(c.wind_direction_10m), humidite: Math.round(c.relative_humidity_2m)
   };
   D.lever = lireHeure(j.daily.sunrise[0]);
+  D.astres = [];   // levers et couchers des prochains jours, pour les placer dans la bande horaire
+  for (i = 0; i < j.daily.time.length; i++) { D.astres.push({ t: lireDate(j.daily.sunrise[i]), lever: true }); D.astres.push({ t: lireDate(j.daily.sunset[i]), lever: false }); }
   D.coucher = lireHeure(j.daily.sunset[0]);
   var debutHeure = new Date(now.getTime()); debutHeure.setMinutes(0, 0, 0);
-  for (i = 0; i < j.hourly.time.length && D.heures.length < 13; i++) {
+  for (i = 0; i < j.hourly.time.length && D.heures.length < 49; i++) {
     var d = lireDate(j.hourly.time[i]);
     if (d < debutHeure) continue;
     D.heures.push({ date: d, temp: Math.round(j.hourly.temperature_2m[i]), code: j.hourly.weather_code[i], proba: j.hourly.precipitation_probability[i] || 0 });
