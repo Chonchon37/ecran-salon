@@ -50,7 +50,10 @@ body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;fon
 .ln-status.pb{background:var(--warn-soft);color:var(--warn)}
 .alerte{margin-top:14px;padding:10px 16px 10px 14px;border-radius:12px;background:var(--card2);color:var(--ink);border-left:5px solid var(--warn);font-size:18px;font-weight:500;line-height:1.3;flex:none}
 .alerte b{color:var(--warn)}
-.alerte{position:relative;padding-right:92px;cursor:pointer}
+.alerte{position:relative;padding-right:92px;cursor:pointer;height:92px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:center}
+.alerte.calme{border-left-color:var(--ok);color:var(--muted);cursor:default;padding-right:16px}
+.alerte.calme:after{content:none}
+.rate.vide{visibility:hidden}
 .alerte:after{content:'Détails ›';position:absolute;right:14px;top:50%;-webkit-transform:translateY(-50%);transform:translateY(-50%);font-size:15px;font-weight:700;color:var(--muted)}
 
 /* Panneau de détail des perturbations */
@@ -82,7 +85,7 @@ body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;fon
 .hero{flex:1;margin-top:20px;border-radius:22px;background:var(--go-bg);color:var(--go-ink);display:flex;flex-direction:column;justify-content:center;padding:18px 30px;min-height:0}
 .line.serre .hero{padding:12px 28px}
 .line.serre .hero-l{font-size:18px}
-.line.serre .hero-n{font-size:112px}
+.line.serre .hero-n{font-size:104px}
 .line.serre .hero-n small{font-size:40px}
 .line.serre .hero-n.mot{font-size:68px}
 .line.serre .hero-d{margin-top:8px}
@@ -241,7 +244,8 @@ function encadreAlerte(D, cfg){
 function carte(cfg, D){
   var P = (D ? D.passages : []).filter(function(p){ return p.heure > Date.now() - 30000; });
   var alerte = encadreAlerte(D, cfg);
-  var html = '<div class="card line' + (alerte ? ' serre' : '') + '"><div class="ln-head">' +
+  if (!alerte && ALIGNER) alerte = '<div class="alerte calme"><span class="al-t">' + (D && D.infoDispo === false ? 'Info trafic indisponible pour le moment' : 'Aucune perturbation signalée sur cette ligne') + '</span></div>';
+  var html = '<div class="card line' + (ALIGNER ? ' serre' : '') + '"><div class="ln-head">' +
     '<div class="badge ' + cfg.type + '">' + cfg.ligne + '</div>' +
     '<div class="ln-txt"><div class="ln-stop h">' + cfg.arret + '</div>' +
     '<div class="ln-sub">vers ' + cfg.direction + '<span class="sep">·</span>' + PIETON + cfg.marche + ' min à pied</div></div>' +
@@ -264,7 +268,8 @@ function carte(cfg, D){
   }
   // Badge compact pour le passage qu'on ne peut plus attraper
   var rate = cible > 0 ? P[cible - 1] : null;
-  if (rate) html += '<div class="rate">' + ATTENTION + hm(rate.heure) + ' — trop tard à pied</div>';
+  // toujours la même place réservée, pour que les deux colonnes restent alignées
+  html += rate ? '<div class="rate">' + ATTENTION + hm(rate.heure) + ' — trop tard à pied</div>' : '<div class="rate vide">' + ATTENTION + '</div>';
 
   // Frise des 60 prochaines minutes ; la zone hachurée = temps de marche
   var coul = cfg.type === 'tram' ? 'var(--tram)' : 'var(--bus)';
@@ -297,8 +302,11 @@ function carte(cfg, D){
   return html;
 }
 var tempsReelOk = true;
+var ALIGNER = false;   // une ligne a un encadré : l'autre en reçoit un de même taille
 function afficher(D){
   var html = '';
+  ALIGNER = false;
+  for (var a = 0; a < CONFIG.LIGNES.length; a++) if (CONFIG.LIGNES[a].actif !== false && encadreAlerte(D[CONFIG.LIGNES[a].ligne], CONFIG.LIGNES[a])) ALIGNER = true;
   for (var i = 0; i < CONFIG.LIGNES.length; i++) if (CONFIG.LIGNES[i].actif !== false) html += carte(CONFIG.LIGNES[i], D[CONFIG.LIGNES[i].ligne]);
   $('lines').innerHTML = html;
   $('demo').style.display = CONFIG.WORKER ? 'none' : '';
