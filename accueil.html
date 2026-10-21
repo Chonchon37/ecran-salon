@@ -861,7 +861,7 @@ function tuileAgenda(T, now, l, h){
       // Trait de couleur de la personne ; l'heure seulement si l'événement en a une (sinon tout le titre a la place)
       var x = L[r], coul = COULEURS[x.qui] || COULEURS.moi;
       var enCours = k === 0 && x.debut && enMinutes(x.debut) <= minNow;
-      var heure = x.debut ? (enCours ? '<div class="ev-h enc">En cours</div>' : '<div class="ev-h">' + x.debut.replace(':', ' h ') + '</div>') : '';
+      var heure = x.debut ? (enCours ? '<div class="ev-h enc">En cours</div>' : '<div class="ev-h">' + x.debut.replace(':', 'H') + '</div>') : '';
       var ligne = '<div class="ev' + (x.debut ? '' : ' jour') + '" style="border-left-color:' + coul + '">' + (demi ? '<div class="ev-j">' + jourCourt(k) + '</div>' : '') + heure + '<div class="ev-n">' + echapper(x.titre) + '</div></div>';
       blocs.push({ tete: demi ? '' : tete, corps: ligne, premier: r === 0 });
     }
