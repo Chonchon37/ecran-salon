@@ -86,7 +86,7 @@ body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;fon
 .wg-temp span{font-size:92px;font-weight:600;line-height:1;letter-spacing:-.03em;margin-left:4px}
 .wx-grande.h1 .wg-temp span{font-size:74px}
 .wg-info{margin-left:26px;min-width:0}
-.wg-lib{font-size:28px;font-weight:600;line-height:1.1}
+.wg-lib{font-size:30px;font-weight:600;line-height:1.1;letter-spacing:-.01em}
 .wg-det{font-size:18px;color:var(--muted);margin-top:5px;line-height:1.3}
 .wg-det b{color:var(--ink)}
 .wg-pluie{flex:none}
@@ -96,7 +96,7 @@ body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;fon
 .wg-courbe{flex:1;min-height:0;margin-top:4px;overflow:hidden}
 .wg-courbe svg{display:block}
 .wg-jours{flex:none;display:flex;margin:10px -5px 0}
-.wg-j{flex:1;min-width:0;margin:0 5px;padding:6px 10px;border-radius:14px;background:var(--card2);display:flex;align-items:center;justify-content:center;white-space:nowrap}
+.wg-j{flex:1;min-width:0;margin:0 5px;padding:6px 10px;border-radius:14px;background:transparent;border:1.5px solid var(--line);display:flex;align-items:center;justify-content:center;white-space:nowrap}
 .wg-j svg{margin:0 6px;flex:none}
 .wg-jn{font-size:17px;font-weight:700}
 .wg-jt{font-size:18px;color:var(--muted)}
@@ -473,37 +473,56 @@ function serieHeures(now, n, demain){
 }
 function courbe(S, W, Ht, maintenant){
   if (S.length < 2 || W < 100 || Ht < 80) return '';
-  // Les icônes et les pourcentages ne s'affichent que si la courbe a assez de hauteur
-  // Les icônes du temps sont toujours là ; les pourcentages de pluie seulement si la courbe a de la hauteur
-  var grand = Ht >= 165, taille = Ht >= 125 ? 34 : 28, g = 28, haut = taille + (grand ? 28 : 22), bas = 22, pluieH = Math.min(40, Ht * (grand ? 0.22 : 0.16));
-  var y0 = haut, y1 = Ht - bas - pluieH - 8, n = S.length, pasX = (W - 2 * g) / (n - 1), i;
+  var grand = Ht >= 165, taille = Ht >= 125 ? 34 : 28, g = 26, haut = taille + (grand ? 30 : 24), bas = 24, pluieH = Math.min(42, Ht * (grand ? 0.22 : 0.17));
+  var y0 = haut, y1 = Ht - bas - pluieH - 6, n = S.length, pasX = (W - 2 * g) / (n - 1), i;
   var tmin = 99, tmax = -99;
   for (i = 0; i < n; i++) { tmin = Math.min(tmin, S[i].temp); tmax = Math.max(tmax, S[i].temp); }
   if (tmax - tmin < 4) { var mil = (tmax + tmin) / 2; tmin = mil - 2; tmax = mil + 2; }
   var X = function(k){ return g + k * pasX; }, Y = function(t){ return y1 - (t - tmin) / (tmax - tmin) * (y1 - y0); };
-  var svg = '<svg width="' + W + '" height="' + Ht + '" viewBox="0 0 ' + W + ' ' + Ht + '">' +
-    '<defs><linearGradient id="degrade" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--sun)" stop-opacity=".28"/><stop offset="1" stop-color="var(--sun)" stop-opacity="0"/></linearGradient></defs>';
-  // Pluie : barres bleues en bas (mm par heure, plafonnées à 4 mm)
   var basPluie = Ht - bas;
-  for (i = 0; i < n; i++) {
-    var mm = Math.min(4, S[i].pluie), hb = mm >= 0.05 ? Math.max(3, mm / 4 * pluieH) : 0;
-    if (hb) svg += '<rect x="' + (X(i) - pasX * 0.32).toFixed(1) + '" y="' + (basPluie - hb).toFixed(1) + '" width="' + (pasX * 0.64).toFixed(1) + '" height="' + hb.toFixed(1) + '" rx="3" fill="var(--rain)" opacity=".85"/>';
+  // Couleurs : la courbe passe du bleu (frais) à l'orangé (doux) selon la hauteur
+  var svg = '<svg width="' + W + '" height="' + Ht + '" viewBox="0 0 ' + W + ' ' + Ht + '">' +
+    '<defs>' +
+    '<linearGradient id="trait" gradientUnits="userSpaceOnUse" x1="0" y1="' + y0 + '" x2="0" y2="' + y1 + '"><stop offset="0" stop-color="var(--sun)"/><stop offset="1" stop-color="var(--rain)"/></linearGradient>' +
+    '<linearGradient id="aire" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--sun)" stop-opacity=".22"/><stop offset="1" stop-color="var(--sun)" stop-opacity="0"/></linearGradient>' +
+    '</defs>';
+  // Nuit : bandes légèrement ombrées
+  var debutNuit = -1;
+  for (i = 0; i <= n; i++) {
+    var nuit = i < n && !S[i].jour;
+    if (nuit && debutNuit < 0) debutNuit = i;
+    if (!nuit && debutNuit >= 0) {
+      var xa = Math.max(0, X(debutNuit) - pasX / 2), xb = Math.min(W, X(i - 1) + pasX / 2);
+      svg += '<rect x="' + xa.toFixed(1) + '" y="' + (taille + 4) + '" width="' + (xb - xa).toFixed(1) + '" height="' + (basPluie - taille - 4) + '" rx="10" fill="var(--card2)" opacity=".55"/>';
+      debutNuit = -1;
+    }
   }
-  svg += '<line x1="' + g + '" y1="' + basPluie + '" x2="' + (W - g) + '" y2="' + basPluie + '" stroke="var(--line)" stroke-width="2"/>';
-  // Courbe des températures avec un léger dégradé dessous
-  var pts = '', aire = 'M' + X(0).toFixed(1) + ' ' + y1;
-  for (i = 0; i < n; i++) { pts += (i ? ' ' : '') + X(i).toFixed(1) + ',' + Y(S[i].temp).toFixed(1); aire += ' L' + X(i).toFixed(1) + ' ' + Y(S[i].temp).toFixed(1); }
-  aire += ' L' + X(n - 1).toFixed(1) + ' ' + y1 + ' Z';
-  svg += '<path d="' + aire + '" fill="url(#degrade)"/><polyline points="' + pts + '" fill="none" stroke="var(--sun)" stroke-width="3.5" stroke-linejoin="round" stroke-linecap="round"/>';
-  // Repères : une étiquette toutes les « k » heures selon la largeur
+  // Pluie : barres arrondies en bas (mm par heure, plafonnées à 4 mm)
+  for (i = 0; i < n; i++) {
+    var mm = Math.min(4, S[i].pluie), hb = mm >= 0.05 ? Math.max(4, mm / 4 * pluieH) : 0;
+    if (hb) svg += '<rect x="' + (X(i) - pasX * 0.3).toFixed(1) + '" y="' + (basPluie - hb).toFixed(1) + '" width="' + (pasX * 0.6).toFixed(1) + '" height="' + hb.toFixed(1) + '" rx="' + Math.min(5, pasX * 0.3).toFixed(1) + '" fill="var(--rain)" opacity=".7"/>';
+  }
+  svg += '<line x1="' + g + '" y1="' + basPluie + '" x2="' + (W - g) + '" y2="' + basPluie + '" stroke="var(--line)" stroke-width="1.5"/>';
+  // Courbe lissée (Catmull-Rom → Bézier)
+  var P = [];
+  for (i = 0; i < n; i++) P.push([X(i), Y(S[i].temp)]);
+  var d = 'M' + P[0][0].toFixed(1) + ' ' + P[0][1].toFixed(1);
+  for (i = 0; i < n - 1; i++) {
+    var p0 = P[Math.max(0, i - 1)], p1 = P[i], p2 = P[i + 1], p3 = P[Math.min(n - 1, i + 2)];
+    d += ' C' + (p1[0] + (p2[0] - p0[0]) / 6).toFixed(1) + ' ' + (p1[1] + (p2[1] - p0[1]) / 6).toFixed(1) + ' ' +
+      (p2[0] - (p3[0] - p1[0]) / 6).toFixed(1) + ' ' + (p2[1] - (p3[1] - p1[1]) / 6).toFixed(1) + ' ' + p2[0].toFixed(1) + ' ' + p2[1].toFixed(1);
+  }
+  svg += '<path d="' + d + ' L' + P[n - 1][0].toFixed(1) + ' ' + y1 + ' L' + P[0][0].toFixed(1) + ' ' + y1 + ' Z" fill="url(#aire)"/>' +
+    '<path d="' + d + '" fill="none" stroke="url(#trait)" stroke-width="4" stroke-linecap="round"/>';
+  // Repères : icône, température et heure toutes les « k » heures
   var k = Math.max(1, Math.ceil(n / Math.floor(W / 72)));
   for (i = 0; i < n; i += k) {
-    var x = X(i), y = Y(S[i].temp);
-    svg += '<circle cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="4.5" fill="var(--card)" stroke="var(--sun)" stroke-width="3"/>' +
-      '<text x="' + x.toFixed(1) + '" y="' + (y - 11).toFixed(1) + '" text-anchor="middle" font-size="19" font-weight="700" fill="var(--ink)">' + Math.round(S[i].temp) + '°</text>' +
-      '<g transform="translate(' + (x - taille / 2).toFixed(1) + ',0)">' + iconeMeteo(S[i].code, S[i].jour, taille) + '</g>' +
-      '<text x="' + x.toFixed(1) + '" y="' + (Ht - 5) + '" text-anchor="middle" font-size="16" font-weight="600" fill="var(--muted)">' + (i === 0 && maintenant ? 'Maint.' : S[i].t.getHours() + ' h') + '</text>';
-    if (grand && S[i].proba >= 30 && S[i].pluie >= 0.05) svg += '<text x="' + x.toFixed(1) + '" y="' + (basPluie - Math.min(4, S[i].pluie) / 4 * pluieH - 5).toFixed(1) + '" text-anchor="middle" font-size="14" font-weight="700" fill="var(--rain)">' + S[i].proba + '%</text>';
+    var x = X(i), y = Y(S[i].temp), premier = i === 0 && maintenant;
+    svg += '<g transform="translate(' + (x - taille / 2).toFixed(1) + ',0)">' + iconeMeteo(S[i].code, S[i].jour, taille) + '</g>' +
+      '<circle cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="' + (premier ? 6 : 4) + '" fill="' + (premier ? 'url(#trait)' : 'var(--card)') + '" stroke="url(#trait)" stroke-width="3"/>' +
+      '<text x="' + x.toFixed(1) + '" y="' + (y - 12).toFixed(1) + '" text-anchor="middle" font-size="' + (grand ? 20 : 18) + '" font-weight="700" fill="var(--ink)">' + Math.round(S[i].temp) + '°</text>' +
+      '<text x="' + x.toFixed(1) + '" y="' + (Ht - 5) + '" text-anchor="middle" font-size="15" font-weight="' + (premier ? 700 : 600) + '" fill="' + (premier ? 'var(--ink)' : 'var(--muted)') + '">' + (premier ? 'Maint.' : S[i].t.getHours() + ' h') + '</text>';
+    if (grand && S[i].proba >= 30 && S[i].pluie >= 0.05) svg += '<text x="' + x.toFixed(1) + '" y="' + (basPluie - Math.min(4, S[i].pluie) / 4 * pluieH - 5).toFixed(1) + '" text-anchor="middle" font-size="13" font-weight="700" fill="var(--rain)">' + S[i].proba + '%</text>';
   }
   return svg + '</svg>';
 }
