@@ -7,16 +7,16 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700&family=Figtree:wght@400;500;600;700&display=swap">
 <style>
 :root{
-  --bg:#E8ECE3; --card:#F7F8F4; --card2:#E3E8DD; --ink:#16201A; --muted:#55615A; --line:#D3DACE;
-  --ok:#2E7346; --warn:#B4501B; --warn-soft:#F6E0D2;
-  --go-bg:#E3E8DD; --go-ink:#16201A; --go-acc:#2E7346; --hurry-bg:#F6E3D6; --hurry-ink:#9A3F12; --none-bg:#E3E8DD; --none-ink:#55615A;
+  --bg:#E3E8DD; --card:#FAFBF8; --card2:#D9E0D1; --ink:#0F1712; --muted:#414D45; --line:#B7C1AF;
+  --ok:#4C8758; --warn:#BC6430; --warn-soft:#F2DCCB;
+  --go-bg:#D9E0D1; --go-ink:#0F1712; --go-acc:#4C8758; --hurry-bg:#F2DCCB; --hurry-ink:#9A4A1E; --none-bg:#D9E0D1; --none-ink:#414D45;
   --tram:#BD074E; --bus:#004488; --badge-ink:#FFFFFF;
 }
 html.nuit{
-  --bg:#0E1216; --card:#1A1F25; --card2:#252C34; --ink:#F2F5F3; --muted:#A8B2AC; --line:#323A43;
-  --ok:#5FD08A; --warn:#FF9A5C; --warn-soft:#3B2417;
-  --go-bg:#232A31; --go-ink:#F2F5F3; --go-acc:#6CCB91; --hurry-bg:#38251A; --hurry-ink:#FFA36B; --none-bg:#252C34; --none-ink:#C3CBC6;
-  --tram:#E0306F; --bus:#3D7FD1; --badge-ink:#FFFFFF;
+  --bg:#0B1016; --card:#18212A; --card2:#26323E; --ink:#F4F7F3; --muted:#AEBAB4; --line:#3A4856;
+  --ok:#7CBA87; --warn:#E38A52; --warn-soft:#3A2619;
+  --go-bg:#26323E; --go-ink:#F4F7F3; --go-acc:#7CBA87; --hurry-bg:#3A2619; --hurry-ink:#F0A070; --none-bg:#26323E; --none-ink:#C3CBC6;
+  --tram:#D0326A; --bus:#2F6FB0; --badge-ink:#FFFFFF;
 }
 html,body{margin:0;width:1280px;height:728px;overflow:hidden;background:var(--bg)}
 body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased;transition:background-color .8s,color .8s}
@@ -132,7 +132,7 @@ body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;fon
 /* Départs suivants, sur une ligne */
 .ensuite{margin-top:16px;display:flex;align-items:baseline;border-top:2px solid var(--line);padding-top:14px}
 .ens-l{font-size:16px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-right:18px}
-.dep{display:flex;align-items:baseline;font-size:30px;font-weight:600}
+.dep{display:flex;align-items:baseline;font-size:30px;font-weight:600;font-family:"Bricolage Grotesque",Figtree,Arial,sans-serif;}
 .dep small{font-size:19px;color:var(--muted);font-weight:500;margin-left:7px}
 .dep + .dep{margin-left:16px;padding-left:16px;border-left:2px solid var(--line)}
 .dep i{width:9px;height:9px;border-radius:50%;background:var(--ok);margin-right:8px;align-self:center;flex:none}
