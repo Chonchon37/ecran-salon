@@ -51,6 +51,11 @@ body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;fon
 .demi .date-meteo{margin-top:2px}
 .demi .date-meteo svg{width:30px;height:30px}
 .demi .date-meteo span{font-size:24px}
+.ad{display:flex;align-items:center;align-self:flex-start;max-width:100%;box-sizing:border-box;margin-top:8px;padding:5px 12px 5px 9px;border-radius:12px;background:var(--fete-soft);color:var(--fete);font-size:20px;line-height:1.2;flex:none}
+.ad span{font-size:20px;margin-right:8px;flex:none}
+.ad b{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.ad small{font-size:17px;font-weight:600;margin-left:8px;white-space:nowrap;opacity:.85}
+.demi.nu > .ad{display:none}
 .msg{display:inline-block;margin-top:12px;padding:8px 14px;border-radius:12px;background:var(--fete-soft);color:var(--fete);font-size:20px;font-weight:700;line-height:1.3;align-self:flex-start}
 
 /* Météo */
@@ -410,8 +415,14 @@ function meteoActuelle(now){
   if (meteo) { code = meteo.current.weather_code; jour = meteo.current.is_day === 1; temp = Math.round(meteo.current.temperature_2m); }
   else if (CONFIG.METEO_REELLE) return '';
   else { code = mockCode(hr); jour = jourA(hr); temp = mockTemp(hr); }
-  return '<div class="date-meteo" data-p="2">' + iconeMeteo(code, jour, 44) + '<span class="h">' + temp + '°</span>' +
+  return '<div class="date-meteo" data-p="3">' + iconeMeteo(code, jour, 44) + '<span class="h">' + temp + '°</span>' +
     (meteo ? '<small>' + Math.round(meteo.daily.temperature_2m_min[0]) + '° / ' + Math.round(meteo.daily.temperature_2m_max[0]) + '°</small>' : '') + '</div>';
+}
+// Anniversaire(s) du jour, sous l'heure et la date
+function annivDuJour(now){
+  var A = anniversaires(now, 0).liste, html = '';
+  for (var i = 0; i < A.length; i++) html += '<div class="ad" data-p="' + (i ? 3 + i : 1) + '"><span>🎂</span><b>' + echapper(A[i].nom) + '</b>' + (A[i].age ? '<small>' + A[i].age + ' ans</small>' : '') + '</div>';
+  return html;
 }
 function tuileDate(T, now){
   var h = now.getHours();
@@ -419,8 +430,9 @@ function tuileDate(T, now){
   // L'heure est ici (la barre du bas la masque tant que l'accueil l'affiche)
   T.innerHTML = '<div class="heure h" id="heureAcc">' + pad(h) + ':' + pad(now.getMinutes()) + '</div>' +
     '<div class="date">' + majuscule(JOURS[now.getDay()]) + ' ' + now.getDate() + ' ' + MOIS[now.getMonth()] + (prive() ? '' : ' <span class="demo">exemple</span>') + '</div>' +
+    annivDuJour(now) +
     (VISIBLES.meteo ? '' : meteoActuelle(now)) +   // pas de doublon si la tuile Météo est déjà à l'écran
-    (MESSAGE ? '<div class="msg" data-p="1">' + echapper(MESSAGE) + '</div>' : '');
+    (MESSAGE ? '<div class="msg" data-p="2">' + echapper(MESSAGE) + '</div>' : '');
   taillerParPriorite(T);
 }
 
