@@ -2,6 +2,7 @@
  * Worker « ecran-salon » : les données de l'écran du salon.
  *
  *  /transports      Fil Bleu : horaires prévus + temps réel + alertes (public, open data)
+ *  /trajet?lieu=…   Centre Audilab du lieu de travail 💼 + temps en voiture depuis la maison (clé requise)
  *  /agenda          Google Agenda : 14 prochains jours + anniversaires 🎂 + lieux de travail 💼   (clé requise)
  *  /maison          Home Assistant : lumières et scènes                     (clé requise)
  *  /maison/action   Home Assistant : allumer/éteindre, lancer une scène     (clé requise)
@@ -30,7 +31,7 @@ const FLUX_ALERTES = 'https://data.filbleu.fr/ws-tr/gtfs-rt/opendata/service-ale
 const FLUX_INCIDENTS = 'https://www.filbleu.fr/rss-incident.xml';   // l'info trafic du site filbleu.fr (travaux, déviations…)
 const NOMS_ARRETS = { 'A': 'Monconseil', '2': 'Maréchal Juin' };
 const CACHE_SECONDES = 20;
-const VERSION = '18';   // à changer à chaque mise à jour du code : vide les caches
+const VERSION = '19';   // à changer à chaque mise à jour du code : vide les caches
 
 // Horaires prévus, format compact : "jours" = n° de grille pour chaque jour depuis "debut",
 // chaque ligne "g=" = minutes depuis minuit, écrites en écarts successifs.
@@ -566,6 +567,63 @@ async function construireAgenda(env) {
 }
 
 /* =====================================================================
+   TRAJET : centre Audilab du lieu de travail 💼 et temps en voiture
+   (OpenStreetMap pour trouver le centre, IGN pour l'itinéraire ; résultats gardés en cache)
+   ===================================================================== */
+const DOMICILE = { lon: 0.69727, lat: 47.418379 };   // 144 rue du Pas Notre-Dame, Tours
+async function enCache(cle, secondes, calcul) {
+  const cache = caches.default, req = new Request('https://cache.ecran-salon.local/v' + VERSION + '/' + encodeURIComponent(cle));
+  const deja = await cache.match(req);
+  if (deja) return deja.json();
+  const val = await calcul();
+  if (val) await cache.put(req, new Response(JSON.stringify(val), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'max-age=' + secondes } }));
+  return val;
+}
+async function trouverCentre(lieu) {
+  const mots = lieu.split(/\s+/).filter(Boolean), essais = [];
+  for (const q of ['Audilab ' + lieu, 'Audilab ' + mots[0], 'Audilab ' + mots[0] + ' Tours']) if (essais.indexOf(q) < 0) essais.push(q);
+  for (const q of essais) {
+    const r = await fetch('https://nominatim.openstreetmap.org/search?format=jsonv2&limit=5&countrycodes=fr&addressdetails=1&viewbox=-0.4,48.2,1.8,46.6&q=' + encodeURIComponent(q),
+      { headers: { 'User-Agent': 'ecran-salon/1.0 (cadre photo familial, Tours)', 'Accept-Language': 'fr' } });
+    if (!r.ok) continue;
+    const L = await r.json();
+    const x = (Array.isArray(L) ? L : []).find(e => /audilab/i.test((e.name || '') + ' ' + (e.display_name || '')));
+    if (x) {
+      const a = x.address || {}, ville = a.village || a.town || a.city || a.municipality || '';
+      const rue = [a.house_number, a.road || a.pedestrian || a.square].filter(Boolean).join(' ');
+      return { nom: 'Audilab ' + (ville || mots[0]), adresse: [rue, ville].filter(Boolean).join(', '), lon: +x.lon, lat: +x.lat, approx: false };
+    }
+  }
+  // Pas de centre trouvé : à défaut, la commune du même nom (temps approximatif)
+  const b = await fetch('https://api-adresse.data.gouv.fr/search/?type=municipality&limit=1&lat=47.39&lon=0.69&q=' + encodeURIComponent(mots[0]));
+  if (b.ok) {
+    const f = ((await b.json()).features || [])[0];
+    if (f) return { nom: f.properties.city, adresse: f.properties.city, lon: f.geometry.coordinates[0], lat: f.geometry.coordinates[1], approx: true };
+  }
+  return null;
+}
+async function itineraire(c) {
+  try {
+    const r = await fetch('https://data.geopf.fr/navigation/itineraire?resource=bdtopo-osrm&profile=car&optimization=fastest&getSteps=false&getBbox=false&timeUnit=minute&distanceUnit=kilometer' +
+      '&start=' + DOMICILE.lon + ',' + DOMICILE.lat + '&end=' + c.lon + ',' + c.lat);
+    if (r.ok) { const j = await r.json(); if (isFinite(j.duration)) return { minutes: Math.round(j.duration), km: Math.round(j.distance), source: 'IGN' }; }
+  } catch (e) {}
+  const o = await fetch('https://router.project-osrm.org/route/v1/driving/' + DOMICILE.lon + ',' + DOMICILE.lat + ';' + c.lon + ',' + c.lat + '?overview=false');
+  if (!o.ok) throw new Error('itinéraire indisponible');
+  const j = await o.json(), R = j.routes && j.routes[0];
+  if (!R) throw new Error('itinéraire introuvable');
+  return { minutes: Math.round(R.duration / 60), km: Math.round(R.distance / 1000), source: 'OSRM' };
+}
+async function construireTrajet(lieuBrut) {
+  const lieu = texte(lieuBrut, 80).replace(/\s+puis\s+.*$/i, '');
+  if (!lieu) throw new Error('lieu manquant');
+  const centre = await enCache('centre:' + lieu.toLowerCase(), 30 * 86400, () => trouverCentre(lieu));
+  if (!centre) return { lieu, trouve: false };
+  const route = await enCache('route:' + centre.lat.toFixed(4) + ',' + centre.lon.toFixed(4), 7 * 86400, () => itineraire(centre));
+  return { lieu, trouve: true, centre: { nom: centre.nom, adresse: centre.adresse, approx: centre.approx }, minutes: route.minutes, km: route.km, source: route.source };
+}
+
+/* =====================================================================
    HOME ASSISTANT
    ===================================================================== */
 function haUrl(env, chemin) {
@@ -856,6 +914,7 @@ export default {
       const estEcran = cle === env.ECRAN_CLE, estAdmin = !!cleAdmin && cle === cleAdmin;
       if (!estEcran && !estAdmin) return repondre({ erreur: 'Clé absente ou incorrecte' }, 401, entetes);
 
+      if (chemin === '/trajet') return repondre(await construireTrajet(url.searchParams.get('lieu') || ''), 200, entetes);
       if (chemin === '/agenda') return await avecCache('agenda', 300, () => construireAgenda(env), entetes, ctx);
       if (chemin === '/maison') return repondre(await construireMaison(env), 200, entetes);
       if (chemin === '/vigilance') return await avecCache('vigilance', 300, () => construireVigilance(env), entetes, ctx);
