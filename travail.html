@@ -8,11 +8,11 @@
 <style>
 :root{
   --bg:#E3E8DD; --card:#FAFBF8; --card2:#D9E0D1; --ink:#0F1712; --muted:#414D45; --line:#B7C1AF;
-  --p2:#94679A; --p2-soft:#EBDDEC; --warn:#BC6430; --warn-soft:#F2DCCB;
+  --p2:#94679A; --p2-soft:#EBDDEC; --nous:#2F6FB8; --accent:#587A57; --fete:#C98622; --rain:#3B74A6; --warn:#BC6430; --warn-soft:#F2DCCB;
 }
 html.nuit{
   --bg:#0B1016; --card:#18212A; --card2:#26323E; --ink:#F4F7F3; --muted:#AEBAB4; --line:#3A4856;
-  --p2:#C49BCB; --p2-soft:#33243A; --warn:#E38A52; --warn-soft:#3A2619;
+  --p2:#C49BCB; --p2-soft:#33243A; --nous:#6EA6E6; --accent:#92B28E; --fete:#E0A847; --rain:#6EA5D5; --warn:#E38A52; --warn-soft:#3A2619;
 }
 html,body{margin:0;width:1280px;height:728px;overflow:hidden;background:var(--bg)}
 body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased;transition:background-color .8s,color .8s}
@@ -23,31 +23,42 @@ body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;fon
 .demo{margin-left:10px;font-size:12px;letter-spacing:.06em;padding:3px 9px;border-radius:20px;background:var(--warn-soft);color:var(--warn)}
 
 .main{flex:1;display:flex;margin-top:16px;min-height:0}
-.hero{width:400px;flex:none;margin-right:16px;display:flex;flex-direction:column}
-.icone{width:96px;height:96px;border-radius:28px;background:var(--p2-soft);display:flex;align-items:center;justify-content:center;font-size:52px}
-.quand{font-size:26px;font-weight:700;color:var(--p2);margin-top:auto}
-.lieu{font-size:62px;font-weight:600;line-height:1;letter-spacing:-.02em;margin-top:10px;overflow-wrap:break-word;-webkit-hyphens:auto;hyphens:auto}
-.lieu.repos{color:var(--muted)}
-.heures{font-family:"Bricolage Grotesque",Figtree,Arial,sans-serif;font-size:30px;font-weight:600;margin-top:16px}
-.adresse{font-size:20px;color:var(--muted);margin-top:10px;line-height:1.3}
-
-.sem{flex:1;display:flex;flex-direction:column;padding:22px 26px;min-width:0}
-.entete{display:flex;margin-top:12px}
-.entete div{flex:1;font-size:15px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);text-align:center}
-.grille{flex:1;display:flex;flex-direction:column;margin-top:6px;min-height:0}
+/* Jour mis en avant */
+.hero{width:380px;flex:none;margin-right:16px;display:flex;flex-direction:column}
+.quand{display:flex;align-items:center;font-size:22px;font-weight:700;color:var(--p2)}
+.quand i{font-style:normal;width:46px;height:46px;border-radius:14px;background:var(--p2-soft);display:flex;align-items:center;justify-content:center;font-size:24px;margin-right:12px}
+.lieu{font-size:58px;font-weight:600;line-height:1.02;letter-spacing:-.02em;margin-top:18px;border-left:7px solid var(--p2);padding-left:16px;overflow-wrap:break-word;-webkit-hyphens:auto;hyphens:auto}
+.lieu.repos{color:var(--muted);border-left-color:var(--line)}
+.heures{font-family:"Bricolage Grotesque",Figtree,Arial,sans-serif;font-size:32px;font-weight:600;margin-top:12px;padding-left:23px}
+.adresse{font-size:19px;color:var(--muted);margin-top:6px;line-height:1.3;padding-left:23px}
+.suite{margin-top:auto;border-top:1.5px solid var(--line);padding-top:12px}
+.s-l{display:flex;align-items:baseline;font-size:20px;line-height:1.75}
+.s-j{width:92px;flex:none;color:var(--muted);font-weight:700}
+.s-n{flex:1;min-width:0;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.s-n i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:9px;vertical-align:middle;position:relative;top:-2px}
+.s-r{font-size:18px;color:var(--muted);margin-top:6px}
+.s-r b{color:var(--ink)}
+/* Deux semaines */
+.sem{flex:1;display:flex;flex-direction:column;min-width:0}
+.semaine{flex:1;display:flex;flex-direction:column;min-height:0}
+.semaine + .semaine{margin-top:16px}
+.semaine .label{margin-bottom:8px}
 .ligne{flex:1;display:flex;min-height:0}
-.ligne + .ligne{margin-top:10px}
-.j{flex:1;min-width:0;margin:0 4px;border-radius:14px;background:var(--card2);padding:10px 8px;box-sizing:border-box;display:flex;flex-direction:column;overflow:hidden}
-.j b{font-family:"Bricolage Grotesque",Figtree,Arial,sans-serif;font-size:24px;line-height:1}
-.j b span{font-size:14px;font-weight:700;color:var(--muted);font-family:Figtree,Arial,sans-serif;margin-left:4px}
-.j .n{font-size:18px;font-weight:700;margin-top:8px;line-height:1.15;border-left:4px solid var(--p2);padding-left:6px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow-wrap:break-word;-webkit-hyphens:auto;hyphens:auto}
-.j .t{font-size:14px;font-weight:600;color:var(--muted);margin-top:auto;padding-top:4px;white-space:nowrap}
+.j{flex:1;min-width:0;margin-right:8px;border-radius:14px;background:var(--card2);padding:10px 10px 9px;box-sizing:border-box;display:flex;flex-direction:column;overflow:hidden}
+.j:last-child{margin-right:0}
+.j.we{flex:.62}
+.we .j-t{flex-direction:column;align-items:flex-start}
+.we .j-t span{margin:0 0 3px}
+.j-t{display:flex;align-items:baseline;white-space:nowrap}
+.j-t span{font-size:14px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin-right:6px}
+.j-t b{font-family:"Bricolage Grotesque",Figtree,Arial,sans-serif;font-size:24px;line-height:1}
+.j .n{font-size:17px;font-weight:700;margin-top:8px;line-height:1.15;border-left:4px solid var(--p2);padding-left:7px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow-wrap:break-word;-webkit-hyphens:auto;hyphens:auto}
+.j .t{font-size:15px;font-weight:600;color:var(--muted);margin-top:auto;padding-top:4px;white-space:nowrap}
 .j .r{font-size:16px;color:var(--muted);margin-top:8px}
-.j.passe{opacity:.4}
+.j.libre{background:transparent;box-shadow:inset 0 0 0 1.5px var(--line)}
+.j.passe{opacity:.38}
 .j.auj{box-shadow:inset 0 0 0 3px var(--ink)}
 .j.vise{background:var(--p2-soft)}
-.j.weekend:not(.vise){background:transparent;box-shadow:inset 0 0 0 1.5px var(--line)}
-.j.weekend.auj{box-shadow:inset 0 0 0 3px var(--ink)}
 .vide{font-size:22px;color:var(--muted)}
 </style>
 </head>
@@ -56,11 +67,7 @@ body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;fon
   <div class="label" id="titre">Travail<span class="demo" id="demo">exemple</span></div>
   <div class="main">
     <div class="card hero" id="hero"></div>
-    <div class="card sem">
-      <div class="label">Deux semaines</div>
-      <div class="entete"><div>Lun.</div><div>Mar.</div><div>Mer.</div><div>Jeu.</div><div>Ven.</div><div>Sam.</div><div>Dim.</div></div>
-      <div class="grille" id="grille"></div>
-    </div>
+    <div class="card sem" id="sem"></div>
   </div>
 </div>
 
@@ -116,35 +123,61 @@ function heures(L, court){
   return f(a) + (court ? '–' : ' – ') + f(b);
 }
 
+// Une couleur par lieu, toujours la même pour un même lieu
+var TEINTES = ['var(--p2)', 'var(--nous)', 'var(--accent)', 'var(--fete)', 'var(--rain)', 'var(--warn)'], teintesVues = [];
+function teinte(n){ var i = teintesVues.indexOf(n); if (i < 0) { teintesVues.push(n); i = teintesVues.length - 1; } return TEINTES[i % TEINTES.length]; }
+function jourPlus(d, n){ return new Date(d.getFullYear(), d.getMonth(), d.getDate() + n); }
+var JOURS_C = ['Dim.', 'Lun.', 'Mar.', 'Mer.', 'Jeu.', 'Ven.', 'Sam.'];
+
 function afficher(){
   var now = new Date(), auj = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  var liste = travail || exemple();
+  var liste = travail || exemple(), d, k;
   $('titre').firstChild.nodeValue = 'Travail de ' + CONFIG.PRENOM;
   $('demo').style.display = enDemo() ? '' : 'none';
-  // Jour mis en avant : aujourd'hui, ou demain une fois la journée finie (ou à partir de 19 h)
+  // Jour mis en avant : le prochain jour travaillé (aujourd'hui tant que la journée n'est pas finie)
   var L0 = duJour(liste, auj), fini = L0.length > 0;
   for (var i = 0; i < L0.length; i++) if (L0[i].journee || L0[i].fin > now.getTime()) fini = false;
   var k0 = (fini || now.getHours() >= 19) ? 1 : 0;
-  var vise = new Date(auj.getFullYear(), auj.getMonth(), auj.getDate() + k0), LV = duJour(liste, vise), n = lieux(LV), hr = heures(LV, false);
-  var adr = []; for (var a = 0; a < LV.length; a++) if (LV[a].adresse && LV[a].adresse !== LV[a].lieu && adr.indexOf(LV[a].adresse) < 0) adr.push(LV[a].adresse);
-  $('hero').innerHTML = '<div class="icone">💼</div>' +
-    '<div class="quand h">' + (k0 ? 'Demain' : 'Aujourd\'hui') + ' · ' + JOURS[vise.getDay()] + ' ' + vise.getDate() + '</div>' +
-    '<div class="lieu h' + (n ? '' : ' repos') + '">' + (n ? echapper(n) : 'Repos') + '</div>' +
-    (hr ? '<div class="heures">' + hr + '</div>' : '') +
-    (adr.length ? '<div class="adresse">' + echapper(adr.join(' · ')) + '</div>' : '');
-  // Deux semaines, du lundi de cette semaine
-  var lundi = new Date(auj.getFullYear(), auj.getMonth(), auj.getDate() - (auj.getDay() + 6) % 7), html = '';
-  for (var s = 0; s < 2; s++) {
-    html += '<div class="ligne">';
-    for (var d = 0; d < 7; d++) {
-      var j = new Date(lundi.getFullYear(), lundi.getMonth(), lundi.getDate() + s * 7 + d), passe = j < auj, Lj = passe ? [] : duJour(liste, j), nj = lieux(Lj);
-      var cl = 'j' + (passe ? ' passe' : '') + (j.getTime() === auj.getTime() ? ' auj' : '') + (j.getTime() === vise.getTime() ? ' vise' : '') + (d >= 5 ? ' weekend' : '');
-      html += '<div class="' + cl + '"><b>' + j.getDate() + (j.getDate() === 1 || (s === 0 && d === 0) ? '<span>' + MOIS_C[j.getMonth()] + '</span>' : '') + '</b>' +
-        (passe ? '' : (nj ? '<div class="n">' + echapper(nj) + '</div><div class="t">' + heures(Lj, true) + '</div>' : '<div class="r">Repos</div>')) + '</div>';
+  while (k0 < 14 && !duJour(liste, jourPlus(auj, k0)).length) k0++;
+  teintesVues = [];
+  if (k0 >= 14) {
+    $('hero').innerHTML = '<div class="quand h"><i>💼</i>Rien de prévu</div><div class="vide" style="margin-top:18px">Aucun lieu de travail 💼 dans l\'agenda pour les 2 prochaines semaines.</div>';
+  } else {
+    var vise = jourPlus(auj, k0), LV = duJour(liste, vise), n = lieux(LV), hr = heures(LV, false);
+    var adr = []; for (var a = 0; a < LV.length; a++) if (LV[a].adresse && LV[a].adresse !== LV[a].lieu && adr.indexOf(LV[a].adresse) < 0) adr.push(LV[a].adresse);
+    var quand = k0 === 0 ? 'Aujourd\'hui' : (k0 === 1 ? 'Demain' : JOURS[vise.getDay()].charAt(0).toUpperCase() + JOURS[vise.getDay()].slice(1));
+    var html = '<div class="quand h"><i>💼</i>' + quand + (k0 > 1 ? ' ' + vise.getDate() : ' · ' + JOURS[vise.getDay()] + ' ' + vise.getDate()) + '</div>' +
+      '<div class="lieu h" style="border-left-color:' + teinte(n) + '">' + echapper(n) + '</div>' +
+      (hr ? '<div class="heures">' + hr + '</div>' : '') +
+      (adr.length ? '<div class="adresse">' + echapper(adr.join(' · ')) + '</div>' : '');
+    // Ensuite : les jours travaillés suivants, puis le prochain jour de repos
+    var suite = '', nb = 0, repos = null;
+    for (k = k0 + 1; k < 14; k++) {
+      var j = jourPlus(auj, k), Lj = duJour(liste, j);
+      if (!Lj.length) { if (!repos) repos = j; continue; }
+      if (nb < 6) { suite += '<div class="s-l"><span class="s-j">' + (k === 1 ? 'Demain' : JOURS_C[j.getDay()] + ' ' + j.getDate()) + '</span><span class="s-n"><i style="background:' + teinte(lieux(Lj)) + '"></i>' + echapper(lieux(Lj)) + '</span></div>'; nb++; }
     }
-    html += '</div>';
+    for (k = 0; k < k0 && !repos; k++) if (!duJour(liste, jourPlus(auj, k)).length && k > 0) repos = jourPlus(auj, k);
+    html += '<div class="suite"><div class="label" style="margin-bottom:4px">Ensuite</div>' + (suite || '<div class="s-r">Rien de noté après.</div>') +
+      (repos ? '<div class="s-r">Prochain repos : <b>' + JOURS[repos.getDay()] + ' ' + repos.getDate() + '</b></div>' : '') + '</div>';
+    $('hero').innerHTML = html;
   }
-  $('grille').innerHTML = html;
+  // Deux semaines, du lundi de cette semaine ; le week-end est plus étroit s'il n'est pas travaillé
+  var lundi = jourPlus(auj, -((auj.getDay() + 6) % 7)), vue = k0 < 14 ? jourPlus(auj, k0) : null, out = '';
+  var weTravaille = false;
+  for (d = 0; d < 14; d++) if (d % 7 >= 5 && duJour(liste, jourPlus(lundi, d)).length) weTravaille = true;
+  for (var s = 0; s < 2; s++) {
+    out += '<div class="semaine"><div class="label">' + (s === 0 ? 'Cette semaine' : 'Semaine prochaine') + '</div><div class="ligne">';
+    for (d = 0; d < 7; d++) {
+      var jj = jourPlus(lundi, s * 7 + d), passe = jj < auj, Lx = passe ? [] : duJour(liste, jj), nx = lieux(Lx);
+      var cl = 'j' + (d >= 5 && !weTravaille ? ' we' : '') + (passe ? ' passe' : '') + (!passe && !nx ? ' libre' : '') +
+        (jj.getTime() === auj.getTime() ? ' auj' : '') + (vue && jj.getTime() === vue.getTime() ? ' vise' : '');
+      out += '<div class="' + cl + '"><div class="j-t"><span>' + JOURS_C[jj.getDay()] + '</span><b>' + jj.getDate() + '</b></div>' +
+        (passe ? '' : (nx ? '<div class="n" style="border-left-color:' + teinte(nx) + '">' + echapper(nx) + '</div><div class="t">' + heures(Lx, true) + '</div>' : '<div class="r">Repos</div>')) + '</div>';
+    }
+    out += '</div></div>';
+  }
+  $('sem').innerHTML = out;
 }
 
 function charger(){
