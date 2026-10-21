@@ -79,6 +79,9 @@ input[type=time]{font:inherit;color:var(--ink);background:var(--bg);border:1.5px
 .apercu div small{font-weight:600;opacity:.75;font-size:12px}
 .apercu div.tu.date{background:transparent;color:var(--ink);border:2px dashed var(--line)}
 .dispo-l select{width:auto}
+.apercu .retirer{position:absolute;top:3px;right:3px;width:26px !important;height:26px !important;min-height:0 !important;border-radius:7px;padding:0 !important;margin:0 !important;font-size:15px;line-height:1;background:rgba(0,0,0,.28) !important;color:#fff !important;border:0 !important;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.dispo-l.off .nom{color:var(--muted);text-decoration:line-through}
+.dispo-l .act{margin-left:auto}
 [hidden]{display:none!important}
 /* Résumé et rubriques */
 .resume{background:var(--card2);padding:16px 20px}
@@ -145,7 +148,7 @@ button.discret{background:transparent;color:var(--muted);padding:8px 10px;font-s
 
     <section data-groupe="accueil">
       <h2>Taille des tuiles</h2>
-      <p class="aide">L'accueil est une grille de 4 colonnes sur 3 rangées (une tuile peut faire une demi-rangée). <b>Glisse une tuile</b> sur une autre pour changer l'ordre, et <b>tire le coin en bas à droite</b> pour l'agrandir ou la réduire. Plus une tuile est grande, plus elle montre d'informations (plus d'heures et de jours de météo, plus d'événements et de jours d'agenda, les passages suivants, les lumières…). Les tuiles ne s'agrandissent jamais toutes seules : une case libre reste vide sur l'écran (et une tuile masquée à certains moments laisse sa place vide).</p>
+      <p class="aide">L'accueil est une grille de 4 colonnes sur 3 rangées (une tuile peut faire une demi-rangée). <b>Glisse une tuile</b> sur une autre pour changer l'ordre, et <b>tire le coin en bas à droite</b> pour l'agrandir ou la réduire, <b>✕</b> pour la retirer de l'écran (elle reste dans la liste pour la remettre). Plus une tuile est grande, plus elle montre d'informations (plus d'heures et de jours de météo, plus d'événements et de jours d'agenda, les passages suivants, les lumières…). Les tuiles ne s'agrandissent jamais toutes seules : une case libre reste vide sur l'écran (et une tuile masquée à certains moments laisse sa place vide).</p>
       <div class="rang" style="margin-bottom:10px"><label for="apercuMoment">Aperçu</label><select id="apercuMoment"></select></div>
       <div class="apercu" id="apercu" aria-label="Aperçu de l'accueil"></div>
       <p class="aide" id="cases" style="margin:8px 0 0"></p>
@@ -376,9 +379,9 @@ function dessinerDispo() {
   sel.innerHTML = '<option value="">Toutes les tuiles</option>' + M.map((m, i) => `<option value="${i}">${echapper(m.nom)} (${m.debut}–${m.fin})</option>`).join('');
   if (avant !== '' && +avant < M.length) sel.value = avant;
   const mo = sel.value === '' ? null : M[+sel.value];
-  const P = placer(L, t => !!mo && mo.tuiles[t.id] === false);
+  const P = placer(L.filter(t => !t.off), t => !!mo && mo.tuiles[t.id] === false);
   $('apercu').style.gridTemplateRows = 'repeat(' + P.rangees + ', minmax(0, 1fr))';
-  $('apercu').innerHTML = P.places.map(p => `<div class="tu ${p.t.id === 'date' ? 'date' : ''} ${glisse && glisse.id === p.t.id ? (glisse.mode === 'redim' ? 'redim' : 'glisse') : ''}" data-id="${p.t.id}" style="grid-column:${p.c + 1} / span ${p.w};grid-row:${p.r + 1} / span ${p.h}">${NOMS_TUILES[p.t.id]}<small>${p.t.l} × ${demi(p.t.h)}${p.w !== p.t.l || p.h !== Math.round(p.t.h * 2) ? ' → ' + p.w + ' × ' + demi(p.h / 2) : ''}</small><div class="poignee" data-poignee="${p.t.id}" title="Tirer pour changer la taille"></div></div>`).join('');
+  $('apercu').innerHTML = P.places.map(p => `<div class="tu ${p.t.id === 'date' ? 'date' : ''} ${glisse && glisse.id === p.t.id ? (glisse.mode === 'redim' ? 'redim' : 'glisse') : ''}" data-id="${p.t.id}" style="grid-column:${p.c + 1} / span ${p.w};grid-row:${p.r + 1} / span ${p.h}">${NOMS_TUILES[p.t.id]}<small>${p.t.l} × ${demi(p.t.h)}${p.w !== p.t.l || p.h !== Math.round(p.t.h * 2) ? ' → ' + p.w + ' × ' + demi(p.h / 2) : ''}</small><button type="button" class="retirer" data-retirer="${p.t.id}" title="Retirer de l'écran" aria-label="Retirer ${NOMS_TUILES[p.t.id]} de l'écran">✕</button><div class="poignee" data-poignee="${p.t.id}" title="Tirer pour changer la taille"></div></div>`).join('');
   APERCU = P;
   const reduites = P.places.filter(p => p.w < p.t.l || p.h < Math.round(p.t.h * 2)).length;
   $('cases').textContent = P.rangees > 6
@@ -387,14 +390,15 @@ function dessinerDispo() {
     : 'Ce qui est affiché ici est exactement ce que montrera l\'écran ; les zones vides restent vides.';
   $('cases').style.color = P.rangees > 6 ? 'var(--warn)' : '';
   $('dispo').innerHTML = L.map((t, i) => `
-    <div class="ligne dispo-l">
+    <div class="ligne dispo-l${t.off ? ' off' : ''}">
       <div class="fleches">
         <button type="button" data-d-monter="${i}" ${i === 0 ? 'disabled' : ''} aria-label="Monter ${NOMS_TUILES[t.id]}">↑</button>
         <button type="button" data-d-descendre="${i}" ${i === L.length - 1 ? 'disabled' : ''} aria-label="Descendre ${NOMS_TUILES[t.id]}">↓</button>
       </div>
       <div class="nom">${NOMS_TUILES[t.id]}</div>
-      <select data-d-l="${i}" aria-label="Largeur de ${NOMS_TUILES[t.id]}">${[1, 2, 3, 4].map(n => `<option value="${n}" ${t.l === n ? 'selected' : ''}>${n} colonne${n > 1 ? 's' : ''}</option>`).join('')}</select>
-      <select data-d-h="${i}" aria-label="Hauteur de ${NOMS_TUILES[t.id]}">${[0.5, 1, 1.5, 2, 2.5, 3].map(n => `<option value="${n}" ${t.h === n ? 'selected' : ''}>${rangees(n)}</option>`).join('')}</select>
+      ${t.off ? '' : `<select data-d-l="${i}" aria-label="Largeur de ${NOMS_TUILES[t.id]}">${[1, 2, 3, 4].map(n => `<option value="${n}" ${t.l === n ? 'selected' : ''}>${n} colonne${n > 1 ? 's' : ''}</option>`).join('')}</select>
+      <select data-d-h="${i}" aria-label="Hauteur de ${NOMS_TUILES[t.id]}">${[0.5, 1, 1.5, 2, 2.5, 3].map(n => `<option value="${n}" ${t.h === n ? 'selected' : ''}>${rangees(n)}</option>`).join('')}</select>`}
+      <button type="button" class="act" data-d-bascule="${i}">${t.off ? 'Remettre sur l\'écran' : 'Retirer'}</button>
     </div>`).join('');
 }
 $('apercuMoment').addEventListener('change', dessinerDispo);
@@ -413,6 +417,7 @@ $('apercu').addEventListener('pointerdown', e => {
   if (!t) return;
   e.preventDefault();
   const id = t.dataset.id, place = APERCU.places.find(x => x.t.id === id);
+  if (e.target.closest('[data-retirer]')) { const x = dispo().find(z => z.id === id); if (x) { x.off = true; dessinerDispo(); aChange(); } return; }
   glisse = { id, mode: p ? 'redim' : 'deplacer', place, x0: e.clientX, y0: e.clientY, bouge: false };
   $('apercu').setPointerCapture(e.pointerId);
   dessinerDispo();
@@ -444,8 +449,9 @@ function finGlisse() { if (!glisse) return; glisse = null; dessinerDispo(); }
 $('apercu').addEventListener('pointerup', finGlisse);
 $('apercu').addEventListener('pointercancel', finGlisse);
 $('dispo').addEventListener('click', e => {
-  const L = dispo(), m = e.target.dataset.dMonter, d = e.target.dataset.dDescendre;
-  if (m !== undefined) { const i = +m; [L[i - 1], L[i]] = [L[i], L[i - 1]]; }
+  const L = dispo(), m = e.target.dataset.dMonter, d = e.target.dataset.dDescendre, b = e.target.dataset.dBascule;
+  if (b !== undefined) { L[+b].off = !L[+b].off; if (!L[+b].off) delete L[+b].off; }
+  else if (m !== undefined) { const i = +m; [L[i - 1], L[i]] = [L[i], L[i - 1]]; }
   else if (d !== undefined) { const i = +d; [L[i + 1], L[i]] = [L[i], L[i + 1]]; }
   else return;
   dessinerDispo(); aChange();

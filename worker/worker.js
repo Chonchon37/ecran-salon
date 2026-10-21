@@ -30,7 +30,7 @@ const FLUX_ALERTES = 'https://data.filbleu.fr/ws-tr/gtfs-rt/opendata/service-ale
 const FLUX_INCIDENTS = 'https://www.filbleu.fr/rss-incident.xml';   // l'info trafic du site filbleu.fr (travaux, déviations…)
 const NOMS_ARRETS = { 'A': 'Monconseil', '2': 'Maréchal Juin' };
 const CACHE_SECONDES = 20;
-const VERSION = '16';   // à changer à chaque mise à jour du code : vide les caches
+const VERSION = '17';   // à changer à chaque mise à jour du code : vide les caches
 
 // Horaires prévus, format compact : "jours" = n° de grille pour chaque jour depuis "debut",
 // chaque ligne "g=" = minutes depuis minuit, écrites en écarts successifs.
@@ -664,7 +664,9 @@ function nettoyerReglages(r) {
     if (!t || !TUILES.includes(t.id) || vuesT.has(t.id)) continue;
     vuesT.add(t.id);
     const h = Math.round(Number(t.h) * 2) / 2;   // par demi-rangée : 0,5 à 3
-    dispo.push({ id: t.id, l: entier(t.l, 1, 4, 1), h: isFinite(h) ? Math.min(3, Math.max(0.5, h)) : 1 });
+    const tu = { id: t.id, l: entier(t.l, 1, 4, 1), h: isFinite(h) ? Math.min(3, Math.max(0.5, h)) : 1 };
+    if (t.off) tu.off = true;   // tuile retirée de l'écran (gardée dans la liste pour pouvoir la remettre)
+    dispo.push(tu);
   }
   for (const t of D.accueil.disposition) if (!vuesT.has(t.id)) dispo.push(Object.assign({}, t));
   res.accueil = { disposition: dispo, moments: [] };

@@ -1086,7 +1086,7 @@ function afficher(){
   var A = null;
   for (var i = 0; i < DISPOSITION.length; i++) {
     var D = DISPOSITION[i];
-    if (!FABRIQUES[D.id] || !tuileVisible(D.id, now)) continue;
+    if (!FABRIQUES[D.id] || D.off || !tuileVisible(D.id, now)) continue;
     if (D.id === 'anniversaires') {
       A = anniversaires(now, D.h >= 2 ? 60 : 30);
       if (!A.liste.length && (!prive() || agendaReel)) continue;
@@ -1094,7 +1094,9 @@ function afficher(){
     visibles.push(D);
   }
   VISIBLES = {}; for (var vz = 0; vz < visibles.length; vz++) VISIBLES[visibles[vz].id] = true;
-  var P = placer(DISPOSITION, function(t){ return visibles.indexOf(t) < 0; });
+  // Les tuiles retirées (page admin) ne prennent aucune place ; celles masquées par un moment laissent leur vide
+  var actives = []; for (var ia = 0; ia < DISPOSITION.length; ia++) if (!DISPOSITION[ia].off) actives.push(DISPOSITION[ia]);
+  var P = placer(actives, function(t){ return visibles.indexOf(t) < 0; });
   for (var k = 0; k < P.places.length; k++) {
     var V = P.places[k];
     // classes : l1-l4 (colonnes), h1-h3 (rangées entières), demi (demi-rangée)
