@@ -175,7 +175,7 @@ function charger(){
   xhr.timeout = 25000;
   xhr.onload = function(){
     var j = null; try { j = JSON.parse(xhr.responseText); } catch (e) {}
-    if (xhr.status === 200 && j) { dernieres = j.evenements; afficher(convertir(dernieres)); }
+    if (xhr.status === 200 && j) { dernieres = j.evenements.filter(function(e){ return String(e.titre).indexOf('💼') < 0; }); afficher(convertir(dernieres)); }
     else if (!dernieres) $('week').innerHTML = '<div class="vide">Agenda indisponible : ' + echapper(j && j.erreur ? j.erreur : 'erreur ' + xhr.status) + '</div>';
   };
   xhr.send();

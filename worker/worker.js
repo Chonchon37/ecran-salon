@@ -2,7 +2,7 @@
  * Worker « ecran-salon » : les données de l'écran du salon.
  *
  *  /transports      Fil Bleu : horaires prévus + temps réel + alertes (public, open data)
- *  /agenda          Google Agenda : 14 prochains jours + anniversaires 🎂   (clé requise)
+ *  /agenda          Google Agenda : 14 prochains jours + anniversaires 🎂 + lieux de travail 💼   (clé requise)
  *  /maison          Home Assistant : lumières et scènes                     (clé requise)
  *  /maison/action   Home Assistant : allumer/éteindre, lancer une scène     (clé requise)
  *
@@ -30,7 +30,7 @@ const FLUX_ALERTES = 'https://data.filbleu.fr/ws-tr/gtfs-rt/opendata/service-ale
 const FLUX_INCIDENTS = 'https://www.filbleu.fr/rss-incident.xml';   // l'info trafic du site filbleu.fr (travaux, déviations…)
 const NOMS_ARRETS = { 'A': 'Monconseil', '2': 'Maréchal Juin' };
 const CACHE_SECONDES = 20;
-const VERSION = '15';   // à changer à chaque mise à jour du code : vide les caches
+const VERSION = '16';   // à changer à chaque mise à jour du code : vide les caches
 
 // Horaires prévus, format compact : "jours" = n° de grille pour chaque jour depuis "debut",
 // chaque ligne "g=" = minutes depuis minuit, écrites en écarts successifs.
@@ -374,6 +374,7 @@ function lireEvenements(ics, debutFenetreYmd) {
       else if (nom === 'DTEND') ev.fin = lireDateIcs(valeur, params);
       else if (nom === 'DURATION') ev.duree = dureeIso(valeur);
       else if (nom === 'SUMMARY') ev.titre = texteIcs(valeur);
+      else if (nom === 'LOCATION') ev.lieu = texteIcs(valeur);
       else if (nom === 'RRULE') ev.rrule = valeur;
       else if (nom === 'EXDATE') for (const x of valeur.split(',')) ev.exdates.push(versMs(lireDateIcs(x, params)));
       else if (nom === 'RECURRENCE-ID') ev.recurrence = versMs(lireDateIcs(valeur, params));
@@ -523,7 +524,7 @@ async function construireAgenda(env) {
   const remplacees = {};
   for (const e of evts) if (e.recurrence && e.uid) (remplacees[e.uid] = remplacees[e.uid] || new Set()).add(e.recurrence);
 
-  const agenda = [], anniversaires = [];
+  const agenda = [], anniversaires = [], travail = [];
   for (const e of evts) {
     const titre = e.titre || '(sans titre)';
     const estAnniv = titre.indexOf('🎂') === 0;
@@ -537,6 +538,10 @@ async function construireAgenda(env) {
         const an = /\b(19\d\d|20\d\d)\b/.exec(nom);
         nom = nom.replace(/\(?\b(19\d\d|20\d\d)\b\)?/, '').replace(/\s{2,}/g, ' ').trim();
         anniversaires.push({ nom: nom, date: t, annee: an ? +an[1] : 0 });
+      } else if (titre.indexOf('💼') >= 0) {
+        // 💼 = lieu de travail (de Flo) : mis à part, n'apparaît pas dans l'agenda
+        const lieu = titre.replace(/💼\uFE0F?/g, '').replace(/\s{2,}/g, ' ').trim() || e.lieu || 'Travail';
+        travail.push({ debut: t, fin: t + e.dureeMs, journee: !!e.debut.jour, lieu: lieu, adresse: e.lieu || '' });
       } else {
         agenda.push({ debut: t, fin: t + e.dureeMs, journee: !!e.debut.jour, titre: titre, agenda: e.agenda });
       }
@@ -552,10 +557,12 @@ async function construireAgenda(env) {
     else dejaVu.set(k, agenda[i]);
   }
   anniversaires.sort((a, b) => a.date - b.date);
+  travail.sort((a, b) => a.debut - b.debut);
+  for (let i = travail.length - 1; i > 0; i--) if (travail[i].debut === travail[i - 1].debut && travail[i].lieu === travail[i - 1].lieu) travail.splice(i, 1);
   // un anniversaire n'apparaît qu'une fois (le prochain)
   const vus = new Set(), annivUniques = [];
   for (const a of anniversaires) { if (vus.has(a.nom)) continue; vus.add(a.nom); annivUniques.push(a); }
-  return { maj: maintenant, aujourdhui: aujourdhui, agendas: sources.map(x => ({ cle: x.cle, nom: x.nom })), agendasEnErreur: agendasEnErreur, evenements: agenda.slice(0, 200), anniversaires: annivUniques.slice(0, 12) };
+  return { maj: maintenant, aujourdhui: aujourdhui, agendas: sources.map(x => ({ cle: x.cle, nom: x.nom })), agendasEnErreur: agendasEnErreur, evenements: agenda.slice(0, 200), anniversaires: annivUniques.slice(0, 12), travail: travail.slice(0, 60) };
 }
 
 /* =====================================================================
@@ -571,14 +578,15 @@ const LUMIERES_MASQUEES = /segment/i;
 /* =====================================================================
    RÉGLAGES (modifiables depuis la page admin, stockés dans Cloudflare KV)
    ===================================================================== */
-const SLIDES_CONNUES = { accueil: 'Accueil', meteo: 'Météo', transports: 'Transports', agenda: 'Agenda', maison: 'Maison', anniversaires: 'Anniversaires' };
+const SLIDES_CONNUES = { accueil: 'Accueil', meteo: 'Météo', transports: 'Transports', agenda: 'Agenda', maison: 'Maison', anniversaires: 'Anniversaires', travail: 'Travail' };
 const REGLAGES_DEFAUT = {
   rotation: {
     pause: 90,
     slides: [
       { id: 'accueil', actif: true, duree: 40 }, { id: 'meteo', actif: true, duree: 30 },
       { id: 'transports', actif: true, duree: 30 }, { id: 'agenda', actif: true, duree: 30 },
-      { id: 'maison', actif: true, duree: 30 }, { id: 'anniversaires', actif: true, duree: 30 }
+      { id: 'maison', actif: true, duree: 30 }, { id: 'anniversaires', actif: true, duree: 30 },
+      { id: 'travail', actif: false, onglet: true, duree: 30 }
     ],
     // Écran fixe selon l'heure (jours : 0 = dimanche … 6 = samedi)
     plages: [{ debut: '07:00', fin: '09:00', jours: [1, 2, 3, 4, 5], page: 'transports' }]
@@ -590,7 +598,8 @@ const REGLAGES_DEFAUT = {
     // Tuiles de l'accueil, dans l'ordre : largeur l (1-4 colonnes) et hauteur h (1-3 rangées)
     disposition: [
       { id: 'date', l: 1, h: 1 }, { id: 'transports', l: 2, h: 1 }, { id: 'anniversaires', l: 1, h: 1 },
-      { id: 'meteo', l: 1, h: 2 }, { id: 'agenda', l: 3, h: 1.5 }, { id: 'maison', l: 3, h: 0.5 }
+      { id: 'meteo', l: 1, h: 2 }, { id: 'agenda', l: 3, h: 1.5 }, { id: 'maison', l: 3, h: 0.5 },
+      { id: 'travail', l: 1, h: 0.5 }
     ],
     moments: [
     { nom: 'Soir', debut: '21:00', fin: '05:00', tuiles: { meteo: true, transports: false, anniversaires: true, agenda: true, maison: true }, demain: true }
@@ -649,7 +658,7 @@ function nettoyerReglages(r) {
     const so = acc.soir;
     brutsMoments = so ? (so.actif === false ? [] : [{ nom: 'Soir', debut: so.debut, fin: so.fin, tuiles: { transports: !!so.transports }, demain: true }]) : D.accueil.moments;
   }
-  const TUILES = ['date', 'meteo', 'transports', 'anniversaires', 'agenda', 'maison'];
+  const TUILES = ['date', 'meteo', 'transports', 'anniversaires', 'agenda', 'maison', 'travail'];
   const dispo = [], vuesT = new Set();
   for (const t of Array.isArray(acc.disposition) ? acc.disposition : []) {
     if (!t || !TUILES.includes(t.id) || vuesT.has(t.id)) continue;

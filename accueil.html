@@ -157,6 +157,27 @@ body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;fon
 .ev-j{font-size:17px;font-weight:700;color:var(--muted);flex:none;margin-right:10px}
 .demi .ev-n{display:block;white-space:nowrap;text-overflow:ellipsis}
 
+/* Travail (💼) */
+.tv-t{font-size:17px;font-weight:700;color:var(--muted);flex:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tv-t i{font-style:normal;margin-right:6px}
+.tv-l{font-size:32px;font-weight:600;line-height:1.08;margin-top:6px;flex:none;color:var(--ink);overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;word-break:break-word;border-left:6px solid var(--p2);padding-left:12px}
+.tv-l.repos{color:var(--muted);border-left-color:var(--line)}
+.tv-h{font-size:19px;font-weight:700;margin-top:6px;flex:none;padding-left:18px}
+.tv-suite{margin-top:12px;border-top:1.5px solid var(--line);padding-top:6px;flex:0 1 auto;min-height:0;overflow:hidden}
+.tv-r{display:flex;align-items:baseline;font-size:19px;line-height:1.6}
+.tv-j{width:76px;flex:none;color:var(--muted);font-weight:700;margin-right:10px;white-space:nowrap}
+.tv-n{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}
+.tv-r.repos .tv-n{color:var(--muted);font-weight:400}
+.tv-large{flex-direction:row !important}
+.tv-large .tv-hero{width:46%;flex:none;display:flex;flex-direction:column;justify-content:center;padding-right:22px;min-width:0}
+.tv-large .tv-suite{flex:1;margin:0;border-top:0;border-left:1.5px solid var(--line);padding:0 0 0 22px;max-height:100%}
+.tv-ligne{display:flex;flex-wrap:wrap;align-items:baseline;overflow:hidden;max-height:36px;line-height:34px;margin-top:2px}
+.demi .tv-t{font-size:15px}
+.tv-c{font-size:20px;margin-right:22px;white-space:nowrap;color:var(--muted)}
+.tv-c b{font-size:24px;font-weight:700;color:var(--ink)}
+.tv-c.p b{border-left:5px solid var(--p2);padding-left:10px;display:inline-block;max-width:100%;overflow:hidden;text-overflow:ellipsis;vertical-align:bottom}
+.tv-c.p{max-width:100%;overflow:hidden}
+
 /* Maison */
 .home-s{font-size:19px;font-weight:600;flex:none}
 .sc{display:flex;flex-wrap:wrap;align-content:stretch;margin:-5px;min-height:0}
@@ -212,8 +233,10 @@ var CONFIG = {
 // Disposition par défaut (modifiable dans la page admin) : ordre, largeur l (1-4 colonnes), hauteur h (1-3 rangées)
 var DISPOSITION = [
   { id: 'date', l: 1, h: 1 }, { id: 'transports', l: 2, h: 1 }, { id: 'anniversaires', l: 1, h: 1 },
-  { id: 'meteo', l: 1, h: 2 }, { id: 'agenda', l: 3, h: 1.5 }, { id: 'maison', l: 3, h: 0.5 }
+  { id: 'meteo', l: 1, h: 2 }, { id: 'agenda', l: 3, h: 1.5 }, { id: 'maison', l: 3, h: 0.5 },
+  { id: 'travail', l: 1, h: 0.5 }
 ];
+var PRENOM_FLO = 'Flo';   // remplacé par le prénom réglé dans la page admin
 /* ==================================================== */
 
 function param(n){ var m = new RegExp('[?&]' + n + '=([^&#]*)').exec(location.search); return m ? decodeURIComponent(m[1]) : null; }
@@ -726,6 +749,7 @@ function tuileAgenda(T, now, l, h){
   if (agendaReel && agendaReel.evenements) {
     for (var e = 0; e < agendaReel.evenements.length; e++) {
       var E = agendaReel.evenements[e], dd = new Date(E.debut);
+      if (String(E.titre).indexOf('💼') >= 0) continue;                    // lieu de travail : tuile à part
       for (d = 0; d < NBJ; d++) {
         var a = debutJour(d), b = debutJour(d + 1);
         if (E.debut >= b || E.fin <= a) continue;                        // ne touche pas ce jour
@@ -803,6 +827,72 @@ function tuileAgenda(T, now, l, h){
     der.appendChild(plus);
     while (deborde(der) && der.childNodes.length > 1) { der.removeChild(der.childNodes[der.childNodes.length - 2]); restants++; plus.innerHTML = '+ ' + restants + ' autres'; }
   }
+}
+
+/* ---------- Tuile Travail : lieux 💼 de l'agenda ---------- */
+function joursTravail(now){
+  var J = [], d, base = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  function debutJ(k){ return new Date(base.getFullYear(), base.getMonth(), base.getDate() + k).getTime(); }
+  for (d = 0; d < 14; d++) J.push({ date: new Date(debutJ(d)), liste: [] });
+  if (agendaReel && agendaReel.travail) {
+    for (var i = 0; i < agendaReel.travail.length; i++) {
+      var E = agendaReel.travail[i];
+      for (d = 0; d < 14; d++) {
+        var a = debutJ(d), b = debutJ(d + 1);
+        if (E.debut >= b || E.fin <= a) continue;
+        if (!E.journee && E.debut < a) continue;
+        J[d].liste.push(E);
+      }
+    }
+  } else if (!prive()) {
+    // exemple : du lundi au vendredi
+    for (d = 0; d < 14; d++) { var w = J[d].date.getDay(); if (w > 0 && w < 6) { var t = debutJ(d); J[d].liste.push({ debut: t + 8.5 * 3600000, fin: t + 17 * 3600000, journee: false, lieu: w === 3 ? 'Siège · Chambray' : 'Agence Tours Nord' }); } }
+  }
+  return J;
+}
+function lieuxDu(j){ var n = []; for (var i = 0; i < j.liste.length; i++) if (n.indexOf(j.liste[i].lieu) < 0) n.push(j.liste[i].lieu); return n.join(' puis '); }
+function heuresDu(j){
+  var a = null, b = null;
+  for (var i = 0; i < j.liste.length; i++) { var E = j.liste[i]; if (E.journee) continue; if (a === null || E.debut < a) a = E.debut; if (b === null || E.fin > b) b = E.fin; }
+  if (a === null) return '';
+  function f(t){ var x = new Date(t); return pad(x.getHours()) + ' h ' + pad(x.getMinutes()); }
+  return f(a) + ' – ' + f(b);
+}
+// Jour mis en avant : aujourd'hui, ou demain une fois la journée de travail finie (ou le soir)
+function jourTravailVise(J, now){
+  var hr = now.getHours(), L = J[0].liste, fini = L.length > 0;
+  for (var i = 0; i < L.length; i++) if (L[i].journee || L[i].fin > now.getTime()) fini = false;
+  return (fini || hr >= 19 || (demainDabord(now) && hr >= 12)) ? 1 : 0;
+}
+function tuileTravail(T, now, l, h){
+  T.className += ' tv lien'; T.setAttribute('data-page', 'travail');
+  if (prive() && !agendaReel) { T.innerHTML = '<div class="vide">Chargement…</div>'; return; }
+  var J = joursTravail(now), k0 = jourTravailVise(J, now), V = J[k0];
+  var quand = k0 === 0 ? 'aujourd\'hui' : 'demain', lieu = lieuxDu(V), heures = heuresDu(V);
+  function court(k){ return k === 1 ? 'Dem.' : JOURS_C[J[k].date.getDay()] + ' ' + J[k].date.getDate(); }
+  if (h < 1) {
+    var html = '<span class="tv-c p"><b>' + (lieu ? echapper(lieu) : 'Repos') + '</b></span>';
+    for (var u = k0 + 1; u < 14; u++) html += '<span class="tv-c">' + court(u) + ' ' + (lieuxDu(J[u]) ? '<b>' + echapper(lieuxDu(J[u])) + '</b>' : 'repos') + '</span>';
+    T.innerHTML = '<div class="tv-t"><i>💼</i>' + echapper(PRENOM_FLO) + ' ' + quand + (heures ? ' · ' + heures : '') + '</div><div class="tv-ligne">' + html + '</div>';
+    var LG = T.querySelector('.tv-ligne'), cs = LG.querySelectorAll('.tv-c'), suite = [];
+    for (var v = 1; v < cs.length; v++) suite.push(cs[v]);
+    // on ne garde que ce qui tient sur la ligne
+    for (var z = suite.length - 1; z >= 0 && LG.scrollHeight > 38; z--) suite[z].style.display = 'none';
+    return;
+  }
+  var hero = '<div class="tv-t"><i>💼</i>' + echapper(PRENOM_FLO) + ' ' + quand + '</div>' +
+    '<div class="tv-l h' + (lieu ? '' : ' repos') + '">' + (lieu ? echapper(lieu) : 'Repos') + '</div>' +
+    (heures ? '<div class="tv-h">' + heures + '</div>' : '');
+  var rows = '';
+  for (var k = k0 + 1; k < 14; k++) {
+    var n = lieuxDu(J[k]);
+    rows += '<div class="tv-r' + (n ? '' : ' repos') + '"><span class="tv-j">' + court(k) + '</span><span class="tv-n">' + (n ? echapper(n) : 'Repos') + '</span></div>';
+  }
+  if (l >= 2) T.className += ' tv-large';
+  T.innerHTML = (l >= 2 ? '<div class="tv-hero">' + hero + '</div>' : hero) + '<div class="tv-suite">' + rows + '</div>';
+  var S = T.querySelector('.tv-suite'), R = S.querySelectorAll('.tv-r');
+  for (var y = R.length - 1; y >= 0 && S.scrollHeight > S.clientHeight + 1; y--) R[y].style.display = 'none';
+  if (!l || l < 2) { if (S.clientHeight < 30) S.style.display = 'none'; }
 }
 
 /* ---------- Tuile Maison ---------- */
@@ -923,7 +1013,7 @@ function placer(liste, masquee){
 }
 
 var VISIBLES = {};
-var FABRIQUES = { date: tuileDate, meteo: tuileMeteo, transports: tuileTransports, anniversaires: tuileAnniversaires, agenda: tuileAgenda, maison: tuileMaison };
+var FABRIQUES = { date: tuileDate, meteo: tuileMeteo, transports: tuileTransports, anniversaires: tuileAnniversaires, agenda: tuileAgenda, maison: tuileMaison, travail: tuileTravail };
 function afficher(){
   var now = new Date(), G = $('grille'), html = '', visibles = [];
   var A = null;
@@ -970,7 +1060,7 @@ window.addEventListener('message', function(e){
   if (!e.data || e.data.type !== 'reglages' || !e.data.value) return;
   var g = e.data.value, k;
   if (g.transports) for (k = 0; k < LIGNES.length; k++) { var t = g.transports[LIGNES[k].ligne]; if (t) { LIGNES[k].marche = t.marche; LIGNES[k].actif = t.actif; } }
-  if (g.agenda) { for (k in g.agenda.agendas) AGENDAS[k] = g.agenda.agendas[k]; }
+  if (g.agenda) { for (k in g.agenda.agendas) AGENDAS[k] = g.agenda.agendas[k]; if (g.agenda.personnes && g.agenda.personnes.flo) PRENOM_FLO = g.agenda.personnes.flo; }
   MESSAGE = g.message || '';
   if (g.accueil && g.accueil.moments) MOMENTS = g.accueil.moments;
   if (g.accueil && g.accueil.disposition && g.accueil.disposition.length) DISPOSITION = g.accueil.disposition;

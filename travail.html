@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1280">
+<title>Travail</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700&family=Figtree:wght@400;500;600;700&display=swap">
+<style>
+:root{
+  --bg:#E3E8DD; --card:#FAFBF8; --card2:#D9E0D1; --ink:#0F1712; --muted:#414D45; --line:#B7C1AF;
+  --p2:#94679A; --p2-soft:#EBDDEC; --warn:#BC6430; --warn-soft:#F2DCCB;
+}
+html.nuit{
+  --bg:#0B1016; --card:#18212A; --card2:#26323E; --ink:#F4F7F3; --muted:#AEBAB4; --line:#3A4856;
+  --p2:#C49BCB; --p2-soft:#33243A; --warn:#E38A52; --warn-soft:#3A2619;
+}
+html,body{margin:0;width:1280px;height:728px;overflow:hidden;background:var(--bg)}
+body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased;transition:background-color .8s,color .8s}
+.h{font-family:"Bricolage Grotesque",Figtree,Arial,sans-serif}
+.wrap{box-sizing:border-box;width:1280px;height:728px;padding:24px 36px;display:flex;flex-direction:column}
+.card{background:var(--card);border-radius:20px;box-sizing:border-box;padding:28px 34px;transition:background-color .8s}
+.label{font-size:15px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);display:flex;align-items:center}
+.demo{margin-left:10px;font-size:12px;letter-spacing:.06em;padding:3px 9px;border-radius:20px;background:var(--warn-soft);color:var(--warn)}
+
+.main{flex:1;display:flex;margin-top:16px;min-height:0}
+.hero{width:400px;flex:none;margin-right:16px;display:flex;flex-direction:column}
+.icone{width:96px;height:96px;border-radius:28px;background:var(--p2-soft);display:flex;align-items:center;justify-content:center;font-size:52px}
+.quand{font-size:26px;font-weight:700;color:var(--p2);margin-top:auto}
+.lieu{font-size:62px;font-weight:600;line-height:1;letter-spacing:-.02em;margin-top:10px;overflow-wrap:break-word;-webkit-hyphens:auto;hyphens:auto}
+.lieu.repos{color:var(--muted)}
+.heures{font-size:30px;font-weight:700;margin-top:16px}
+.adresse{font-size:20px;color:var(--muted);margin-top:10px;line-height:1.3}
+
+.sem{flex:1;display:flex;flex-direction:column;padding:22px 26px;min-width:0}
+.entete{display:flex;margin-top:12px}
+.entete div{flex:1;font-size:15px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);text-align:center}
+.grille{flex:1;display:flex;flex-direction:column;margin-top:6px;min-height:0}
+.ligne{flex:1;display:flex;min-height:0}
+.ligne + .ligne{margin-top:10px}
+.j{flex:1;min-width:0;margin:0 4px;border-radius:14px;background:var(--card2);padding:10px 8px;box-sizing:border-box;display:flex;flex-direction:column;overflow:hidden}
+.j b{font-family:"Bricolage Grotesque",Figtree,Arial,sans-serif;font-size:24px;line-height:1}
+.j b span{font-size:14px;font-weight:700;color:var(--muted);font-family:Figtree,Arial,sans-serif;margin-left:4px}
+.j .n{font-size:18px;font-weight:700;margin-top:8px;line-height:1.15;border-left:4px solid var(--p2);padding-left:6px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow-wrap:break-word;-webkit-hyphens:auto;hyphens:auto}
+.j .t{font-size:14px;font-weight:600;color:var(--muted);margin-top:auto;padding-top:4px;white-space:nowrap}
+.j .r{font-size:16px;color:var(--muted);margin-top:8px}
+.j.passe{opacity:.4}
+.j.auj{box-shadow:inset 0 0 0 3px var(--ink)}
+.j.vise{background:var(--p2-soft)}
+.j.weekend:not(.vise){background:transparent;box-shadow:inset 0 0 0 1.5px var(--line)}
+.j.weekend.auj{box-shadow:inset 0 0 0 3px var(--ink)}
+.vide{font-size:22px;color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="label" id="titre">Travail<span class="demo" id="demo">exemple</span></div>
+  <div class="main">
+    <div class="card hero" id="hero"></div>
+    <div class="card sem">
+      <div class="label">Deux semaines</div>
+      <div class="entete"><div>Lun.</div><div>Mar.</div><div>Mer.</div><div>Jeu.</div><div>Ven.</div><div>Sam.</div><div>Dim.</div></div>
+      <div class="grille" id="grille"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ===================== RÉGLAGES ===================== */
+// Lieux de travail : événements de Google Agenda dont le titre contient 💼 (ex. « 💼 Agence Tours Nord »).
+// Ils n'apparaissent pas dans l'agenda, seulement ici et dans la tuile Travail de l'accueil.
+var CONFIG = { WORKER: 'https://ecran-salon.nico-michon37.workers.dev/agenda', PRENOM: 'Flo' };
+/* ==================================================== */
+
+function param(n){ var m = new RegExp('[?&]' + n + '=([^&#]*)').exec(location.search); return m ? decodeURIComponent(m[1]) : null; }
+function pad(n){ return (n < 10 ? '0' : '') + n; }
+function themeAuto(){ var h = new Date().getHours(); return (h >= 19 || h < 7) ? 'nuit' : 'jour'; }
+function appliquerTheme(t){ if (!t || t === 'auto') t = themeAuto(); document.documentElement.className = t === 'nuit' ? 'nuit' : ''; }
+appliquerTheme(param('theme'));
+function signalerToucher(){ if (window.parent !== window) { try { window.parent.postMessage({ type: 'interaction' }, '*'); } catch (err) {} } }
+document.addEventListener('touchstart', signalerToucher, true);
+document.addEventListener('mousedown', signalerToucher, true);
+function $(id){ return document.getElementById(id); }
+function echapper(t){ return String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+var JOURS = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
+var MOIS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
+var MOIS_C = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
+var CLE = param('cle');
+function enDemo(){ return !CONFIG.WORKER || !CLE; }
+
+var travail = null;   // liste reçue du Worker : { debut, fin, journee, lieu, adresse }
+
+function exemple(){
+  var L = [], b = new Date(); b = new Date(b.getFullYear(), b.getMonth(), b.getDate());
+  for (var d = 0; d < 14; d++) {
+    var j = new Date(b.getFullYear(), b.getMonth(), b.getDate() + d), w = j.getDay();
+    if (w > 0 && w < 6) L.push({ debut: j.getTime() + 8.5 * 3600000, fin: j.getTime() + 17 * 3600000, journee: false, lieu: w === 3 ? 'Siège · Chambray' : 'Agence Tours Nord', adresse: '' });
+  }
+  return L;
+}
+function duJour(liste, j){
+  var a = j.getTime(), b = new Date(j.getFullYear(), j.getMonth(), j.getDate() + 1).getTime(), res = [];
+  for (var i = 0; i < liste.length; i++) {
+    var E = liste[i];
+    if (E.debut >= b || E.fin <= a) continue;
+    if (!E.journee && E.debut < a) continue;
+    res.push(E);
+  }
+  return res;
+}
+function lieux(L){ var n = []; for (var i = 0; i < L.length; i++) if (n.indexOf(L[i].lieu) < 0) n.push(L[i].lieu); return n.join(' puis '); }
+function heures(L, court){
+  var a = null, b = null;
+  for (var i = 0; i < L.length; i++) { if (L[i].journee) continue; if (a === null || L[i].debut < a) a = L[i].debut; if (b === null || L[i].fin > b) b = L[i].fin; }
+  if (a === null) return '';
+  function f(t){ var x = new Date(t); return court ? x.getHours() + 'h' + (x.getMinutes() ? pad(x.getMinutes()) : '') : pad(x.getHours()) + ' h ' + pad(x.getMinutes()); }
+  return f(a) + (court ? '–' : ' – ') + f(b);
+}
+
+function afficher(){
+  var now = new Date(), auj = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  var liste = travail || exemple();
+  $('titre').firstChild.nodeValue = 'Travail de ' + CONFIG.PRENOM;
+  $('demo').style.display = enDemo() ? '' : 'none';
+  // Jour mis en avant : aujourd'hui, ou demain une fois la journée finie (ou à partir de 19 h)
+  var L0 = duJour(liste, auj), fini = L0.length > 0;
+  for (var i = 0; i < L0.length; i++) if (L0[i].journee || L0[i].fin > now.getTime()) fini = false;
+  var k0 = (fini || now.getHours() >= 19) ? 1 : 0;
+  var vise = new Date(auj.getFullYear(), auj.getMonth(), auj.getDate() + k0), LV = duJour(liste, vise), n = lieux(LV), hr = heures(LV, false);
+  var adr = []; for (var a = 0; a < LV.length; a++) if (LV[a].adresse && LV[a].adresse !== LV[a].lieu && adr.indexOf(LV[a].adresse) < 0) adr.push(LV[a].adresse);
+  $('hero').innerHTML = '<div class="icone">💼</div>' +
+    '<div class="quand h">' + (k0 ? 'Demain' : 'Aujourd\'hui') + ' · ' + JOURS[vise.getDay()] + ' ' + vise.getDate() + '</div>' +
+    '<div class="lieu h' + (n ? '' : ' repos') + '">' + (n ? echapper(n) : 'Repos') + '</div>' +
+    (hr ? '<div class="heures">' + hr + '</div>' : '') +
+    (adr.length ? '<div class="adresse">' + echapper(adr.join(' · ')) + '</div>' : '');
+  // Deux semaines, du lundi de cette semaine
+  var lundi = new Date(auj.getFullYear(), auj.getMonth(), auj.getDate() - (auj.getDay() + 6) % 7), html = '';
+  for (var s = 0; s < 2; s++) {
+    html += '<div class="ligne">';
+    for (var d = 0; d < 7; d++) {
+      var j = new Date(lundi.getFullYear(), lundi.getMonth(), lundi.getDate() + s * 7 + d), passe = j < auj, Lj = passe ? [] : duJour(liste, j), nj = lieux(Lj);
+      var cl = 'j' + (passe ? ' passe' : '') + (j.getTime() === auj.getTime() ? ' auj' : '') + (j.getTime() === vise.getTime() ? ' vise' : '') + (d >= 5 ? ' weekend' : '');
+      html += '<div class="' + cl + '"><b>' + j.getDate() + (j.getDate() === 1 || (s === 0 && d === 0) ? '<span>' + MOIS_C[j.getMonth()] + '</span>' : '') + '</b>' +
+        (passe ? '' : (nj ? '<div class="n">' + echapper(nj) + '</div><div class="t">' + heures(Lj, true) + '</div>' : '<div class="r">Repos</div>')) + '</div>';
+    }
+    html += '</div>';
+  }
+  $('grille').innerHTML = html;
+}
+
+function charger(){
+  if (enDemo()) { afficher(); return; }
+  var xhr = new XMLHttpRequest();
+  xhr.open('GET', CONFIG.WORKER + '?cle=' + encodeURIComponent(CLE), true);
+  xhr.timeout = 25000;
+  xhr.onload = function(){
+    var j = null; try { j = JSON.parse(xhr.responseText); } catch (e) {}
+    if (xhr.status === 200 && j) { travail = j.travail || []; afficher(); }
+    else if (!travail) $('hero').innerHTML = '<div class="vide">Lieux de travail indisponibles : ' + echapper(j && j.erreur ? j.erreur : 'erreur ' + xhr.status) + '</div>';
+  };
+  xhr.send();
+}
+window.addEventListener('message', function(e){
+  if (!e.data) return;
+  if (e.data.type === 'theme') appliquerTheme(e.data.value);
+  if (e.data.type === 'reglages' && e.data.value && e.data.value.agenda && e.data.value.agenda.personnes) { CONFIG.PRENOM = e.data.value.agenda.personnes.flo || CONFIG.PRENOM; afficher(); }
+});
+charger();
+setInterval(charger, 15 * 60000);
+setInterval(afficher, 5 * 60000);
+</script>
+</body>
+</html>

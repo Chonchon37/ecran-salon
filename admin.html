@@ -251,7 +251,7 @@ button.discret{background:transparent;color:var(--muted);padding:8px 10px;font-s
 
 <script>
 const WORKER = 'https://ecran-salon.nico-michon37.workers.dev';
-const NOMS_SLIDES = { accueil: 'Accueil', meteo: 'Météo', transports: 'Transports', agenda: 'Agenda', maison: 'Maison', anniversaires: 'Anniversaires' };
+const NOMS_SLIDES = { accueil: 'Accueil', meteo: 'Météo', transports: 'Transports', agenda: 'Agenda', maison: 'Maison', anniversaires: 'Anniversaires', travail: 'Travail 💼' };
 const LIGNES = { A: 'Tram A · Monconseil', '2': 'Bus 2 · Maréchal Juin' };
 const $ = id => document.getElementById(id);
 const echapper = t => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -321,8 +321,8 @@ $('veilleDebut').addEventListener('change', () => { R.reglages.veille.debut = $(
 $('veilleFin').addEventListener('change', () => { R.reglages.veille.fin = $('veilleFin').value; aChange(); });
 $('reveil').addEventListener('change', () => { R.reglages.veille.reveil = +$('reveil').value; aChange(); });
 /* ---------- Taille des tuiles de l'accueil ---------- */
-const NOMS_TUILES = { date: 'Date & message', meteo: 'Météo', transports: 'Transports', anniversaires: 'Anniversaires', agenda: 'Agenda', maison: 'Maison' };
-const DISPO_ORIGINE = [{ id: 'date', l: 1, h: 1 }, { id: 'transports', l: 2, h: 1 }, { id: 'anniversaires', l: 1, h: 1 }, { id: 'meteo', l: 1, h: 2 }, { id: 'agenda', l: 3, h: 1.5 }, { id: 'maison', l: 3, h: 0.5 }];
+const NOMS_TUILES = { date: 'Date & message', meteo: 'Météo', transports: 'Transports', anniversaires: 'Anniversaires', agenda: 'Agenda', maison: 'Maison', travail: 'Travail 💼' };
+const DISPO_ORIGINE = [{ id: 'date', l: 1, h: 1 }, { id: 'transports', l: 2, h: 1 }, { id: 'anniversaires', l: 1, h: 1 }, { id: 'meteo', l: 1, h: 2 }, { id: 'agenda', l: 3, h: 1.5 }, { id: 'maison', l: 3, h: 0.5 }, { id: 'travail', l: 1, h: 0.5 }];
 function dispo() { return R.reglages.accueil.disposition || (R.reglages.accueil.disposition = JSON.parse(JSON.stringify(DISPO_ORIGINE))); }
 // Même placement que sur l'écran (accueil.html)
 // Placement des tuiles sur 4 colonnes × 3 rangées (on place d'abord toutes les tuiles réglées) :
@@ -460,7 +460,7 @@ $('dispo').addEventListener('change', e => {
 $('dispoOrigine').addEventListener('click', () => { R.reglages.accueil.disposition = JSON.parse(JSON.stringify(DISPO_ORIGINE)); dessinerDispo(); aChange(); });
 
 /* ---------- Accueil selon le moment de la journée ---------- */
-const TUILES = [['date', 'Date'], ['meteo', 'Météo'], ['transports', 'Transports'], ['anniversaires', 'Anniversaires'], ['agenda', 'Agenda'], ['maison', 'Maison']];
+const TUILES = [['date', 'Date'], ['meteo', 'Météo'], ['transports', 'Transports'], ['anniversaires', 'Anniversaires'], ['agenda', 'Agenda'], ['maison', 'Maison'], ['travail', 'Travail 💼']];
 function moments() { return R.reglages.accueil.moments || (R.reglages.accueil.moments = []); }
 function dessinerMoments() {
   const M = moments();
@@ -483,7 +483,7 @@ function dessinerMoments() {
 $('ajouterMoment').addEventListener('click', () => {
   const M = moments();
   if (M.length >= 6) { alerteEtat('6 moments au maximum.'); return; }
-  M.push({ nom: 'Matin', debut: '06:30', fin: '09:00', tuiles: { date: true, meteo: true, transports: true, anniversaires: false, agenda: true, maison: false }, demain: false });
+  M.push({ nom: 'Matin', debut: '06:30', fin: '09:00', tuiles: { date: true, meteo: true, transports: true, anniversaires: false, agenda: true, maison: false, travail: true }, demain: false });
   dessinerMoments(); dessinerDispo(); aChange();
 });
 $('moments').addEventListener('click', e => {
@@ -718,7 +718,7 @@ function majResume() {
   const plage = (g.rotation.plages || []).find(p => p.jours.includes(n.getDay()) && dansPlage(p.debut, p.fin, m));
   morceaux.push(['Pages', plage ? NOMS_SLIDES[plage.page] + ' en fixe jusqu\'à ' + plage.fin.replace(':', ' h ') : g.rotation.slides.filter(s => s.actif).length + ' en rotation']);
   const mo = (g.accueil.moments || []).find(x => dansPlage(x.debut, x.fin, m));
-  const NT = { meteo: 'météo', transports: 'transports', anniversaires: 'anniversaires', agenda: 'agenda', maison: 'maison' };
+  const NT = { meteo: 'météo', transports: 'transports', anniversaires: 'anniversaires', agenda: 'agenda', maison: 'maison', travail: 'travail' };
   morceaux.push(['Accueil', mo ? '« ' + mo.nom + ' » : ' + Object.keys(NT).filter(k => mo.tuiles[k]).map(k => NT[k]).join(', ') + (mo.demain ? ' · demain d\'abord' : '') : 'toutes les tuiles']);
   const th = g.theme.mode;
   morceaux.push(['Thème', th === 'jour' ? 'toujours clair' : th === 'nuit' ? 'toujours sombre' : th === 'soleil' ? 'selon le soleil' : 'sombre de ' + g.theme.nuitDebut + ' h à ' + g.theme.nuitFin + ' h']);
