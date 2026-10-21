@@ -80,6 +80,29 @@ body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;fon
 .wx-puces{display:flex;flex-wrap:wrap;margin:-4px}
 .wx-puces span{margin:4px;padding:7px 12px;border-radius:12px;background:var(--card2);font-size:17px;font-weight:600;white-space:nowrap}
 .wx-puces b{color:var(--muted);font-weight:600;margin-right:3px}
+/* Grande tuile météo */
+.wg-haut{display:flex;align-items:center;flex:none}
+.wg-temp{display:flex;align-items:center;flex:none}
+.wg-temp span{font-size:92px;font-weight:600;line-height:1;letter-spacing:-.03em;margin-left:4px}
+.wx-grande.h1 .wg-temp span{font-size:74px}
+.wg-info{margin-left:26px;min-width:0}
+.wg-lib{font-size:28px;font-weight:600;line-height:1.1}
+.wg-det{font-size:18px;color:var(--muted);margin-top:5px;line-height:1.3}
+.wg-det b{color:var(--ink)}
+.wg-pluie{flex:none}
+.wg-pluie .alert{margin-top:12px}
+.wx-grande .vigi{flex:none;margin-top:12px}
+.wg-titre{flex:none;margin-top:14px;font-size:14px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.wg-courbe{flex:1;min-height:0;margin-top:4px;overflow:hidden}
+.wg-courbe svg{display:block}
+.wg-jours{flex:none;display:flex;margin:10px -5px 0}
+.wg-j{flex:1;min-width:0;margin:0 5px;padding:6px 10px;border-radius:14px;background:var(--card2);display:flex;align-items:center;justify-content:center;white-space:nowrap}
+.wg-j svg{margin:0 6px;flex:none}
+.wg-jn{font-size:17px;font-weight:700}
+.wg-jt{font-size:18px;color:var(--muted)}
+.wg-jt b{color:var(--ink)}
+.wg-jp{font-size:15px;font-weight:700;color:var(--rain);margin-left:6px}
+.wg-jp:empty{display:none}
 .jours-p{border-top:2px solid var(--line);margin-top:12px;padding-top:8px}
 .jp{display:flex;align-items:center;font-size:19px;line-height:1.9}
 .jp-n{width:70px;font-weight:600}
@@ -279,8 +302,8 @@ function chargerMeteo(){
   if (!CONFIG.METEO_REELLE) return;
   lireJson('https://api.open-meteo.com/v1/forecast?latitude=' + CONFIG.LAT + '&longitude=' + CONFIG.LON +
     '&current=temperature_2m,weather_code,is_day,apparent_temperature,wind_speed_10m,wind_direction_10m,relative_humidity_2m&minutely_15=precipitation&forecast_minutely_15=26' +
-    '&hourly=temperature_2m,weather_code,is_day,precipitation&forecast_hours=36' +
-    '&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=Europe%2FParis&forecast_days=5', function(j){ meteo = j; afficher(); });
+    '&hourly=temperature_2m,weather_code,is_day,precipitation,precipitation_probability&forecast_hours=40' +
+    '&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset&timezone=Europe%2FParis&forecast_days=5', function(j){ meteo = j; afficher(); });
 }
 function chargerTransports(){ if (CONFIG.WORKER_TRANSPORTS) lireJson(CONFIG.WORKER_TRANSPORTS, function(j){ transportsReels = j; afficher(); }); }
 function chargerAgenda(){ if (prive()) lireJson(CONFIG.WORKER + '/agenda?cle=' + encodeURIComponent(CLE), function(j){ agendaReel = j; afficher(); }); }
@@ -427,7 +450,100 @@ function heuresPrevues(now, nb){
   }
   return { titre: titre, liste: res };
 }
+/* ---------- Grande tuile météo : courbe des températures et de la pluie ---------- */
+function libelleMeteo(c, jour){
+  if (c === 0) return jour ? 'Ensoleillé' : 'Ciel dégagé';
+  if (c === 1) return 'Peu nuageux'; if (c === 2) return 'Éclaircies'; if (c === 3) return 'Couvert';
+  if (c === 45 || c === 48) return 'Brouillard'; if (c >= 51 && c <= 57) return 'Bruine';
+  if (c >= 61 && c <= 67) return 'Pluie'; if (c >= 71 && c <= 77) return 'Neige';
+  if (c >= 80 && c <= 82) return 'Averses'; if (c >= 95) return 'Orage';
+  return '';
+}
+// Heures pour la courbe : à partir de maintenant, ou demain de 6 h à 23 h quand « demain d'abord »
+function serieHeures(now, n, demain){
+  var H = meteo.hourly, res = [], debut = new Date(now.getTime()), i;
+  debut.setMinutes(0, 0, 0);
+  if (demain) debut = new Date(now.getFullYear(), now.getMonth(), now.getDate() + (now.getHours() >= 12 ? 1 : 0), 6);
+  for (i = 0; i < H.time.length && res.length < n; i++) {
+    var d = lireDate(H.time[i]);
+    if (d < debut) continue;
+    res.push({ t: d, temp: H.temperature_2m[i], code: H.weather_code[i], jour: H.is_day[i] === 1, pluie: H.precipitation[i] || 0, proba: H.precipitation_probability ? (H.precipitation_probability[i] || 0) : 0 });
+  }
+  return res;
+}
+function courbe(S, W, Ht, maintenant){
+  if (S.length < 2 || W < 100 || Ht < 80) return '';
+  // Les icônes et les pourcentages ne s'affichent que si la courbe a assez de hauteur
+  var avecIcones = Ht >= 165, g = 28, haut = avecIcones ? 58 : 30, bas = 24, pluieH = Math.min(40, Ht * 0.22);
+  var y0 = haut, y1 = Ht - bas - pluieH - 8, n = S.length, pasX = (W - 2 * g) / (n - 1), i;
+  var tmin = 99, tmax = -99;
+  for (i = 0; i < n; i++) { tmin = Math.min(tmin, S[i].temp); tmax = Math.max(tmax, S[i].temp); }
+  if (tmax - tmin < 4) { var mil = (tmax + tmin) / 2; tmin = mil - 2; tmax = mil + 2; }
+  var X = function(k){ return g + k * pasX; }, Y = function(t){ return y1 - (t - tmin) / (tmax - tmin) * (y1 - y0); };
+  var svg = '<svg width="' + W + '" height="' + Ht + '" viewBox="0 0 ' + W + ' ' + Ht + '">' +
+    '<defs><linearGradient id="degrade" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--sun)" stop-opacity=".28"/><stop offset="1" stop-color="var(--sun)" stop-opacity="0"/></linearGradient></defs>';
+  // Pluie : barres bleues en bas (mm par heure, plafonnées à 4 mm)
+  var basPluie = Ht - bas;
+  for (i = 0; i < n; i++) {
+    var mm = Math.min(4, S[i].pluie), hb = mm >= 0.05 ? Math.max(3, mm / 4 * pluieH) : 0;
+    if (hb) svg += '<rect x="' + (X(i) - pasX * 0.32).toFixed(1) + '" y="' + (basPluie - hb).toFixed(1) + '" width="' + (pasX * 0.64).toFixed(1) + '" height="' + hb.toFixed(1) + '" rx="3" fill="var(--rain)" opacity=".85"/>';
+  }
+  svg += '<line x1="' + g + '" y1="' + basPluie + '" x2="' + (W - g) + '" y2="' + basPluie + '" stroke="var(--line)" stroke-width="2"/>';
+  // Courbe des températures avec un léger dégradé dessous
+  var pts = '', aire = 'M' + X(0).toFixed(1) + ' ' + y1;
+  for (i = 0; i < n; i++) { pts += (i ? ' ' : '') + X(i).toFixed(1) + ',' + Y(S[i].temp).toFixed(1); aire += ' L' + X(i).toFixed(1) + ' ' + Y(S[i].temp).toFixed(1); }
+  aire += ' L' + X(n - 1).toFixed(1) + ' ' + y1 + ' Z';
+  svg += '<path d="' + aire + '" fill="url(#degrade)"/><polyline points="' + pts + '" fill="none" stroke="var(--sun)" stroke-width="3.5" stroke-linejoin="round" stroke-linecap="round"/>';
+  // Repères : une étiquette toutes les « k » heures selon la largeur
+  var k = Math.max(1, Math.ceil(n / Math.floor(W / 72)));
+  for (i = 0; i < n; i += k) {
+    var x = X(i), y = Y(S[i].temp);
+    svg += '<circle cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="4.5" fill="var(--card)" stroke="var(--sun)" stroke-width="3"/>' +
+      '<text x="' + x.toFixed(1) + '" y="' + (y - 11).toFixed(1) + '" text-anchor="middle" font-size="19" font-weight="700" fill="var(--ink)">' + Math.round(S[i].temp) + '°</text>' +
+      (avecIcones ? '<g transform="translate(' + (x - 15).toFixed(1) + ',0)">' + iconeMeteo(S[i].code, S[i].jour, 30) + '</g>' : '') +
+      '<text x="' + x.toFixed(1) + '" y="' + (Ht - 5) + '" text-anchor="middle" font-size="16" font-weight="600" fill="var(--muted)">' + (i === 0 && maintenant ? 'Maint.' : S[i].t.getHours() + ' h') + '</text>';
+    if (avecIcones && S[i].proba >= 30 && S[i].pluie >= 0.05) svg += '<text x="' + x.toFixed(1) + '" y="' + (basPluie - Math.min(4, S[i].pluie) / 4 * pluieH - 5).toFixed(1) + '" text-anchor="middle" font-size="14" font-weight="700" fill="var(--rain)">' + S[i].proba + '%</text>';
+  }
+  return svg + '</svg>';
+}
+function tuileMeteoGrande(T, now, l, h){
+  T.className += ' lien wx-grande'; T.setAttribute('data-page', 'meteo');
+  var c = meteo.current, D = meteo.daily, demain = demainDabord(now) || (now.getHours() < 5 && !momentActif(now));
+  var vent = Math.round(c.wind_speed_10m) + ' km/h ' + ['N', 'NE', 'E', 'SE', 'S', 'SO', 'O', 'NO'][Math.round(c.wind_direction_10m / 45) % 8];
+  // Prochain lever ou coucher du soleil
+  var astre = '';
+  if (D.sunrise && D.sunset) {
+    var lev = lireDate(D.sunrise[0]), cou = lireDate(D.sunset[0]), lev2 = D.sunrise[1] ? lireDate(D.sunrise[1]) : null;
+    if (now < lev) astre = 'Lever ' + hhTxt(lev); else if (now < cou) astre = 'Coucher ' + hhTxt(cou); else if (lev2) astre = 'Lever ' + hhTxt(lev2);
+  }
+  var html = '<div class="wg-haut">' +
+    '<div class="wg-temp">' + iconeMeteo(c.weather_code, c.is_day === 1, h < 2 ? 76 : 96) + '<span class="h">' + Math.round(c.temperature_2m) + '°</span></div>' +
+    '<div class="wg-info"><div class="wg-lib">' + libelleMeteo(c.weather_code, c.is_day === 1) + '</div>' +
+    '<div class="wg-det">Ressenti ' + Math.round(c.apparent_temperature) + '° · ' + Math.round(D.temperature_2m_min[0]) + '° / <b>' + Math.round(D.temperature_2m_max[0]) + '°</b></div>' +
+    '<div class="wg-det">' + vent + ' · humidité ' + Math.round(c.relative_humidity_2m) + ' %' + (astre ? ' · ' + astre : '') + '</div></div></div>' +
+    texteVigi() + '<div class="wg-pluie">' + textePluie(now) + '</div>' +
+    '<div class="wg-titre">' + (demain ? (now.getHours() >= 12 ? 'Demain' : 'Aujourd\'hui') : 'Prochaines heures') + '</div>' +
+    '<div class="wg-courbe"></div>';
+  if (h >= 2 && D.time) {
+    html += '<div class="wg-jours">';
+    var nbJ = Math.max(2, Math.min(4, Math.floor((T.clientWidth - 48) / 190)));   // autant de jours que la largeur le permet
+    for (var d = 1; d < D.time.length && d <= nbJ; d++) {
+      var dj = lireDate(D.time[d]);
+      html += '<div class="wg-j"><div class="wg-jn">' + (d === 1 ? 'Dem.' : JOURS_C[dj.getDay()]) + '</div>' + iconeMeteo(D.weather_code[d], true, 34) +
+        '<div class="wg-jt">' + Math.round(D.temperature_2m_min[d]) + '° <b>' + Math.round(D.temperature_2m_max[d]) + '°</b></div>' +
+        (D.precipitation_probability_max && D.precipitation_probability_max[d] >= 30 ? '<div class="wg-jp">' + D.precipitation_probability_max[d] + ' %</div>' : '<div class="wg-jp"></div>') + '</div>';
+    }
+    html += '</div>';
+  }
+  T.innerHTML = html;
+  // La courbe prend toute la place restante
+  var zone = T.querySelector('.wg-courbe'), W = zone.clientWidth, Hc = zone.clientHeight;
+  var nb = Math.min(24, Math.max(8, Math.floor(W / 40)));
+  zone.innerHTML = courbe(serieHeures(now, nb, demain), W, Hc, !demain);
+  if (!zone.innerHTML) { zone.style.display = 'none'; T.querySelector('.wg-titre').style.display = 'none'; }
+}
 function tuileMeteo(T, now, l, h){
+  if (meteo && meteo.current.apparent_temperature != null && l >= 2 && h >= 1.5) return tuileMeteoGrande(T, now, l, h);
   var large = l >= 2 && h <= 1, petit = l === 1 && h <= 1;
   if (h < 1) {   // demi-rangée : l'essentiel sur une ligne
     T.className += ' lien wx-demi'; T.setAttribute('data-page', 'meteo');
