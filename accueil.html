@@ -867,12 +867,15 @@ function jourTravailVise(J, now){
 function tuileTravail(T, now, l, h){
   T.className += ' tv lien'; T.setAttribute('data-page', 'travail');
   if (prive() && !agendaReel) { T.innerHTML = '<div class="vide">Chargement…</div>'; return; }
-  var J = joursTravail(now), k0 = jourTravailVise(J, now), V = J[k0];
-  var quand = k0 === 0 ? 'aujourd\'hui' : 'demain', lieu = lieuxDu(V), heures = heuresDu(V);
+  // Uniquement les jours travaillés : le prochain en grand, les suivants en dessous
+  var J = joursTravail(now), k0 = jourTravailVise(J, now);
+  while (k0 < 14 && !J[k0].liste.length) k0++;
+  if (k0 >= 14) { T.innerHTML = '<div class="tv-t"><i>💼</i>' + echapper(PRENOM_FLO) + '</div><div class="vide">Pas de travail prévu</div>'; return; }
+  var V = J[k0], quand = k0 === 0 ? 'aujourd\'hui' : (k0 === 1 ? 'demain' : JOURS[V.date.getDay()] + ' ' + V.date.getDate()), lieu = lieuxDu(V), heures = heuresDu(V);
   function court(k){ return k === 1 ? 'Dem.' : JOURS_C[J[k].date.getDay()] + ' ' + J[k].date.getDate(); }
   if (h < 1) {
     var html = '<span class="tv-c p"><b>' + (lieu ? echapper(lieu) : 'Repos') + '</b></span>';
-    for (var u = k0 + 1; u < 14; u++) html += '<span class="tv-c">' + court(u) + ' ' + (lieuxDu(J[u]) ? '<b>' + echapper(lieuxDu(J[u])) + '</b>' : 'repos') + '</span>';
+    for (var u = k0 + 1; u < 14; u++) if (J[u].liste.length) html += '<span class="tv-c">' + court(u) + ' ' + (lieuxDu(J[u]) ? '<b>' + echapper(lieuxDu(J[u])) + '</b>' : 'repos') + '</span>';
     T.innerHTML = '<div class="tv-t"><i>💼</i>' + echapper(PRENOM_FLO) + ' ' + quand + (heures ? ' · ' + heures : '') + '</div><div class="tv-ligne">' + html + '</div>';
     var LG = T.querySelector('.tv-ligne'), cs = LG.querySelectorAll('.tv-c'), suite = [];
     for (var v = 1; v < cs.length; v++) suite.push(cs[v]);
@@ -885,6 +888,7 @@ function tuileTravail(T, now, l, h){
     (heures ? '<div class="tv-h">' + heures + '</div>' : '');
   var rows = '';
   for (var k = k0 + 1; k < 14; k++) {
+    if (!J[k].liste.length) continue;
     var n = lieuxDu(J[k]);
     rows += '<div class="tv-r' + (n ? '' : ' repos') + '"><span class="tv-j">' + court(k) + '</span><span class="tv-n">' + (n ? echapper(n) : 'Repos') + '</span></div>';
   }
