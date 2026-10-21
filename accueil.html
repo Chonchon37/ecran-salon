@@ -9,13 +9,13 @@
 :root{
   --bg:#E3E8DD; --card:#FAFBF8; --card2:#D9E0D1; --ink:#0F1712; --muted:#414D45; --line:#B7C1AF;
   --accent:#587A57; --on-ink:#F6F7F2; --p2:#94679A; --nous:#2F6FB8; --fete:#C98622; --fete-soft:#F4E4C6;
-  --sun:#D8962A; --moon:#9AA6BF; --cloud:#B4BFBA; --rain:#3B74A6; --rain-soft:#D3E2EE;
+  --sun:#D8962A; --moon:#9AA6BF; --cloud:#B4BFBA; --rain:#3B74A6; --rain-soft:#D3E2EE; --nightband:#D5DDE8;
   --ok:#4C8758; --warn:#BC6430; --warn-soft:#F2DCCB; --tram:#BD074E; --bus:#004488; --badge-ink:#FFFFFF;
 }
 html.nuit{
   --bg:#0B1016; --card:#18212A; --card2:#26323E; --ink:#F4F7F3; --muted:#AEBAB4; --line:#3A4856;
   --accent:#92B28E; --on-ink:#0F151C; --p2:#C49BCB; --nous:#6EA6E6; --fete:#E0A847; --fete-soft:#33280F;
-  --sun:#E6AE48; --moon:#D8D0A4; --cloud:#5A6977; --rain:#6EA5D5; --rain-soft:#1C3246;
+  --sun:#E6AE48; --moon:#D8D0A4; --cloud:#5A6977; --rain:#6EA5D5; --rain-soft:#1C3246; --nightband:#243142;
   --ok:#7CBA87; --warn:#E38A52; --warn-soft:#3A2619; --tram:#D0326A; --bus:#2F6FB0; --badge-ink:#FFFFFF;
 }
 html,body{margin:0;width:1280px;height:728px;overflow:hidden;background:var(--bg)}
@@ -516,15 +516,17 @@ function courbe(S, W, Ht, maintenant){
     '<defs>' +
     '<linearGradient id="trait" gradientUnits="userSpaceOnUse" x1="0" y1="' + y0 + '" x2="0" y2="' + y1 + '"><stop offset="0" stop-color="var(--sun)"/><stop offset="1" stop-color="var(--rain)"/></linearGradient>' +
     '<linearGradient id="aire" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--sun)" stop-opacity=".22"/><stop offset="1" stop-color="var(--sun)" stop-opacity="0"/></linearGradient>' +
+    '<linearGradient id="nuitG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--nightband)" stop-opacity="0"/><stop offset="1" stop-color="var(--nightband)" stop-opacity="1"/></linearGradient>' +
     '</defs>';
-  // Nuit : bandes légèrement ombrées
+  // Nuit : voile discret qui monte depuis l'axe et s'efface vers le haut (pas de cadre)
   var debutNuit = -1;
   for (i = 0; i <= n; i++) {
     var nuit = i < n && !S[i].jour;
     if (nuit && debutNuit < 0) debutNuit = i;
     if (!nuit && debutNuit >= 0) {
-      var xa = Math.max(0, X(debutNuit) - pasX / 2), xb = Math.min(W, X(i - 1) + pasX / 2);
-      svg += '<rect x="' + xa.toFixed(1) + '" y="' + (taille + 4) + '" width="' + (xb - xa).toFixed(1) + '" height="' + (basPluie - taille - 4) + '" rx="10" fill="var(--card2)" opacity=".55"/>';
+      var xa = Math.max(g, X(debutNuit) - pasX / 2), xb = Math.min(W - g, X(i - 1) + pasX / 2);
+      var yh = y0 + 6;
+      svg += '<rect x="' + xa.toFixed(1) + '" y="' + yh.toFixed(1) + '" width="' + (xb - xa).toFixed(1) + '" height="' + (basPluie - yh).toFixed(1) + '" fill="url(#nuitG)"/>';
       debutNuit = -1;
     }
   }
