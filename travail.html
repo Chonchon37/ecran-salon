@@ -61,6 +61,8 @@ body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;fon
 .j.vise{background:var(--card);box-shadow:inset 0 0 0 2px var(--muted)}
 .j.vise.auj{box-shadow:inset 0 0 0 3px var(--ink)}
 .vide{font-size:22px;color:var(--muted)}
+.lieu b,.s-n b,.j .n b{font-weight:700}
+.lieu .ls,.s-n .ls,.j .n .ls{font-weight:400}
 </style>
 </head>
 <body>
@@ -89,6 +91,15 @@ document.addEventListener('touchstart', signalerToucher, true);
 document.addEventListener('mousedown', signalerToucher, true);
 function $(id){ return document.getElementById(id); }
 function echapper(t){ return String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+// Lieu : premier mot en gras, la suite en normal (« <b>Langeais</b> agence »)
+function lieuHtml(t){
+  var parts = String(t).split(' puis '), res = [];
+  for (var i = 0; i < parts.length; i++) {
+    var m = /^(\S+)(\s+[\s\S]*)?$/.exec(parts[i]);
+    res.push(m ? '<b>' + echapper(m[1]) + '</b>' + (m[2] ? '<span class="ls">' + echapper(m[2]) + '</span>' : '') : echapper(parts[i]));
+  }
+  return res.join(' <span class="ls">puis</span> ');
+}
 var JOURS = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
 var MOIS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
 var MOIS_C = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
@@ -148,7 +159,7 @@ function afficher(){
     var adr = []; for (var a = 0; a < LV.length; a++) if (LV[a].adresse && LV[a].adresse !== LV[a].lieu && adr.indexOf(LV[a].adresse) < 0) adr.push(LV[a].adresse);
     var quand = k0 === 0 ? 'Aujourd\'hui' : (k0 === 1 ? 'Demain' : JOURS[vise.getDay()].charAt(0).toUpperCase() + JOURS[vise.getDay()].slice(1));
     var html = '<div class="quand h"><i>💼</i>' + quand + (k0 > 1 ? ' ' + vise.getDate() : ' · ' + JOURS[vise.getDay()] + ' ' + vise.getDate()) + '</div>' +
-      '<div class="lieu h">' + echapper(n) + '</div>' +
+      '<div class="lieu h">' + lieuHtml(n) + '</div>' +
       (hr ? '<div class="heures">' + hr + '</div>' : '') +
       (adr.length ? '<div class="adresse">' + echapper(adr.join(' · ')) + '</div>' : '');
     // Ensuite : les jours travaillés suivants, puis le prochain jour de repos
@@ -156,7 +167,7 @@ function afficher(){
     for (k = k0 + 1; k < 14; k++) {
       var j = jourPlus(auj, k), Lj = duJour(liste, j);
       if (!Lj.length) { if (!repos) repos = j; continue; }
-      if (nb < 6) { suite += '<div class="s-l"><span class="s-j">' + (k === 1 ? 'Demain' : JOURS_C[j.getDay()] + ' ' + j.getDate()) + '</span><span class="s-n">' + echapper(lieux(Lj)) + '</span></div>'; nb++; }
+      if (nb < 6) { suite += '<div class="s-l"><span class="s-j">' + (k === 1 ? 'Demain' : JOURS_C[j.getDay()] + ' ' + j.getDate()) + '</span><span class="s-n">' + lieuHtml(lieux(Lj)) + '</span></div>'; nb++; }
     }
     for (k = 0; k < k0 && !repos; k++) if (!duJour(liste, jourPlus(auj, k)).length && k > 0) repos = jourPlus(auj, k);
     html += '<div class="suite"><div class="label" style="margin-bottom:4px">Ensuite</div>' + (suite || '<div class="s-r">Rien de noté après.</div>') +
@@ -174,7 +185,7 @@ function afficher(){
       var cl = 'j' + (d >= 5 && !weTravaille ? ' we' : '') + (passe ? ' passe' : '') + (!passe && !nx ? ' libre' : '') +
         (jj.getTime() === auj.getTime() ? ' auj' : '') + (vue && jj.getTime() === vue.getTime() ? ' vise' : '');
       out += '<div class="' + cl + '"><div class="j-t"><span>' + JOURS_C[jj.getDay()] + '</span><b>' + jj.getDate() + '</b></div>' +
-        (passe ? '' : (nx ? '<div class="n">' + echapper(nx) + '</div><div class="t">' + heures(Lx, true) + '</div>' : '<div class="r">Repos</div>')) + '</div>';
+        (passe ? '' : (nx ? '<div class="n">' + lieuHtml(nx) + '</div><div class="t">' + heures(Lx, true) + '</div>' : '<div class="r">Repos</div>')) + '</div>';
     }
     out += '</div></div>';
   }
