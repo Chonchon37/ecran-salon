@@ -25,12 +25,12 @@ body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;fon
 .main{flex:1;display:flex;margin-top:16px;min-height:0}
 /* Jour mis en avant */
 .hero{width:380px;flex:none;margin-right:16px;display:flex;flex-direction:column}
-.quand{display:flex;align-items:center;font-size:22px;font-weight:700;color:var(--p2)}
-.quand i{font-style:normal;width:46px;height:46px;border-radius:14px;background:var(--p2-soft);display:flex;align-items:center;justify-content:center;font-size:24px;margin-right:12px}
-.lieu{font-size:58px;font-weight:600;line-height:1.02;letter-spacing:-.02em;margin-top:18px;border-left:7px solid var(--p2);padding-left:16px;overflow-wrap:break-word;-webkit-hyphens:auto;hyphens:auto}
-.lieu.repos{color:var(--muted);border-left-color:var(--line)}
-.heures{font-family:"Bricolage Grotesque",Figtree,Arial,sans-serif;font-size:32px;font-weight:600;margin-top:12px;padding-left:23px}
-.adresse{font-size:19px;color:var(--muted);margin-top:6px;line-height:1.3;padding-left:23px}
+.quand{display:flex;align-items:center;font-size:22px;font-weight:700;color:var(--muted)}
+.quand i{font-style:normal;width:46px;height:46px;border-radius:14px;background:var(--card2);display:flex;align-items:center;justify-content:center;font-size:24px;margin-right:12px}
+.lieu{font-size:58px;font-weight:600;line-height:1.02;letter-spacing:-.02em;margin-top:18px;overflow-wrap:break-word;-webkit-hyphens:auto;hyphens:auto}
+.lieu.repos{color:var(--muted)}
+.heures{font-family:"Bricolage Grotesque",Figtree,Arial,sans-serif;font-size:32px;font-weight:600;margin-top:12px}
+.adresse{font-size:19px;color:var(--muted);margin-top:6px;line-height:1.3}
 .suite{margin-top:auto;border-top:1.5px solid var(--line);padding-top:12px}
 .s-l{display:flex;align-items:baseline;font-size:20px;line-height:1.75}
 .s-j{width:92px;flex:none;color:var(--muted);font-weight:700}
@@ -52,13 +52,14 @@ body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;fon
 .j-t{display:flex;align-items:baseline;white-space:nowrap}
 .j-t span{font-size:14px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin-right:6px}
 .j-t b{font-family:"Bricolage Grotesque",Figtree,Arial,sans-serif;font-size:24px;line-height:1}
-.j .n{font-size:17px;font-weight:700;margin-top:8px;line-height:1.15;border-left:4px solid var(--p2);padding-left:7px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow-wrap:break-word;-webkit-hyphens:auto;hyphens:auto}
+.j .n{font-size:17px;font-weight:700;margin-top:8px;line-height:1.15;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow-wrap:break-word;-webkit-hyphens:auto;hyphens:auto}
 .j .t{font-size:15px;font-weight:600;color:var(--muted);margin-top:auto;padding-top:4px;white-space:nowrap}
 .j .r{font-size:16px;color:var(--muted);margin-top:8px}
 .j.libre{background:transparent;box-shadow:inset 0 0 0 1.5px var(--line)}
 .j.passe{opacity:.38}
 .j.auj{box-shadow:inset 0 0 0 3px var(--ink)}
-.j.vise{background:var(--p2-soft)}
+.j.vise{background:var(--card);box-shadow:inset 0 0 0 2px var(--muted)}
+.j.vise.auj{box-shadow:inset 0 0 0 3px var(--ink)}
 .vide{font-size:22px;color:var(--muted)}
 </style>
 </head>
@@ -147,7 +148,7 @@ function afficher(){
     var adr = []; for (var a = 0; a < LV.length; a++) if (LV[a].adresse && LV[a].adresse !== LV[a].lieu && adr.indexOf(LV[a].adresse) < 0) adr.push(LV[a].adresse);
     var quand = k0 === 0 ? 'Aujourd\'hui' : (k0 === 1 ? 'Demain' : JOURS[vise.getDay()].charAt(0).toUpperCase() + JOURS[vise.getDay()].slice(1));
     var html = '<div class="quand h"><i>💼</i>' + quand + (k0 > 1 ? ' ' + vise.getDate() : ' · ' + JOURS[vise.getDay()] + ' ' + vise.getDate()) + '</div>' +
-      '<div class="lieu h" style="border-left-color:' + teinte(n) + '">' + echapper(n) + '</div>' +
+      '<div class="lieu h">' + echapper(n) + '</div>' +
       (hr ? '<div class="heures">' + hr + '</div>' : '') +
       (adr.length ? '<div class="adresse">' + echapper(adr.join(' · ')) + '</div>' : '');
     // Ensuite : les jours travaillés suivants, puis le prochain jour de repos
@@ -155,7 +156,7 @@ function afficher(){
     for (k = k0 + 1; k < 14; k++) {
       var j = jourPlus(auj, k), Lj = duJour(liste, j);
       if (!Lj.length) { if (!repos) repos = j; continue; }
-      if (nb < 6) { suite += '<div class="s-l"><span class="s-j">' + (k === 1 ? 'Demain' : JOURS_C[j.getDay()] + ' ' + j.getDate()) + '</span><span class="s-n"><i style="background:' + teinte(lieux(Lj)) + '"></i>' + echapper(lieux(Lj)) + '</span></div>'; nb++; }
+      if (nb < 6) { suite += '<div class="s-l"><span class="s-j">' + (k === 1 ? 'Demain' : JOURS_C[j.getDay()] + ' ' + j.getDate()) + '</span><span class="s-n">' + echapper(lieux(Lj)) + '</span></div>'; nb++; }
     }
     for (k = 0; k < k0 && !repos; k++) if (!duJour(liste, jourPlus(auj, k)).length && k > 0) repos = jourPlus(auj, k);
     html += '<div class="suite"><div class="label" style="margin-bottom:4px">Ensuite</div>' + (suite || '<div class="s-r">Rien de noté après.</div>') +
@@ -173,7 +174,7 @@ function afficher(){
       var cl = 'j' + (d >= 5 && !weTravaille ? ' we' : '') + (passe ? ' passe' : '') + (!passe && !nx ? ' libre' : '') +
         (jj.getTime() === auj.getTime() ? ' auj' : '') + (vue && jj.getTime() === vue.getTime() ? ' vise' : '');
       out += '<div class="' + cl + '"><div class="j-t"><span>' + JOURS_C[jj.getDay()] + '</span><b>' + jj.getDate() + '</b></div>' +
-        (passe ? '' : (nx ? '<div class="n" style="border-left-color:' + teinte(nx) + '">' + echapper(nx) + '</div><div class="t">' + heures(Lx, true) + '</div>' : '<div class="r">Repos</div>')) + '</div>';
+        (passe ? '' : (nx ? '<div class="n">' + echapper(nx) + '</div><div class="t">' + heures(Lx, true) + '</div>' : '<div class="r">Repos</div>')) + '</div>';
     }
     out += '</div></div>';
   }
