@@ -86,6 +86,18 @@ body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;fon
 .wx-puces{display:flex;flex-wrap:wrap;margin:-4px}
 .wx-puces span{margin:4px;padding:7px 12px;border-radius:12px;background:var(--card2);font-size:17px;font-weight:600;white-space:nowrap}
 .wx-puces b{color:var(--muted);font-weight:600;margin-right:3px}
+/* Tuile météo large et basse */
+.wl-haut{display:flex;flex:1;min-height:0;align-items:stretch}
+.wl-g{flex:none;display:flex;flex-direction:column;justify-content:center;margin-right:18px;max-width:44%}
+.wx-l1 .wg-temp span{font-size:72px}
+.wl-lib{font-size:23px;font-weight:600;line-height:1.1;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wl-det{font-size:17px;color:var(--muted);margin-top:3px;white-space:nowrap}
+.wl-det b{color:var(--ink)}
+.wl-courbe{flex:1;min-width:0;min-height:0}
+.wl-pluie{flex:none}
+.wl-pluie .alert{margin-top:8px;padding:7px 12px;font-size:17px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wl-pluie .alert svg{width:20px;height:20px}
+.wx-l1 .vigi{flex:none;margin-top:8px;padding:6px 12px;font-size:16px}
 /* Grande tuile météo */
 .wg-haut{display:flex;align-items:center;flex:none}
 .wg-temp{display:flex;align-items:center;flex:none}
@@ -410,12 +422,27 @@ function duree(min){
   if (min < 60) return min + ' min';
   return Math.floor(min / 60) + ' h' + (min % 60 ? ' ' + pad(min % 60) : '');
 }
-function hhTxt(d){ return d.getHours() + ' h ' + pad(d.getMinutes()); }
+function hhTxt(d){ return d.getHours() + '\u00a0h\u00a0' + pad(d.getMinutes()); }
 // « demain » devant l'heure quand elle tombe le lendemain (sauf en pleine nuit, où « 2 h » se comprend seul)
+// Tuile météo large et basse (2-4 colonnes × 1 rangée) : température à gauche, courbe à droite, pluie en bas
+function tuileMeteoLarge(T, now, l){
+  T.className += ' lien wx-l1'; T.setAttribute('data-page', 'meteo');
+  var c = meteo.current, D = meteo.daily, demain = demainDabord(now) || (now.getHours() < 5 && !momentActif(now));
+  T.innerHTML = '<div class="wl-haut">' +
+      '<div class="wl-g"><div class="wg-temp">' + iconeMeteo(c.weather_code, c.is_day === 1, 68) + '<span class="h">' + Math.round(c.temperature_2m) + '°</span></div>' +
+        '<div class="wl-lib h">' + libelleMeteo(c.weather_code, c.is_day === 1) + '</div>' +
+        '<div class="wl-det">' + Math.round(D.temperature_2m_min[0]) + '° / <b>' + Math.round(D.temperature_2m_max[0]) + '°</b> · ressenti ' + Math.round(c.apparent_temperature) + '°</div></div>' +
+      '<div class="wl-courbe"></div>' +
+    '</div>' + texteVigi() + '<div class="wl-pluie">' + textePluie(now) + '</div>';
+  var zone = T.querySelector('.wl-courbe'), W = zone.clientWidth, Hc = zone.clientHeight;
+  zone.innerHTML = courbe(serieHeures(now, Math.min(12, Math.max(6, Math.floor(W / 46))), demain), W, Hc, !demain);
+  // si la vigilance prend trop de place, on retire la ligne de pluie
+  if (deborde(T)) { var pl = T.querySelector('.wl-pluie'); if (pl) pl.style.display = 'none'; }
+}
 function quandTxt(d, now, avecMinutes){
   d = new Date(d);
   var dem = d.getDate() !== now.getDate() && d.getHours() >= 6;
-  return (dem ? 'demain ' : '') + (avecMinutes ? hhTxt(d) : d.getHours() + ' h');
+  return (dem ? 'demain ' : '') + (avecMinutes ? hhTxt(d) : d.getHours() + '\u00a0h');
 }
 // Pluie : combien de temps il pleut encore, ou quand ça commence et pour combien de temps
 function textePluie(now){
@@ -605,6 +632,7 @@ function tuileMeteoGrande(T, now, l, h){
 }
 function tuileMeteo(T, now, l, h){
   if (meteo && meteo.current.apparent_temperature != null && l >= 2 && h >= 1.5) return tuileMeteoGrande(T, now, l, h);
+  if (meteo && meteo.current.apparent_temperature != null && l >= 2 && h === 1) return tuileMeteoLarge(T, now, l);
   var large = l >= 2 && h <= 1, petit = l === 1 && h <= 1;
   if (h < 1) {   // demi-rangée : l'essentiel sur une ligne
     T.className += ' lien wx-demi'; T.setAttribute('data-page', 'meteo');
