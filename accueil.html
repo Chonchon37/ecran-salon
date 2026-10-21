@@ -144,11 +144,13 @@ body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;fon
 .ag-cols{flex:1;display:flex;min-height:0}
 .ag-col{flex:1;min-width:0;overflow:hidden;display:flex;flex-direction:column}
 .ag-col + .ag-col{margin-left:22px;padding-left:22px;border-left:2px solid var(--line)}
-.ev-sub{font-size:15px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);flex:none}
+.ev-sub{font-size:19px;font-weight:700;color:var(--ink);flex:none;font-family:"Bricolage Grotesque",Figtree,Arial,sans-serif}
+.ev-sub span{color:var(--muted);font-weight:600}
 .ag-bloc{flex:none}
-.ag-bloc + .ag-bloc .ev-sub{margin-top:16px}
-.ev{display:flex;align-items:center;margin-top:12px;flex:none}
-.ev-h{width:86px;font-size:20px;font-weight:700;flex:none}
+.ag-bloc + .ag-bloc .ev-sub{margin-top:14px}
+.ev{display:flex;align-items:baseline;margin-top:8px;flex:none;border-left:5px solid var(--accent);padding:3px 0 3px 12px;border-radius:2px}
+.ev.jour{background:var(--card2);border-radius:4px 10px 10px 4px;padding:5px 10px 5px 12px}
+.ev-h{font-size:19px;font-weight:700;flex:none;margin-right:12px;color:var(--ink);opacity:.7}
 .ev i{width:12px;height:12px;border-radius:50%;margin-right:14px;flex:none}
 .ev-n{font-size:21px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
 
@@ -741,7 +743,7 @@ function tuileAgenda(T, now, l, h){
     if (k === 0) return demainDabord(now) && hr >= 12 ? 'Ce soir' : 'Aujourd\'hui';
     if (k === 1) return 'Demain';
     var x = new Date(debutJour(k));
-    return majuscule(JOURS[x.getDay()]) + ' ' + x.getDate() + (k >= 7 ? ' ' + MOIS_C[x.getMonth()] : '');
+    return majuscule(JOURS[x.getDay()]) + ' <span>' + x.getDate() + (k >= 7 ? ' ' + MOIS_C[x.getMonth()] : '') + '</span>';
   }
   var ordre = [];
   for (d = 0; d < NBJ; d++) ordre.push(d);
@@ -755,7 +757,9 @@ function tuileAgenda(T, now, l, h){
     if (!L.length) { blocs.push(tete + '<div class="vide">' + (prive() && !agendaReel ? 'Chargement…' : (k === 0 ? 'Plus rien de prévu' : 'Rien de prévu')) + '</div>'); continue; }
     L.sort(function(p, q){ return (p.debut || '00:00') < (q.debut || '00:00') ? -1 : 1; });
     for (var r = 0; r < L.length; r++) {
-      var x = L[r], ligne = '<div class="ev"><div class="ev-h">' + (x.debut ? x.debut.replace(':', ' h ') : 'Journée') + '</div><i style="background:' + (COULEURS[x.qui] || COULEURS.moi) + '"></i><div class="ev-n">' + echapper(x.titre) + '</div></div>';
+      // Trait de couleur de la personne ; l'heure seulement si l'événement en a une (sinon tout le titre a la place)
+      var x = L[r], coul = COULEURS[x.qui] || COULEURS.moi;
+      var ligne = '<div class="ev' + (x.debut ? '' : ' jour') + '" style="border-left-color:' + coul + '">' + (x.debut ? '<div class="ev-h">' + x.debut.replace(':', ' h ') + '</div>' : '') + '<div class="ev-n">' + echapper(x.titre) + '</div></div>';
       blocs.push(r === 0 ? tete + ligne : ligne);
     }
   }
