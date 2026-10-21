@@ -35,6 +35,12 @@ body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;fon
 .plus{font-size:16px;font-weight:700;color:var(--muted);margin-top:8px}
 
 /* Date */
+.heure{font-size:72px;font-weight:600;line-height:.95;letter-spacing:-.03em;flex:none}
+.l2 .heure,.l3 .heure,.l4 .heure{font-size:96px}
+.demi.nu{flex-direction:row;align-items:center}
+.demi .heure{font-size:44px;margin:0 !important}
+.demi .date{margin:0 0 0 16px;font-size:22px}
+.demi.nu > .date-meteo,.demi.nu > .msg{display:none}
 .greet{font-size:46px;font-weight:600;line-height:1;letter-spacing:-.02em}
 .l2 .greet,.l3 .greet,.l4 .greet{font-size:68px}
 .date{font-size:26px;font-weight:500;margin-top:10px}
@@ -387,7 +393,8 @@ function meteoActuelle(now){
 function tuileDate(T, now){
   var h = now.getHours();
   T.className += ' nu';
-  T.innerHTML = '<div class="greet h">' + (h < 5 ? 'Bonne nuit' : (h < 12 ? 'Bonjour' : (h < 18 ? 'Bon après-midi' : 'Bonsoir'))) + '</div>' +
+  // L'heure est ici (la barre du bas la masque tant que l'accueil l'affiche)
+  T.innerHTML = '<div class="heure h" id="heureAcc">' + pad(h) + ':' + pad(now.getMinutes()) + '</div>' +
     '<div class="date">' + majuscule(JOURS[now.getDay()]) + ' ' + now.getDate() + ' ' + MOIS[now.getMonth()] + (prive() ? '' : ' <span class="demo">exemple</span>') + '</div>' +
     (VISIBLES.meteo ? '' : meteoActuelle(now)) +   // pas de doublon si la tuile Météo est déjà à l'écran
     (MESSAGE ? '<div class="msg" data-p="1">' + echapper(MESSAGE) + '</div>' : '');
@@ -1024,6 +1031,7 @@ var VISIBLES = {};
 var FABRIQUES = { date: tuileDate, meteo: tuileMeteo, transports: tuileTransports, anniversaires: tuileAnniversaires, agenda: tuileAgenda, maison: tuileMaison, travail: tuileTravail };
 function afficher(){
   var now = new Date(), G = $('grille'), html = '', visibles = [];
+  setTimeout(signalerHorloge, 0);
   var A = null;
   for (var i = 0; i < DISPOSITION.length; i++) {
     var D = DISPOSITION[i];
@@ -1049,6 +1057,15 @@ function afficher(){
     try { FABRIQUES[W.t.id](T, now, W.w, W.h / 2, A); } catch (err) { T.innerHTML = '<div class="vide">Indisponible</div>'; }
   }
 }
+
+// L'écran (barre du bas) masque sa propre horloge quand la tuile Date affiche l'heure
+function signalerHorloge(){
+  if (window.parent !== window) { try { window.parent.postMessage({ type: 'horlogeAccueil', value: !!$('heureAcc') }, '*'); } catch (e) {} }
+}
+setInterval(function(){
+  var el = $('heureAcc'), d = new Date();
+  if (el) el.innerHTML = pad(d.getHours()) + ':' + pad(d.getMinutes());
+}, 5000);
 
 // Toucher une tuile ouvre la page détaillée correspondante (sauf boutons de la maison)
 document.addEventListener('click', function(e){

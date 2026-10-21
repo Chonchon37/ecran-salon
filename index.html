@@ -274,8 +274,13 @@ function afficher(index){
     tabs[j].className = (j === index) ? 'tab on' : 'tab';
   }
   actuel = index;
+  majHorloge();
   programmer();
 }
+// Sur l'accueil, l'heure est dans la tuile Date : on n'affiche pas l'horloge en double
+var accueilAvecHeure = false;
+function majHorloge(){ document.getElementById('clock').style.visibility = (S && S[actuel] && S[actuel].id === 'accueil' && accueilAvecHeure) ? 'hidden' : ''; }
+window.addEventListener('message', function(e){ if (e.data && e.data.type === 'horlogeAccueil') { accueilAvecHeure = !!e.data.value; majHorloge(); } });
 /* ---------- Écran fixe selon l'heure ---------- */
 function enMinutes(hhmm){ var p = String(hhmm).split(':'); return parseInt(p[0], 10) * 60 + parseInt(p[1], 10); }
 function plageActive(){
