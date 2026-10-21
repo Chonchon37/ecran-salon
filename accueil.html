@@ -474,7 +474,8 @@ function serieHeures(now, n, demain){
 function courbe(S, W, Ht, maintenant){
   if (S.length < 2 || W < 100 || Ht < 80) return '';
   // Les icônes et les pourcentages ne s'affichent que si la courbe a assez de hauteur
-  var avecIcones = Ht >= 165, g = 28, haut = avecIcones ? 58 : 30, bas = 24, pluieH = Math.min(40, Ht * 0.22);
+  // Les icônes du temps sont toujours là ; les pourcentages de pluie seulement si la courbe a de la hauteur
+  var grand = Ht >= 165, taille = Ht >= 125 ? 34 : 28, g = 28, haut = taille + (grand ? 28 : 22), bas = 22, pluieH = Math.min(40, Ht * (grand ? 0.22 : 0.16));
   var y0 = haut, y1 = Ht - bas - pluieH - 8, n = S.length, pasX = (W - 2 * g) / (n - 1), i;
   var tmin = 99, tmax = -99;
   for (i = 0; i < n; i++) { tmin = Math.min(tmin, S[i].temp); tmax = Math.max(tmax, S[i].temp); }
@@ -500,9 +501,9 @@ function courbe(S, W, Ht, maintenant){
     var x = X(i), y = Y(S[i].temp);
     svg += '<circle cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="4.5" fill="var(--card)" stroke="var(--sun)" stroke-width="3"/>' +
       '<text x="' + x.toFixed(1) + '" y="' + (y - 11).toFixed(1) + '" text-anchor="middle" font-size="19" font-weight="700" fill="var(--ink)">' + Math.round(S[i].temp) + '°</text>' +
-      (avecIcones ? '<g transform="translate(' + (x - 15).toFixed(1) + ',0)">' + iconeMeteo(S[i].code, S[i].jour, 30) + '</g>' : '') +
+      '<g transform="translate(' + (x - taille / 2).toFixed(1) + ',0)">' + iconeMeteo(S[i].code, S[i].jour, taille) + '</g>' +
       '<text x="' + x.toFixed(1) + '" y="' + (Ht - 5) + '" text-anchor="middle" font-size="16" font-weight="600" fill="var(--muted)">' + (i === 0 && maintenant ? 'Maint.' : S[i].t.getHours() + ' h') + '</text>';
-    if (avecIcones && S[i].proba >= 30 && S[i].pluie >= 0.05) svg += '<text x="' + x.toFixed(1) + '" y="' + (basPluie - Math.min(4, S[i].pluie) / 4 * pluieH - 5).toFixed(1) + '" text-anchor="middle" font-size="14" font-weight="700" fill="var(--rain)">' + S[i].proba + '%</text>';
+    if (grand && S[i].proba >= 30 && S[i].pluie >= 0.05) svg += '<text x="' + x.toFixed(1) + '" y="' + (basPluie - Math.min(4, S[i].pluie) / 4 * pluieH - 5).toFixed(1) + '" text-anchor="middle" font-size="14" font-weight="700" fill="var(--rain)">' + S[i].proba + '%</text>';
   }
   return svg + '</svg>';
 }
@@ -520,10 +521,10 @@ function tuileMeteoGrande(T, now, l, h){
     '<div class="wg-temp">' + iconeMeteo(c.weather_code, c.is_day === 1, h < 2 ? 76 : 96) + '<span class="h">' + Math.round(c.temperature_2m) + '°</span></div>' +
     '<div class="wg-info"><div class="wg-lib">' + libelleMeteo(c.weather_code, c.is_day === 1) + '</div>' +
     '<div class="wg-det">Ressenti ' + Math.round(c.apparent_temperature) + '° · ' + Math.round(D.temperature_2m_min[0]) + '° / <b>' + Math.round(D.temperature_2m_max[0]) + '°</b></div>' +
-    '<div class="wg-det">' + vent + ' · humidité ' + Math.round(c.relative_humidity_2m) + ' %' + (astre ? ' · ' + astre : '') + '</div></div></div>' +
+    (h >= 2 ? '<div class="wg-det">' + vent + ' · humidité ' + Math.round(c.relative_humidity_2m) + ' %' + (astre ? ' · ' + astre : '') + '</div>' : '<div class="wg-det">' + vent + (astre ? ' · ' + astre : '') + '</div>') + '</div></div>' +
     texteVigi() + '<div class="wg-pluie">' + textePluie(now) + '</div>' +
-    '<div class="wg-titre">' + (demain ? (now.getHours() >= 12 ? 'Demain' : 'Aujourd\'hui') : 'Prochaines heures') + '</div>' +
-    '<div class="wg-courbe"></div>';
+    '<div class="wg-titre"' + (h < 2 ? ' style="display:none"' : '') + '>' + (demain ? (now.getHours() >= 12 ? 'Demain' : 'Aujourd\'hui') : 'Prochaines heures') + '</div>' +
+    '<div class="wg-courbe"' + (h < 2 ? ' style="margin-top:12px"' : '') + '></div>';
   if (h >= 2 && D.time) {
     html += '<div class="wg-jours">';
     var nbJ = Math.max(2, Math.min(4, Math.floor((T.clientWidth - 48) / 190)));   // autant de jours que la largeur le permet
@@ -541,6 +542,7 @@ function tuileMeteoGrande(T, now, l, h){
   var nb = Math.min(24, Math.max(8, Math.floor(W / 40)));
   zone.innerHTML = courbe(serieHeures(now, nb, demain), W, Hc, !demain);
   if (!zone.innerHTML) { zone.style.display = 'none'; T.querySelector('.wg-titre').style.display = 'none'; }
+
 }
 function tuileMeteo(T, now, l, h){
   if (meteo && meteo.current.apparent_temperature != null && l >= 2 && h >= 1.5) return tuileMeteoGrande(T, now, l, h);
