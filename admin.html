@@ -149,7 +149,8 @@ button.discret{background:transparent;color:var(--muted);padding:8px 10px;font-s
     <section data-groupe="accueil">
       <h2>Taille des tuiles</h2>
       <p class="aide">L'accueil est une grille de 4 colonnes sur 3 rangées (une tuile peut faire une demi-rangée). <b>Glisse une tuile</b> sur une autre pour changer l'ordre, et <b>tire le coin en bas à droite</b> pour l'agrandir ou la réduire, <b>✕</b> pour la retirer de l'écran (elle reste dans la liste pour la remettre). Plus une tuile est grande, plus elle montre d'informations (plus d'heures et de jours de météo, plus d'événements et de jours d'agenda, les passages suivants, les lumières…). Les tuiles ne s'agrandissent jamais toutes seules : une case libre reste vide sur l'écran (et une tuile masquée à certains moments laisse sa place vide).</p>
-      <div class="rang" style="margin-bottom:10px"><label for="apercuMoment">Aperçu</label><select id="apercuMoment"></select></div>
+      <div class="rang" style="margin-bottom:10px"><label for="apercuMoment">Disposition</label><select id="apercuMoment"></select></div>
+      <div id="dispoMoment" style="margin-bottom:10px"></div>
       <div class="apercu" id="apercu" aria-label="Aperçu de l'accueil"></div>
       <p class="aide" id="cases" style="margin:8px 0 0"></p>
       <div id="dispo" style="margin-top:10px"></div>
@@ -326,7 +327,11 @@ $('reveil').addEventListener('change', () => { R.reglages.veille.reveil = +$('re
 /* ---------- Taille des tuiles de l'accueil ---------- */
 const NOMS_TUILES = { date: 'Date & message', meteo: 'Météo', transports: 'Transports', anniversaires: 'Anniversaires', agenda: 'Agenda', maison: 'Maison', travail: 'Travail 💼' };
 const DISPO_ORIGINE = [{ id: 'date', l: 1, h: 1 }, { id: 'transports', l: 2, h: 1 }, { id: 'anniversaires', l: 1, h: 1 }, { id: 'meteo', l: 1, h: 2 }, { id: 'agenda', l: 3, h: 1.5 }, { id: 'maison', l: 3, h: 0.5 }, { id: 'travail', l: 1, h: 0.5 }];
-function dispo() { return R.reglages.accueil.disposition || (R.reglages.accueil.disposition = JSON.parse(JSON.stringify(DISPO_ORIGINE))); }
+function dispoDefaut() { return R.reglages.accueil.disposition || (R.reglages.accueil.disposition = JSON.parse(JSON.stringify(DISPO_ORIGINE))); }
+// Moment choisi dans « Disposition pour » (null = disposition par défaut)
+function momentChoisi() { const v = $('apercuMoment').value, M = moments(); return v === '' || +v >= M.length ? null : M[+v]; }
+// Liste modifiée par l'aperçu : celle du moment s'il a sa propre disposition, sinon celle par défaut
+function dispo() { const mo = momentChoisi(); return mo && mo.disposition ? mo.disposition : dispoDefaut(); }
 // Même placement que sur l'écran (accueil.html)
 // Placement des tuiles sur 4 colonnes × 3 rangées (on place d'abord toutes les tuiles réglées) :
 // 1) chaque tuile prend la première place libre (si elle ne tient pas, on la rétrécit avant d'ajouter une rangée) ;
@@ -373,11 +378,15 @@ function placer(liste, masquee){
 const demi = n => (Math.floor(n) ? Math.floor(n) : '') + (n % 1 ? '½' : '');
 const rangees = n => demi(n) + ' rangée' + (n > 1 ? 's' : '');
 function dessinerDispo() {
-  const L = dispo(), M = moments();
-  // Choix de l'aperçu : toutes les tuiles, ou ce qui reste pendant un moment
+  const M = moments();
+  // Disposition par défaut, ou celle d'un moment de la journée
   const sel = $('apercuMoment'), avant = sel.value;
-  sel.innerHTML = '<option value="">Toutes les tuiles</option>' + M.map((m, i) => `<option value="${i}">${echapper(m.nom)} (${m.debut}–${m.fin})</option>`).join('');
+  sel.innerHTML = '<option value="">Par défaut (toute la journée)</option>' + M.map((m, i) => `<option value="${i}">${echapper(m.nom)} (${m.debut}–${m.fin})${m.disposition ? ' · disposition propre' : ''}</option>`).join('');
   if (avant !== '' && +avant < M.length) sel.value = avant;
+  const L = dispo(), moC = momentChoisi();
+  $('dispoMoment').innerHTML = !moC ? '' : moC.disposition
+    ? `<p class="aide" style="margin:0 0 8px">« ${echapper(moC.nom)} » a sa propre disposition : ce que tu modifies ici ne concerne que ce moment.</p><button type="button" id="dispoMomentSuppr">Reprendre la disposition par défaut pour ce moment</button>`
+    : `<p class="aide" style="margin:0 0 8px">Pendant « ${echapper(moC.nom)} », l'écran garde la disposition par défaut et masque les tuiles décochées (leur place reste vide).</p><button type="button" id="dispoMomentPerso" class="principal">Choisir l'emplacement des tuiles pour ce moment</button>`;
   const mo = sel.value === '' ? null : M[+sel.value];
   const P = placer(L.filter(t => !t.off), t => !!mo && mo.tuiles[t.id] === false);
   $('apercu').style.gridTemplateRows = 'repeat(' + P.rangees + ', minmax(0, 1fr))';
@@ -463,7 +472,21 @@ $('dispo').addEventListener('change', e => {
   else return;
   dessinerDispo(); aChange();
 });
-$('dispoOrigine').addEventListener('click', () => { R.reglages.accueil.disposition = JSON.parse(JSON.stringify(DISPO_ORIGINE)); dessinerDispo(); aChange(); });
+$('dispoOrigine').addEventListener('click', () => {
+  const mo = momentChoisi(), L = JSON.parse(JSON.stringify(DISPO_ORIGINE));
+  if (mo && mo.disposition) mo.disposition = L; else R.reglages.accueil.disposition = L;
+  dessinerDispo(); aChange();
+});
+$('dispoMoment').addEventListener('click', e => {
+  const mo = momentChoisi(); if (!mo) return;
+  if (e.target.id === 'dispoMomentPerso') {
+    // On part de la disposition par défaut ; les tuiles décochées pour ce moment sont retirées (sans laisser de vide)
+    mo.disposition = JSON.parse(JSON.stringify(dispoDefaut())).map(t => { if (mo.tuiles[t.id] === false) { t.off = true; mo.tuiles[t.id] = true; } return t; });
+    dessinerMoments();
+  } else if (e.target.id === 'dispoMomentSuppr') delete mo.disposition;
+  else return;
+  dessinerDispo(); aChange();
+});
 
 /* ---------- Accueil selon le moment de la journée ---------- */
 const TUILES = [['date', 'Date'], ['meteo', 'Météo'], ['transports', 'Transports'], ['anniversaires', 'Anniversaires'], ['agenda', 'Agenda'], ['maison', 'Maison'], ['travail', 'Travail 💼']];
@@ -483,6 +506,7 @@ function dessinerMoments() {
         ${TUILES.map(([k, l]) => `<label><input type="checkbox" data-m-tuile="${i}" value="${k}" ${m.tuiles[k] !== false ? 'checked' : ''}>${l}</label>`).join('')}
       </div>
       <label class="interrupteur"><input type="checkbox" data-m-demain="${i}" ${m.demain ? 'checked' : ''}> Demain d'abord (agenda et météo)</label>
+      <div class="rang"><span style="color:var(--muted);font-size:15px">Emplacement des tuiles : <b>${m.disposition ? 'propre à ce moment' : 'comme par défaut'}</b></span><button type="button" data-m-dispo="${i}" style="margin-left:auto">${m.disposition ? 'Modifier' : 'Choisir'} l'emplacement</button></div>
       ${m.debut >= m.fin ? '<div style="color:var(--muted);font-size:14px">Passe minuit : se termine le lendemain à ' + m.fin + '.</div>' : ''}
     </div>`).join('');
 }
@@ -493,8 +517,9 @@ $('ajouterMoment').addEventListener('click', () => {
   dessinerMoments(); dessinerDispo(); aChange();
 });
 $('moments').addEventListener('click', e => {
-  const i = e.target.dataset.mRetirer;
-  if (i !== undefined) { moments().splice(+i, 1); dessinerMoments(); dessinerDispo(); aChange(); }
+  const i = e.target.dataset.mRetirer, j = e.target.dataset.mDispo;
+  if (i !== undefined) { $('apercuMoment').value = ''; moments().splice(+i, 1); dessinerMoments(); dessinerDispo(); aChange(); }
+  if (j !== undefined) { $('apercuMoment').value = j; dessinerDispo(); $('apercuMoment').scrollIntoView({ behavior: 'smooth', block: 'start' }); }
 });
 $('moments').addEventListener('change', e => {
   const t = e.target, d = t.dataset, M = moments();

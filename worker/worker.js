@@ -30,7 +30,7 @@ const FLUX_ALERTES = 'https://data.filbleu.fr/ws-tr/gtfs-rt/opendata/service-ale
 const FLUX_INCIDENTS = 'https://www.filbleu.fr/rss-incident.xml';   // l'info trafic du site filbleu.fr (travaux, déviations…)
 const NOMS_ARRETS = { 'A': 'Monconseil', '2': 'Maréchal Juin' };
 const CACHE_SECONDES = 20;
-const VERSION = '17';   // à changer à chaque mise à jour du code : vide les caches
+const VERSION = '18';   // à changer à chaque mise à jour du code : vide les caches
 
 // Horaires prévus, format compact : "jours" = n° de grille pour chaque jour depuis "debut",
 // chaque ligne "g=" = minutes depuis minuit, écrites en écarts successifs.
@@ -659,16 +659,21 @@ function nettoyerReglages(r) {
     brutsMoments = so ? (so.actif === false ? [] : [{ nom: 'Soir', debut: so.debut, fin: so.fin, tuiles: { transports: !!so.transports }, demain: true }]) : D.accueil.moments;
   }
   const TUILES = ['date', 'meteo', 'transports', 'anniversaires', 'agenda', 'maison', 'travail'];
-  const dispo = [], vuesT = new Set();
-  for (const t of Array.isArray(acc.disposition) ? acc.disposition : []) {
-    if (!t || !TUILES.includes(t.id) || vuesT.has(t.id)) continue;
-    vuesT.add(t.id);
-    const h = Math.round(Number(t.h) * 2) / 2;   // par demi-rangée : 0,5 à 3
-    const tu = { id: t.id, l: entier(t.l, 1, 4, 1), h: isFinite(h) ? Math.min(3, Math.max(0.5, h)) : 1 };
-    if (t.off) tu.off = true;   // tuile retirée de l'écran (gardée dans la liste pour pouvoir la remettre)
-    dispo.push(tu);
-  }
-  for (const t of D.accueil.disposition) if (!vuesT.has(t.id)) dispo.push(Object.assign({}, t));
+  // Disposition : par défaut, ou propre à un moment (les tuiles absentes sont ajoutées, retirées pour un moment)
+  const nettoyerDispo = (liste, absentesRetirees) => {
+    const dispo = [], vuesT = new Set();
+    for (const t of Array.isArray(liste) ? liste : []) {
+      if (!t || !TUILES.includes(t.id) || vuesT.has(t.id)) continue;
+      vuesT.add(t.id);
+      const h = Math.round(Number(t.h) * 2) / 2;   // par demi-rangée : 0,5 à 3
+      const tu = { id: t.id, l: entier(t.l, 1, 4, 1), h: isFinite(h) ? Math.min(3, Math.max(0.5, h)) : 1 };
+      if (t.off) tu.off = true;   // tuile retirée de l'écran (gardée dans la liste pour pouvoir la remettre)
+      dispo.push(tu);
+    }
+    for (const t of D.accueil.disposition) if (!vuesT.has(t.id)) dispo.push(Object.assign({}, t, absentesRetirees ? { off: true } : {}));
+    return dispo;
+  };
+  const dispo = nettoyerDispo(acc.disposition, false);
   res.accueil = { disposition: dispo, moments: [] };
   for (const m of brutsMoments) {
     if (!m) continue;
@@ -676,7 +681,9 @@ function nettoyerReglages(r) {
     if (!debut || !fin || debut === fin) continue;
     const t = m.tuiles || {}, tuiles = {};
     for (const k of TUILES) tuiles[k] = t[k] !== false;
-    res.accueil.moments.push({ nom: texte(m.nom, 20) || 'Moment', debut, fin, tuiles, demain: !!m.demain });
+    const mo = { nom: texte(m.nom, 20) || 'Moment', debut, fin, tuiles, demain: !!m.demain };
+    if (Array.isArray(m.disposition) && m.disposition.length) mo.disposition = nettoyerDispo(m.disposition, true);
+    res.accueil.moments.push(mo);
     if (res.accueil.moments.length >= 6) break;
   }
   const tr = r.transports || {};
