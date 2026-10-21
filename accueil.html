@@ -162,7 +162,10 @@ body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;fon
 .tv-t i{font-style:normal;margin-right:6px}
 .tv-l{font-size:32px;font-weight:600;line-height:1.08;margin-top:6px;flex:none;color:var(--ink);overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;word-break:break-word;border-left:6px solid var(--p2);padding-left:12px}
 .tv-l.repos{color:var(--muted);border-left-color:var(--line)}
-.tv-h{font-size:19px;font-weight:700;margin-top:6px;flex:none;padding-left:18px}
+.tv-h{font-size:19px;font-weight:700;margin-top:6px;flex:none;padding-left:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tv-q{color:var(--p2)}
+.demi .tv-h{font-size:16px;margin-top:2px;padding-left:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tv-l{margin-top:0}
 .tv-suite{margin-top:12px;border-top:1.5px solid var(--line);padding-top:6px;flex:0 1 auto;min-height:0;overflow:hidden}
 .tv-r{display:flex;align-items:baseline;font-size:19px;line-height:1.6}
 .tv-j{width:76px;flex:none;color:var(--muted);font-weight:700;margin-right:10px;white-space:nowrap}
@@ -851,11 +854,11 @@ function joursTravail(now){
   return J;
 }
 function lieuxDu(j){ var n = []; for (var i = 0; i < j.liste.length; i++) if (n.indexOf(j.liste[i].lieu) < 0) n.push(j.liste[i].lieu); return n.join(' puis '); }
-function heuresDu(j){
+function heuresDu(j, court){
   var a = null, b = null;
   for (var i = 0; i < j.liste.length; i++) { var E = j.liste[i]; if (E.journee) continue; if (a === null || E.debut < a) a = E.debut; if (b === null || E.fin > b) b = E.fin; }
   if (a === null) return '';
-  function f(t){ var x = new Date(t); return pad(x.getHours()) + ' h ' + pad(x.getMinutes()); }
+  function f(t){ var x = new Date(t); return court ? x.getHours() + ' h' + (x.getMinutes() ? ' ' + pad(x.getMinutes()) : '') : pad(x.getHours()) + ' h ' + pad(x.getMinutes()); }
   return f(a) + ' – ' + f(b);
 }
 // Jour mis en avant : aujourd'hui, ou demain une fois la journée de travail finie (ou le soir)
@@ -870,22 +873,21 @@ function tuileTravail(T, now, l, h){
   // Uniquement les jours travaillés : le prochain en grand, les suivants en dessous
   var J = joursTravail(now), k0 = jourTravailVise(J, now);
   while (k0 < 14 && !J[k0].liste.length) k0++;
-  if (k0 >= 14) { T.innerHTML = '<div class="tv-t"><i>💼</i>' + echapper(PRENOM_FLO) + '</div><div class="vide">Pas de travail prévu</div>'; return; }
-  var V = J[k0], quand = k0 === 0 ? 'aujourd\'hui' : (k0 === 1 ? 'demain' : JOURS[V.date.getDay()] + ' ' + V.date.getDate()), lieu = lieuxDu(V), heures = heuresDu(V);
+  if (k0 >= 14) { T.innerHTML = '<div class="vide">Pas de travail prévu</div>'; return; }
+  var V = J[k0], quand = k0 === 0 ? 'aujourd\'hui' : (k0 === 1 ? 'demain' : JOURS[V.date.getDay()] + ' ' + V.date.getDate()), lieu = lieuxDu(V), heures = heuresDu(V, l < 2);
   function court(k){ return k === 1 ? 'Dem.' : JOURS_C[J[k].date.getDay()] + ' ' + J[k].date.getDate(); }
   if (h < 1) {
     var html = '<span class="tv-c p"><b>' + (lieu ? echapper(lieu) : 'Repos') + '</b></span>';
     for (var u = k0 + 1; u < 14; u++) if (J[u].liste.length) html += '<span class="tv-c">' + court(u) + ' ' + (lieuxDu(J[u]) ? '<b>' + echapper(lieuxDu(J[u])) + '</b>' : 'repos') + '</span>';
-    T.innerHTML = '<div class="tv-t"><i>💼</i>' + echapper(PRENOM_FLO) + ' ' + quand + (heures ? ' · ' + heures : '') + '</div><div class="tv-ligne">' + html + '</div>';
+    T.innerHTML = '<div class="tv-ligne">' + html + '</div><div class="tv-h tv-q">' + majuscule(quand) + (heures ? ' · ' + heures : '') + '</div>';
     var LG = T.querySelector('.tv-ligne'), cs = LG.querySelectorAll('.tv-c'), suite = [];
     for (var v = 1; v < cs.length; v++) suite.push(cs[v]);
     // on ne garde que ce qui tient sur la ligne
     for (var z = suite.length - 1; z >= 0 && LG.scrollHeight > 38; z--) suite[z].style.display = 'none';
     return;
   }
-  var hero = '<div class="tv-t"><i>💼</i>' + echapper(PRENOM_FLO) + ' ' + quand + '</div>' +
-    '<div class="tv-l h' + (lieu ? '' : ' repos') + '">' + (lieu ? echapper(lieu) : 'Repos') + '</div>' +
-    (heures ? '<div class="tv-h">' + heures + '</div>' : '');
+  var hero = '<div class="tv-l h' + (lieu ? '' : ' repos') + '">' + (lieu ? echapper(lieu) : 'Repos') + '</div>' +
+    '<div class="tv-h"><span class="tv-q">' + majuscule(quand) + '</span>' + (heures ? ' · ' + heures : '') + '</div>';
   var rows = '';
   for (var k = k0 + 1; k < 14; k++) {
     if (!J[k].liste.length) continue;
