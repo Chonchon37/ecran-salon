@@ -348,6 +348,12 @@ function duree(min){
   return Math.floor(min / 60) + ' h' + (min % 60 ? ' ' + pad(min % 60) : '');
 }
 function hhTxt(d){ return d.getHours() + ' h ' + pad(d.getMinutes()); }
+// « demain » devant l'heure quand elle tombe le lendemain (sauf en pleine nuit, où « 2 h » se comprend seul)
+function quandTxt(d, now, avecMinutes){
+  d = new Date(d);
+  var dem = d.getDate() !== now.getDate() && d.getHours() >= 6;
+  return (dem ? 'demain ' : '') + (avecMinutes ? hhTxt(d) : d.getHours() + ' h');
+}
 // Pluie : combien de temps il pleut encore, ou quand ça commence et pour combien de temps
 function textePluie(now){
   if (!meteo) {
@@ -371,17 +377,17 @@ function textePluie(now){
   var arrondi = function(t){ var d = new Date(t); d.setMinutes(Math.round(d.getMinutes() / 5) * 5, 0, 0); return d; };
   if (serie[0].pluie) {
     for (i = 1; i < serie.length; i++) if (!serie[i].pluie) break;
-    if (i >= serie.length) return '<div class="alert">' + PARAPLUIE + 'Pluie au moins jusqu\'à ' + new Date(limite).getHours() + ' h</div>';
+    if (i >= serie.length) return '<div class="alert">' + PARAPLUIE + 'Pluie au moins jusqu\'à ' + quandTxt(limite, now) + '</div>';
     var fin1 = arrondi(serie[i].debut);
-    return '<div class="alert">' + PARAPLUIE + 'Pluie encore ' + duree((fin1 - now) / 60000) + ' · fin vers ' + hhTxt(fin1) + '</div>';
+    return '<div class="alert">' + PARAPLUIE + 'Pluie encore ' + duree((fin1 - now) / 60000) + ' · fin vers ' + quandTxt(fin1, now, true) + '</div>';
   }
   for (i = 0; i < serie.length; i++) if (serie[i].pluie) break;
-  if (i >= serie.length) return '<div class="alert sec">' + PARAPLUIE + (limite - now > 18 * 3600000 ? 'Pas de pluie prévue dans les 24 h' : 'Pas de pluie prévue d\'ici ' + new Date(limite).getHours() + ' h') + '</div>';
+  if (i >= serie.length) return '<div class="alert sec">' + PARAPLUIE + (limite - now > 18 * 3600000 ? 'Pas de pluie prévue dans les 24 h' : 'Pas de pluie prévue d\'ici ' + quandTxt(limite, now)) + '</div>';
   var deb = arrondi(serie[i].debut);
   for (var k = i + 1; k < serie.length; k++) if (!serie[k].pluie) break;
   var dureeTxt = k >= serie.length ? 'un bon moment' : '~' + duree((serie[k].debut - serie[i].debut) / 60000);
-  if (deb - now > 3 * 3600000) return '<div class="alert sec">' + PARAPLUIE + 'Sec jusqu\'à ' + deb.getHours() + ' h, puis pluie</div>';
-  return '<div class="alert">' + PARAPLUIE + 'Pluie vers ' + hhTxt(deb) + ', pendant ' + dureeTxt + '</div>';
+  if (deb - now > 3 * 3600000) return '<div class="alert sec">' + PARAPLUIE + 'Sec jusqu\'à ' + quandTxt(deb, now) + ', puis pluie</div>';
+  return '<div class="alert">' + PARAPLUIE + 'Pluie vers ' + quandTxt(deb, now, true) + ', pendant ' + dureeTxt + '</div>';
 }
 function texteVigi(){
   var v = vigilance;
