@@ -178,7 +178,7 @@ function afficher(){
     html += '<div class="suite"><div class="label" style="margin-bottom:4px">Ensuite</div>' + (suite || '<div class="s-r">Rien de noté après.</div>') +
       (repos ? '<div class="s-r">Prochain repos : <b>' + JOURS[repos.getDay()] + ' ' + repos.getDate() + '</b></div>' : '') + '</div>';
     $('hero').innerHTML = html;
-    majTrajet(n, !adr.length);
+    majTrajet(n, adr[0] || '');
   }
   // Deux semaines, du lundi de cette semaine ; le week-end est plus étroit s'il n'est pas travaillé
   var lundi = jourPlus(auj, -((auj.getDay() + 6) % 7)), vue = k0 < 14 ? jourPlus(auj, k0) : null, out = '';
@@ -202,11 +202,13 @@ function afficher(){
 var VOITURE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 17h14v-4.5l-1.8-4.6A2 2 0 0 0 15.3 6.6H8.7a2 2 0 0 0-1.9 1.3L5 12.5z"/><path d="M5 12.5h14"/><circle cx="8" cy="15" r="1"/><circle cx="16" cy="15" r="1"/><path d="M6.5 17v2M17.5 17v2"/></svg>';
 var trajets = {};
 function dureeTxt(m){ return m < 60 ? m + ' min' : Math.floor(m / 60) + ' h ' + (m % 60 < 10 ? '0' : '') + (m % 60); }
-function dessinerTrajet(lieu, avecAdresse){
-  var T = trajets[lieu], el = $('trajet'); if (!el) return;
+function dessinerTrajet(cle, avecAdresse){
+  var T = trajets[cle], el = $('trajet'); if (!el) return;
   if (!T) { el.innerHTML = '<div class="trajet attente">' + VOITURE + 'Calcul du trajet…</div>'; return; }
   if (T.erreur || !T.trouve) { el.innerHTML = ''; ajusterHero(); return; }
-  if (avecAdresse && T.centre) $('adresseCentre').innerHTML = echapper(T.centre.nom + ' · ' + T.centre.adresse);
+  if (avecAdresse && T.centre) $('adresseCentre').innerHTML = T.centre.approx
+    ? echapper(T.centre.adresse) + ' · centre-ville (centre Audilab non trouvé, ajoute son adresse dans l\'événement)'
+    : echapper(T.centre.nom + ' · ' + T.centre.adresse);
   el.innerHTML = '<div class="trajet">' + VOITURE + (T.centre && T.centre.approx ? '≈ ' : '') + dureeTxt(T.minutes) + ' en voiture<small>' + T.km + ' km</small></div>';
   ajusterHero();
 }
@@ -217,20 +219,21 @@ function ajusterHero(){
   for (i = L.length - 1; i >= 0 && h.scrollHeight > h.clientHeight + 1; i--) L[i].style.display = 'none';
 }
 var enCours = {};
-function majTrajet(lieu, avecAdresse){
-  if (!lieu) return;
-  if (enDemo() && !trajets[lieu]) trajets[lieu] = { trouve: true, minutes: 34, km: 38, centre: { nom: 'Audilab Langeais', adresse: '15 Rue Thiers, Langeais' } };
-  dessinerTrajet(lieu, avecAdresse);
-  if (trajets[lieu] || enCours[lieu]) return;
-  enCours[lieu] = true;
+function majTrajet(lieu, adresse){
+  if (!lieu && !adresse) return;
+  var cle = lieu + '|' + adresse, avecAdresse = !adresse;
+  if (enDemo() && !trajets[cle]) trajets[cle] = { trouve: true, minutes: 34, km: 38, centre: { nom: 'Audilab Langeais', adresse: '15 Rue Thiers, Langeais' } };
+  dessinerTrajet(cle, avecAdresse);
+  if (trajets[cle] || enCours[cle]) return;
+  enCours[cle] = true;
   var xhr = new XMLHttpRequest(), base = CONFIG.WORKER.replace(/\/agenda$/, '');
   function fin(j){
-    enCours[lieu] = false;
-    trajets[lieu] = j || { erreur: true };
-    if (!j) setTimeout(function(){ delete trajets[lieu]; }, 10 * 60000);   // on réessaiera plus tard
-    dessinerTrajet(lieu, avecAdresse);
+    enCours[cle] = false;
+    trajets[cle] = j || { erreur: true };
+    if (!j) setTimeout(function(){ delete trajets[cle]; }, 10 * 60000);   // on réessaiera plus tard
+    dessinerTrajet(cle, avecAdresse);
   }
-  xhr.open('GET', base + '/trajet?cle=' + encodeURIComponent(CLE) + '&lieu=' + encodeURIComponent(lieu), true);
+  xhr.open('GET', base + '/trajet?cle=' + encodeURIComponent(CLE) + '&lieu=' + encodeURIComponent(lieu) + '&adresse=' + encodeURIComponent(adresse), true);
   xhr.timeout = 30000;
   xhr.onload = function(){ var j = null; try { j = JSON.parse(xhr.responseText); } catch (e) {} fin(xhr.status === 200 && j ? j : null); };
   xhr.onerror = xhr.ontimeout = function(){ fin(null); };

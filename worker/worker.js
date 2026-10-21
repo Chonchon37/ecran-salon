@@ -31,7 +31,7 @@ const FLUX_ALERTES = 'https://data.filbleu.fr/ws-tr/gtfs-rt/opendata/service-ale
 const FLUX_INCIDENTS = 'https://www.filbleu.fr/rss-incident.xml';   // l'info trafic du site filbleu.fr (travaux, déviations…)
 const NOMS_ARRETS = { 'A': 'Monconseil', '2': 'Maréchal Juin' };
 const CACHE_SECONDES = 20;
-const VERSION = '19';   // à changer à chaque mise à jour du code : vide les caches
+const VERSION = '20';   // à changer à chaque mise à jour du code : vide les caches
 
 // Horaires prévus, format compact : "jours" = n° de grille pour chaque jour depuis "debut",
 // chaque ligne "g=" = minutes depuis minuit, écrites en écarts successifs.
@@ -579,6 +579,20 @@ async function enCache(cle, secondes, calcul) {
   if (val) await cache.put(req, new Response(JSON.stringify(val), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'max-age=' + secondes } }));
   return val;
 }
+// Distance à vol d'oiseau depuis la maison (km) : un centre trop loin est forcément une erreur d'homonyme
+function kmDomicile(lon, lat) {
+  const r = Math.PI / 180, dLat = (lat - DOMICILE.lat) * r, dLon = (lon - DOMICILE.lon) * r;
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(DOMICILE.lat * r) * Math.cos(lat * r) * Math.sin(dLon / 2) ** 2;
+  return 12742 * Math.asin(Math.sqrt(a));
+}
+const RAYON_KM = 120;
+// Adresse précise (champ « Lieu » de l'événement) → coordonnées, via la Base Adresse Nationale
+async function geocoderAdresse(adresse) {
+  const r = await fetch('https://api-adresse.data.gouv.fr/search/?limit=5&lat=' + DOMICILE.lat + '&lon=' + DOMICILE.lon + '&q=' + encodeURIComponent(adresse));
+  if (!r.ok) return null;
+  const f = ((await r.json()).features || []).filter(x => x.properties.score > 0.4 && kmDomicile(x.geometry.coordinates[0], x.geometry.coordinates[1]) < RAYON_KM)[0];
+  return f ? { nom: f.properties.city, adresse: f.properties.label, lon: f.geometry.coordinates[0], lat: f.geometry.coordinates[1], approx: false } : null;
+}
 async function trouverCentre(lieu) {
   const mots = lieu.split(/\s+/).filter(Boolean), essais = [];
   for (const q of ['Audilab ' + lieu, 'Audilab ' + mots[0], 'Audilab ' + mots[0] + ' Tours']) if (essais.indexOf(q) < 0) essais.push(q);
@@ -587,18 +601,19 @@ async function trouverCentre(lieu) {
       { headers: { 'User-Agent': 'ecran-salon/1.0 (cadre photo familial, Tours)', 'Accept-Language': 'fr' } });
     if (!r.ok) continue;
     const L = await r.json();
-    const x = (Array.isArray(L) ? L : []).find(e => /audilab/i.test((e.name || '') + ' ' + (e.display_name || '')));
+    const x = (Array.isArray(L) ? L : []).find(e => /audilab/i.test((e.name || '') + ' ' + (e.display_name || '')) && kmDomicile(+e.lon, +e.lat) < RAYON_KM);
     if (x) {
       const a = x.address || {}, ville = a.village || a.town || a.city || a.municipality || '';
       const rue = [a.house_number, a.road || a.pedestrian || a.square].filter(Boolean).join(' ');
       return { nom: 'Audilab ' + (ville || mots[0]), adresse: [rue, ville].filter(Boolean).join(', '), lon: +x.lon, lat: +x.lat, approx: false };
     }
   }
-  // Pas de centre trouvé : à défaut, la commune du même nom (temps approximatif)
-  const b = await fetch('https://api-adresse.data.gouv.fr/search/?type=municipality&limit=1&lat=47.39&lon=0.69&q=' + encodeURIComponent(mots[0]));
+  // Pas de centre trouvé : à défaut, la commune de ce nom la plus proche de la maison (temps approximatif)
+  const b = await fetch('https://api-adresse.data.gouv.fr/search/?type=municipality&limit=20&autocomplete=1&q=' + encodeURIComponent(mots[0]));
   if (b.ok) {
-    const f = ((await b.json()).features || [])[0];
-    if (f) return { nom: f.properties.city, adresse: f.properties.city, lon: f.geometry.coordinates[0], lat: f.geometry.coordinates[1], approx: true };
+    const F = ((await b.json()).features || []).map(f => ({ f, km: kmDomicile(f.geometry.coordinates[0], f.geometry.coordinates[1]) }))
+      .filter(x => x.km < RAYON_KM).sort((p, q) => p.km - q.km);
+    if (F.length) { const f = F[0].f; return { nom: f.properties.city, adresse: f.properties.city + ' (' + f.properties.postcode + ')', lon: f.geometry.coordinates[0], lat: f.geometry.coordinates[1], approx: true }; }
   }
   return null;
 }
@@ -614,10 +629,12 @@ async function itineraire(c) {
   if (!R) throw new Error('itinéraire introuvable');
   return { minutes: Math.round(R.duration / 60), km: Math.round(R.distance / 1000), source: 'OSRM' };
 }
-async function construireTrajet(lieuBrut) {
-  const lieu = texte(lieuBrut, 80).replace(/\s+puis\s+.*$/i, '');
-  if (!lieu) throw new Error('lieu manquant');
-  const centre = await enCache('centre:' + lieu.toLowerCase(), 30 * 86400, () => trouverCentre(lieu));
+async function construireTrajet(lieuBrut, adresseBrute) {
+  const lieu = texte(lieuBrut, 80).replace(/\s+puis\s+.*$/i, ''), adresse = texte(adresseBrute, 160);
+  if (!lieu && !adresse) throw new Error('lieu manquant');
+  // L'adresse de l'événement (si elle est remplie) est prioritaire sur la recherche du centre Audilab
+  let centre = adresse ? await enCache('adresse:' + adresse.toLowerCase(), 30 * 86400, () => geocoderAdresse(adresse)) : null;
+  if (!centre && lieu) centre = await enCache('centre:' + lieu.toLowerCase(), 30 * 86400, () => trouverCentre(lieu));
   if (!centre) return { lieu, trouve: false };
   const route = await enCache('route:' + centre.lat.toFixed(4) + ',' + centre.lon.toFixed(4), 7 * 86400, () => itineraire(centre));
   return { lieu, trouve: true, centre: { nom: centre.nom, adresse: centre.adresse, approx: centre.approx }, minutes: route.minutes, km: route.km, source: route.source };
@@ -914,7 +931,7 @@ export default {
       const estEcran = cle === env.ECRAN_CLE, estAdmin = !!cleAdmin && cle === cleAdmin;
       if (!estEcran && !estAdmin) return repondre({ erreur: 'Clé absente ou incorrecte' }, 401, entetes);
 
-      if (chemin === '/trajet') return repondre(await construireTrajet(url.searchParams.get('lieu') || ''), 200, entetes);
+      if (chemin === '/trajet') return repondre(await construireTrajet(url.searchParams.get('lieu') || '', url.searchParams.get('adresse') || ''), 200, entetes);
       if (chemin === '/agenda') return await avecCache('agenda', 300, () => construireAgenda(env), entetes, ctx);
       if (chemin === '/maison') return repondre(await construireMaison(env), 200, entetes);
       if (chemin === '/vigilance') return await avecCache('vigilance', 300, () => construireVigilance(env), entetes, ctx);
