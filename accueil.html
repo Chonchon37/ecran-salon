@@ -122,6 +122,8 @@ body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;fon
 .ag-col{flex:1;min-width:0;overflow:hidden;display:flex;flex-direction:column}
 .ag-col + .ag-col{margin-left:22px;padding-left:22px;border-left:2px solid var(--line)}
 .ev-sub{font-size:15px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);flex:none}
+.ag-bloc{flex:none}
+.ag-bloc + .ag-bloc .ev-sub{margin-top:16px}
 .ev{display:flex;align-items:center;margin-top:12px;flex:none}
 .ev-h{width:86px;font-size:20px;font-weight:700;flex:none}
 .ev i{width:12px;height:12px;border-radius:50%;margin-right:14px;flex:none}
@@ -575,15 +577,20 @@ function tuileAnniversaires(T, now, l, h, A){
 /* ---------- Tuile Agenda ---------- */
 function tuileAgenda(T, now, l, h){
   T.className += ' ag lien'; T.setAttribute('data-page', 'agenda');
-  var hr = now.getHours(), minNow = hr * 60 + now.getMinutes(), jours = [[], [], []];
-  var j0 = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime(), j1 = j0 + 86400000, j2 = j1 + 86400000, j3 = j2 + 86400000;
+  var hr = now.getHours(), minNow = hr * 60 + now.getMinutes(), NBJ = 14, jours = [], d;
+  for (d = 0; d < NBJ; d++) jours.push([]);
+  var j0 = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  function debutJour(k){ return new Date(now.getFullYear(), now.getMonth(), now.getDate() + k).getTime(); }
   if (agendaReel && agendaReel.evenements) {
     for (var e = 0; e < agendaReel.evenements.length; e++) {
       var E = agendaReel.evenements[e], dd = new Date(E.debut);
-      var it = { debut: E.journee ? null : pad(dd.getHours()) + ':' + pad(dd.getMinutes()), titre: E.titre, qui: quiPour(E) };
-      if (E.debut < j1 && E.fin > now.getTime()) { if (E.debut < j0) it.debut = null; jours[0].push(it); }
-      else if ((E.debut >= j1 && E.debut < j2) || (E.journee && E.debut < j1 && E.fin > j1)) jours[1].push(it);
-      else if ((E.debut >= j2 && E.debut < j3) || (E.journee && E.debut < j2 && E.fin > j2)) jours[2].push(it);
+      for (d = 0; d < NBJ; d++) {
+        var a = debutJour(d), b = debutJour(d + 1);
+        if (E.debut >= b || E.fin <= a) continue;                        // ne touche pas ce jour
+        if (d === 0 && E.fin <= now.getTime()) continue;                  // déjà terminé aujourd'hui
+        if (d > 0 && !E.journee && E.debut < a) continue;                 // événement à l'heure : seulement le jour où il commence
+        jours[d].push({ debut: (E.journee || E.debut < a) ? null : pad(dd.getHours()) + ':' + pad(dd.getMinutes()), titre: E.titre, qui: quiPour(E) });
+      }
     }
   } else if (!prive()) {
     for (var e2 = 0; e2 < DEMO_AG.length; e2++) {
@@ -592,32 +599,54 @@ function tuileAgenda(T, now, l, h){
       jours[ev.j].push(ev);
     }
   }
-  var dj2 = new Date(j2);
-  var cols = [
-    { t: 'Aujourd\'hui', L: jours[0], v: 'Plus rien de prévu' },
-    { t: 'Demain', L: jours[1], v: 'Rien de prévu' },
-    { t: majuscule(JOURS[dj2.getDay()]), L: jours[2], v: 'Rien de prévu' }
-  ];
-  if (demainDabord(now) && hr >= 12) { cols[0].t = 'Ce soir'; cols[0].v = 'Plus rien ce soir'; cols = [cols[1], cols[0], cols[2]]; }
-  var nb = Math.min(3, l), html = '<div class="ag-cols">';
-  for (var c = 0; c < nb; c++) {
-    html += '<div class="ag-col"><div class="ev-sub">' + cols[c].t + '</div>';
-    if (!cols[c].L.length) html += '<div class="vide">' + (prive() && !agendaReel ? 'Chargement…' : cols[c].v) + '</div>';
-    for (var r = 0; r < cols[c].L.length; r++) {
-      var x = cols[c].L[r];
-      html += '<div class="ev"><div class="ev-h">' + (x.debut ? x.debut.replace(':', ' h ') : 'Journée') + '</div><i style="background:' + (COULEURS[x.qui] || COULEURS.moi) + '"></i><div class="ev-n">' + echapper(x.titre) + '</div></div>';
-    }
-    html += '</div>';
+  // Jours affichés : aujourd'hui puis les jours suivants qui ont quelque chose (le soir, demain d'abord)
+  function nomJour(k){
+    if (k === 0) return demainDabord(now) && hr >= 12 ? 'Ce soir' : 'Aujourd\'hui';
+    if (k === 1) return 'Demain';
+    var x = new Date(debutJour(k));
+    return majuscule(JOURS[x.getDay()]) + ' ' + x.getDate() + (k >= 7 ? ' ' + MOIS_C[x.getMonth()] : '');
   }
+  var ordre = [];
+  for (d = 0; d < NBJ; d++) ordre.push(d);
+  if (demainDabord(now) && hr >= 12) { ordre[0] = 1; ordre[1] = 0; }
+  // Blocs à placer : l'en-tête d'un jour reste collé à son premier événement
+  var blocs = [];
+  for (var o = 0; o < ordre.length; o++) {
+    var k = ordre[o], L = jours[k];
+    if (!L.length && k > 1) continue;
+    var tete = '<div class="ev-sub">' + nomJour(k) + '</div>';
+    if (!L.length) { blocs.push(tete + '<div class="vide">' + (prive() && !agendaReel ? 'Chargement…' : (k === 0 ? 'Plus rien de prévu' : 'Rien de prévu')) + '</div>'); continue; }
+    L.sort(function(p, q){ return (p.debut || '00:00') < (q.debut || '00:00') ? -1 : 1; });
+    for (var r = 0; r < L.length; r++) {
+      var x = L[r], ligne = '<div class="ev"><div class="ev-h">' + (x.debut ? x.debut.replace(':', ' h ') : 'Journée') + '</div><i style="background:' + (COULEURS[x.qui] || COULEURS.moi) + '"></i><div class="ev-n">' + echapper(x.titre) + '</div></div>';
+      blocs.push(r === 0 ? tete + ligne : ligne);
+    }
+  }
+  // Remplissage des colonnes les unes après les autres, comme un journal
+  var nb = Math.min(3, l), html = '<div class="ag-cols">';
+  for (var c = 0; c < nb; c++) html += '<div class="ag-col"></div>';
   T.innerHTML = html + '</div>';
-  // Autant d'événements que la tuile peut en contenir, puis « + N autres »
-  var colEls = T.querySelectorAll('.ag-col');
-  for (var k = 0; k < colEls.length; k++) {
-    var col = colEls[k], evs = col.querySelectorAll('.ev');
-    if (!deborde(col)) continue;
-    var plus = document.createElement('div'); plus.className = 'plus'; col.appendChild(plus);
-    var n = 0;
-    for (var z = evs.length - 1; z >= 0 && deborde(col); z--) { evs[z].style.display = 'none'; n++; plus.innerHTML = '+ ' + n + ' autre' + (n > 1 ? 's' : ''); }
+  var cols = T.querySelectorAll('.ag-col'), ci = 0, restants = 0;
+  for (var z = 0; z < blocs.length; z++) {
+    if (ci >= cols.length) { restants++; continue; }
+    var div = document.createElement('div'); div.className = 'ag-bloc'; div.innerHTML = blocs[z];
+    cols[ci].appendChild(div);
+    if (deborde(cols[ci])) {
+      cols[ci].removeChild(div);
+      ci++;
+      if (ci >= cols.length) { restants++; continue; }
+      // en haut d'une nouvelle colonne, on rappelle le jour si le bloc n'a pas d'en-tête
+      if (blocs[z].indexOf('ev-sub') < 0) {
+        for (var y = z - 1; y >= 0; y--) { var m = /<div class="ev-sub">([^<]*)<\/div>/.exec(blocs[y]); if (m) { div.innerHTML = '<div class="ev-sub">' + m[1] + ' (suite)</div>' + blocs[z]; break; } }
+      }
+      cols[ci].appendChild(div);
+      if (deborde(cols[ci])) { cols[ci].removeChild(div); ci = cols.length; restants++; }
+    }
+  }
+  if (restants) {
+    var der = cols[cols.length - 1], plus = document.createElement('div'); plus.className = 'plus'; plus.innerHTML = '+ ' + restants + ' autre' + (restants > 1 ? 's' : '');
+    der.appendChild(plus);
+    while (deborde(der) && der.childNodes.length > 1) { der.removeChild(der.childNodes[der.childNodes.length - 2]); restants++; plus.innerHTML = '+ ' + restants + ' autres'; }
   }
 }
 
