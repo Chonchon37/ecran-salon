@@ -169,7 +169,7 @@ function afficher(){
   $('scenes').innerHTML = h;
   $('demo').style.display = enDemo() ? '' : 'none';
 }
-function erreur(msg){ $('sum').innerHTML = '<span style="color:var(--warn);font-size:24px">' + echapper(msg) + '</span>'; }
+function erreur(msg){ $('demo').style.display = enDemo() ? '' : 'none'; $('sum').innerHTML = '<span style="color:var(--warn);font-size:24px">' + echapper(msg) + '</span>'; }
 
 /* ---------- Échanges avec le Worker ---------- */
 function charger(){
