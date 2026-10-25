@@ -30,8 +30,8 @@ const FLUX_TR = 'https://data.filbleu.fr/ws-tr/gtfs-rt/opendata/trip-updates';
 const FLUX_ALERTES = 'https://data.filbleu.fr/ws-tr/gtfs-rt/opendata/service-alerts';
 const FLUX_INCIDENTS = 'https://www.filbleu.fr/rss-incident.xml';   // l'info trafic du site filbleu.fr (travaux, déviations…)
 const NOMS_ARRETS = { 'A': 'Monconseil', '2': 'Maréchal Juin' };
-const CACHE_SECONDES = 20;
-const VERSION = '20';   // à changer à chaque mise à jour du code : vide les caches
+const CACHE_SECONDES = 30;   // les écrans redemandent toutes les 30 s
+const VERSION = '21';   // à changer à chaque mise à jour du code : vide les caches
 
 // Horaires prévus, format compact : "jours" = n° de grille pour chaque jour depuis "debut",
 // chaque ligne "g=" = minutes depuis minuit, écrites en écarts successifs.
@@ -150,10 +150,27 @@ function lecteur(b) {
 }
 const DEC = new TextDecoder();
 
+// Économie de temps processeur (limite de 10 ms du forfait gratuit) : le flux contient tout le réseau,
+// on repère d'abord où apparaissent nos arrêts et on ne décode que ces trajets-là.
+const LATIN1 = new TextDecoder('latin1'), ENC = new TextEncoder();
+function chercherOctets(b, motif, sortie) {
+  const m = ENC.encode(motif), p0 = m[0];
+  for (let i = b.indexOf(p0); i >= 0; i = b.indexOf(p0, i + 1)) {
+    let ok = true;
+    for (let j = 1; j < m.length; j++) if (b[i + j] !== m[j]) { ok = false; break; }
+    if (ok) sortie.push(i);
+  }
+}
 function lirePassagesTR(b, stopsVoulus) {
-  const parcourir = lecteur(b), res = {};
+  const parcourir = lecteur(b), res = {}, positions = [];
+  for (const st of stopsVoulus) chercherOctets(b, st.slice(st.indexOf(':') + 1), positions);   // « MONC-1T » plutôt que « TTR:… » (plus rare)
+  if (!positions.length) return res;
+  positions.sort((x, y) => x - y);
+  let k = 0;
   parcourir(0, b.length, (f, v, a, z) => {
     if (f !== 2) return;                                   // FeedEntity
+    while (k < positions.length && positions[k] < a) k++;
+    if (k >= positions.length || positions[k] >= z) return; // aucun de nos arrêts dans ce trajet : on saute
     parcourir(a, z, (f2, v2, a2, z2) => {
       if (f2 !== 3) return;                                // TripUpdate
       let annule = false; const trouves = [];
@@ -174,7 +191,16 @@ function lirePassagesTR(b, stopsVoulus) {
   return res;
 }
 
+let MEMO_ALERTES = null;
 function lireAlertes(b, maintenant) {
+  // même flux qu'au dernier appel (même instance) : on garde le résultat quelques minutes
+  const sig = b.length + ':' + LATIN1.decode(b.subarray(0, 64)) + LATIN1.decode(b.subarray(Math.max(0, b.length - 64)));
+  if (MEMO_ALERTES && MEMO_ALERTES.sig === sig && maintenant - MEMO_ALERTES.t < 300000) return MEMO_ALERTES.res;
+  const res = lireAlertesBrut(b, maintenant);
+  MEMO_ALERTES = { sig, t: maintenant, res };
+  return res;
+}
+function lireAlertesBrut(b, maintenant) {
   const parcourir = lecteur(b), res = {};
   parcourir(0, b.length, (f, v, a, z) => {
     if (f !== 2) return;
@@ -232,7 +258,14 @@ function nettoyerDetail(t) {
   return t.replace(/\s*(Voir|Consulter) le plan.*$/i, '').replace(/\s*:\s*-\s*/g, ' : ').replace(/\s*-\s+du /g, ', du ').replace(/\.\s*\./g, '.')
     .replace(/([a-zé)])(?=[A-ZÉ][a-zé])/g, '$1. ').replace(/,(?=\S)/g, ', ').replace(/\s*>\s*/g, ' → ').replace(/\s+/g, ' ').trim();
 }
+let MEMO_INCIDENTS = null;
 function lireIncidents(xml, maintenant) {
+  if (MEMO_INCIDENTS && MEMO_INCIDENTS.xml === xml && maintenant - MEMO_INCIDENTS.t < 600000) return MEMO_INCIDENTS.res;
+  const res = lireIncidentsBrut(xml, maintenant);
+  MEMO_INCIDENTS = { xml, t: maintenant, res };
+  return res;
+}
+function lireIncidentsBrut(xml, maintenant) {
   const res = {}, vus = {};
   for (const l in ARRETS) { res[l] = []; vus[l] = new Set(); }
   const items = xml.match(/<item[\s>][\s\S]*?<\/item>/g) || [];
@@ -502,6 +535,7 @@ function minuitParis(ms) {
   return versMs({ y: +p.year, m: +p.month, d: +p.day, h: 0, mi: 0, s: 0, utc: false });
 }
 
+const MEMO_ICS = {};
 async function construireAgenda(env) {
   // Tous les agendas déclarés : GOOGLE_ICS, GOOGLE_ICS1, GOOGLE_ICS2… (autant que tu veux)
   const cles = Object.keys(env).filter(k => /^GOOGLE_ICS\d*$/.test(k) && env[k]).sort();
@@ -516,7 +550,10 @@ async function construireAgenda(env) {
   const finAgenda = aujourdhui + 15 * 86400000, finAnniv = aujourdhui + 367 * 86400000;
   let evts = [];
   for (const src of sources) {
-    const liste = lireEvenements(src.texte, ymdParis(aujourdhui - 40 * 86400000));
+    // fichier identique au dernier appel : on réutilise la lecture (le découpage du fichier iCal coûte cher)
+    const m = MEMO_ICS[src.cle], debutF = ymdParis(aujourdhui - 40 * 86400000);
+    const liste = m && m.texte === src.texte && m.debut === debutF ? m.liste : lireEvenements(src.texte, debutF);
+    MEMO_ICS[src.cle] = { texte: src.texte, debut: debutF, liste };
     for (const e of liste) e.agenda = src.cle;
     evts = evts.concat(liste);
   }
@@ -816,8 +853,24 @@ function lumiere(e) {
 }
 const NOM_SPECIAL = { 'special.tout_eteindre': 'Tout éteindre' };
 
+// Seulement les lumières et les modes choisis, via un modèle Home Assistant (bien plus léger que /api/states en entier)
+async function etatsUtiles(env, modes) {
+  const tpl = "{% set ns = namespace(o=[]) %}" +
+    "{% for s in states.light %}{% set ns.o = ns.o + [{'entity_id': s.entity_id, 'state': s.state, 'attributes': {'friendly_name': s.attributes.friendly_name, 'brightness': s.attributes.brightness}}] %}{% endfor %}" +
+    "{% for id in " + JSON.stringify(modes.filter(x => !x.startsWith('special.'))) + " %}{% if states(id) != 'unknown' or state_attr(id, 'friendly_name') %}" +
+    "{% set ns.o = ns.o + [{'entity_id': id, 'state': states(id), 'attributes': {'friendly_name': state_attr(id, 'friendly_name'), 'last_triggered': (state_attr(id, 'last_triggered').isoformat() if state_attr(id, 'last_triggered') else none)}}] %}{% endif %}{% endfor %}" +
+    "{{ ns.o | tojson }}";
+  try {
+    const r = await fetch(haUrl(env, '/api/template'), { method: 'POST', headers: { Authorization: 'Bearer ' + env.HA_TOKEN, 'Content-Type': 'application/json' }, body: JSON.stringify({ template: tpl }) });
+    if (r.ok) {
+      const L = JSON.parse(await r.text());
+      if (Array.isArray(L)) return L;
+    }
+  } catch (e) {}
+  return etatsHA(env);   // repli : tout l'état de Home Assistant
+}
 async function construireMaison(env) {
-  const [etats, R] = await Promise.all([etatsHA(env), lireReglages(env)]);
+  const R = await lireReglages(env), etats = await etatsUtiles(env, R.reglages.maison.modes);
   const parId = {}; for (const e of etats) parId[e.entity_id] = e;
   const choix = R.reglages.maison;
   let lumieres;
@@ -932,7 +985,7 @@ export default {
       if (!estEcran && !estAdmin) return repondre({ erreur: 'Clé absente ou incorrecte' }, 401, entetes);
 
       if (chemin === '/trajet') return repondre(await construireTrajet(url.searchParams.get('lieu') || '', url.searchParams.get('adresse') || ''), 200, entetes);
-      if (chemin === '/agenda') return await avecCache('agenda', 300, () => construireAgenda(env), entetes, ctx);
+      if (chemin === '/agenda') return await avecCache('agenda', 600, () => construireAgenda(env), entetes, ctx);
       if (chemin === '/maison') return repondre(await construireMaison(env), 200, entetes);
       if (chemin === '/vigilance') return await avecCache('vigilance', 300, () => construireVigilance(env), entetes, ctx);
       if (chemin === '/maison/action' && request.method === 'POST') {
