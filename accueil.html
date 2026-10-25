@@ -767,13 +767,13 @@ function anniversaires(now, horizonJours){
   if (agendaReel && agendaReel.anniversaires) {
     for (var b = 0; b < agendaReel.anniversaires.length; b++) {
       var x = agendaReel.anniversaires[b], dx = new Date(x.date), dj = new Date(dx.getFullYear(), dx.getMonth(), dx.getDate());
-      if (dj >= auj && dj - auj <= horizonJours * 86400000) AN.push({ nom: x.nom, date: dj, age: x.annee ? dj.getFullYear() - x.annee : 0 });
+      if (dj >= auj && Math.round((dj - auj) / 86400000) <= horizonJours) AN.push({ nom: x.nom, date: dj, age: x.annee ? dj.getFullYear() - x.annee : 0 });
     }
   } else if (!prive()) {
     for (var dm = 0; dm < DEMO_ANNIV.length; dm++) {
       var Dd = DEMO_ANNIV[dm], dA = new Date(auj.getFullYear(), Dd.mois - 1, Dd.jour);
       if (dA < auj) dA = new Date(auj.getFullYear() + 1, Dd.mois - 1, Dd.jour);
-      if (dA - auj <= horizonJours * 86400000) AN.push({ nom: Dd.nom, date: dA, age: dA.getFullYear() - Dd.annee });
+      if (Math.round((dA - auj) / 86400000) <= horizonJours) AN.push({ nom: Dd.nom, date: dA, age: dA.getFullYear() - Dd.annee });
     }
     AN.sort(function(p, q){ return p.date - q.date; });
   }
