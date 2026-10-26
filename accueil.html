@@ -941,17 +941,24 @@ var VOITURE_TV = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" str
 var ARRIVEE_TRAVAIL = 8 * 60 + 50, TRAJETS = {}, TRAJETS_EN_COURS = {};
 function departTravail(V, now, k0){
   var E = V.liste[0]; if (!E) return '';
-  var cle = E.lieu + '|' + (E.adresse || ''), T = TRAJETS[cle];
-  if (T === undefined && !TRAJETS_EN_COURS[cle] && prive()) {
+  // heure d'arrivée voulue ce jour-là (le Worker en déduit le départ avec la circulation, si la clé TomTom est réglée)
+  var arrivee = V.date.getFullYear() + '-' + pad(V.date.getMonth() + 1) + '-' + pad(V.date.getDate()) + 'T' + pad(Math.floor(ARRIVEE_TRAVAIL / 60)) + ':' + pad(ARRIVEE_TRAVAIL % 60);
+  var cle = E.lieu + '|' + (E.adresse || '') + '|' + arrivee, R = TRAJETS[cle], T = R && R.j;
+  // recalcul toutes les 10 min (la circulation du matin évolue)
+  if ((!R || Date.now() - R.t > 10 * 60000) && !TRAJETS_EN_COURS[cle] && prive()) {
     TRAJETS_EN_COURS[cle] = true;
-    lireJson(CONFIG.WORKER + '/trajet?cle=' + encodeURIComponent(CLE) + '&lieu=' + encodeURIComponent(E.lieu) + '&adresse=' + encodeURIComponent(E.adresse || ''), function(j){ TRAJETS[cle] = j; afficher(); });
-    setTimeout(function(){ TRAJETS_EN_COURS[cle] = false; }, 10 * 60000);   // nouvel essai plus tard si pas de réponse
+    lireJson(CONFIG.WORKER + '/trajet?cle=' + encodeURIComponent(CLE) + '&lieu=' + encodeURIComponent(E.lieu) + '&adresse=' + encodeURIComponent(E.adresse || '') + '&arrivee=' + arrivee,
+      function(j){ TRAJETS[cle] = { j: j, t: Date.now() }; TRAJETS_EN_COURS[cle] = false; afficher(); });
+    setTimeout(function(){ TRAJETS_EN_COURS[cle] = false; }, 2 * 60000);   // pas de réponse : nouvel essai
   }
   if (!prive()) T = { trouve: true, minutes: 34 };
   if (!T || !T.trouve || !T.minutes) return '';
-  var dep = Math.floor((ARRIVEE_TRAVAIL - T.minutes) / 5) * 5;
+  var dep;
+  if (T.depart) { var d = new Date(T.depart); dep = d.getHours() * 60 + d.getMinutes(); }   // avec la circulation
+  else dep = ARRIVEE_TRAVAIL - T.minutes;
+  dep = Math.floor(dep / 5) * 5;
   if (k0 === 0 && now.getHours() * 60 + now.getMinutes() > dep) return '';   // déjà parti(e)
-  return 'Départ ' + Math.floor(dep / 60) + ' h ' + pad(dep % 60);
+  return 'Départ ' + Math.floor(dep / 60) + ' h ' + pad(dep % 60) + (T.retard >= 3 ? ' · bouchons +' + T.retard + ' min' : '');
 }
 function tuileTravail(T, now, l, h){
   T.className += ' tv lien'; T.setAttribute('data-page', 'travail');

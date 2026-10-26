@@ -181,7 +181,7 @@ function afficher(){
     html += '<div class="suite"><div class="label" style="margin-bottom:4px">Ensuite</div>' + (suite || '<div class="s-r">Rien de noté après.</div>') +
       (repos ? '<div class="s-r">Prochain repos : <b>' + JOURS[repos.getDay()] + ' ' + repos.getDate() + '</b></div>' : '') + '</div>';
     $('hero').innerHTML = html;
-    VISE_PLUS_TARD = k0 > 0;
+    VISE_PLUS_TARD = k0 > 0; JOUR_VISE = vise;
     majTrajet(n, adr[0] || '');
   }
   // Deux semaines, du lundi de cette semaine ; le week-end est plus étroit s'il n'est pas travaillé
@@ -217,10 +217,16 @@ function dessinerTrajet(cle, avecAdresse){
     : echapper(T.centre.nom + ' · ' + T.centre.adresse);
   var html = '<div class="trajet">' + VOITURE + (T.centre && T.centre.approx ? '≈ ' : '') + dureeTxt(T.minutes) + ' en voiture<small>' + T.km + ' km</small></div>';
   // Le lendemain : heure de départ pour arriver à l'heure (arrondie aux 5 minutes d'avant)
-  if (VISE_PLUS_TARD) {
-    var a = ARRIVEE.split(':'), dep = parseInt(a[0], 10) * 60 + parseInt(a[1], 10) - T.minutes;
+  var auj = new Date(), departOk = true;
+  if (VISE_PLUS_TARD || T.depart) {
+    var a = ARRIVEE.split(':'), dep;
+    if (T.depart) { var dd = new Date(T.depart); dep = dd.getHours() * 60 + dd.getMinutes(); }   // avec la circulation (TomTom)
+    else dep = parseInt(a[0], 10) * 60 + parseInt(a[1], 10) - T.minutes;
     dep = Math.floor(dep / 5) * 5;
-    html += '<div class="depart">Partir à <b>' + Math.floor(dep / 60) + ' h ' + pad(dep % 60) + '</b> <small> · arrivée ' + parseInt(ARRIVEE, 10) + ' h ' + ARRIVEE.split(':')[1] + '</small></div>';
+    if (!VISE_PLUS_TARD && auj.getHours() * 60 + auj.getMinutes() > dep) departOk = false;   // le jour même, une fois parti(e)
+  }
+  if ((VISE_PLUS_TARD || T.depart) && departOk) {
+    html += '<div class="depart">Partir à <b>' + Math.floor(dep / 60) + ' h ' + pad(dep % 60) + '</b> <small> · arrivée ' + parseInt(ARRIVEE, 10) + ' h ' + ARRIVEE.split(':')[1] + (T.retard >= 3 ? ' · bouchons +' + T.retard + ' min' : '') + '</small></div>';
   }
   el.innerHTML = html;
   ajusterHero();
@@ -232,9 +238,13 @@ function ajusterHero(){
   for (i = L.length - 1; i >= 0 && h.scrollHeight > h.clientHeight + 1; i--) L[i].style.display = 'none';
 }
 var enCours = {};
+var JOUR_VISE = null;
 function majTrajet(lieu, adresse){
   if (!lieu && !adresse) return;
-  var cle = lieu + '|' + adresse, avecAdresse = !adresse;
+  var v = JOUR_VISE || new Date();
+  var arrivee = v.getFullYear() + '-' + pad(v.getMonth() + 1) + '-' + pad(v.getDate()) + 'T' + ARRIVEE;
+  var cle = lieu + '|' + adresse + '|' + arrivee, avecAdresse = !adresse;
+  if (trajets[cle] && trajets[cle].recu && Date.now() - trajets[cle].recu > 10 * 60000 && !enCours[cle]) delete trajets[cle];   // circulation : recalcul toutes les 10 min
   if (enDemo() && !trajets[cle]) trajets[cle] = { trouve: true, minutes: 34, km: 38, centre: { nom: 'Audilab Langeais', adresse: '15 Rue Thiers, Langeais' } };
   dessinerTrajet(cle, avecAdresse);
   if (trajets[cle] || enCours[cle]) return;
@@ -243,10 +253,11 @@ function majTrajet(lieu, adresse){
   function fin(j){
     enCours[cle] = false;
     trajets[cle] = j || { erreur: true };
+    if (j) j.recu = Date.now();
     if (!j) setTimeout(function(){ delete trajets[cle]; }, 10 * 60000);   // on réessaiera plus tard
     dessinerTrajet(cle, avecAdresse);
   }
-  xhr.open('GET', base + '/trajet?cle=' + encodeURIComponent(CLE) + '&lieu=' + encodeURIComponent(lieu) + '&adresse=' + encodeURIComponent(adresse), true);
+  xhr.open('GET', base + '/trajet?cle=' + encodeURIComponent(CLE) + '&lieu=' + encodeURIComponent(lieu) + '&adresse=' + encodeURIComponent(adresse) + '&arrivee=' + arrivee, true);
   xhr.timeout = 30000;
   xhr.onload = function(){ var j = null; try { j = JSON.parse(xhr.responseText); } catch (e) {} fin(xhr.status === 200 && j ? j : null); };
   xhr.onerror = xhr.ontimeout = function(){ fin(null); };

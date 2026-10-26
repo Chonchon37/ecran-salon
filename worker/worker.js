@@ -10,7 +10,8 @@
  * Réglages à saisir dans Cloudflare (Settings → Variables and Secrets) :
  *  ECRAN_CLE   (secret) mot de passe de l'écran, ajouté à l'adresse du cadre : ?cle=…
  *  GOOGLE_ICS1, GOOGLE_ICS2… (secrets) adresses secrètes au format iCal de tes Google Agenda
- *  HA_URL      (texte)  https://ha.petitgeranium.duckdns.org
+ *  HA_URL      (texte)  https://petitgeranium.duckdns.org:65001
+ *  TOMTOM_CLE  (secret, facultatif) clé gratuite developer.tomtom.com : trajet du travail avec la circulation
  *  HA_ALERTE   (texte, facultatif) capteur de vigilance Météo-France, par défaut sensor.37_weather_alert
  *  HA_TOKEN    (secret) jeton d'accès longue durée Home Assistant
  *  ADMIN_CLE   (secret, facultatif) mot de passe de la page admin (sinon : ECRAN_CLE)
@@ -31,7 +32,7 @@ const FLUX_ALERTES = 'https://data.filbleu.fr/ws-tr/gtfs-rt/opendata/service-ale
 const FLUX_INCIDENTS = 'https://www.filbleu.fr/rss-incident.xml';   // l'info trafic du site filbleu.fr (travaux, déviations…)
 const NOMS_ARRETS = { 'A': 'Monconseil', '2': 'Maréchal Juin' };
 const CACHE_SECONDES = 30;   // les écrans redemandent toutes les 30 s
-const VERSION = '23';   // à changer à chaque mise à jour du code : vide les caches
+const VERSION = '24';   // à changer à chaque mise à jour du code : vide les caches
 
 // Horaires prévus, format compact : "jours" = n° de grille pour chaque jour depuis "debut",
 // chaque ligne "g=" = minutes depuis minuit, écrites en écarts successifs.
@@ -682,7 +683,22 @@ async function itineraire(c) {
   const km = kmDomicile(c.lon, c.lat) * 1.3;
   return { minutes: Math.round(km / 55 * 60) + 3, km: Math.round(km), source: 'estimation' };
 }
-async function construireTrajet(lieuBrut, adresseBrute) {
+// Avec le trafic (TomTom, clé gratuite TOMTOM_CLE) : heure de départ pour arriver à l'heure voulue.
+// Pour demain : trafic habituel de ce jour-là ; le matin même : trafic en direct, recalculé toutes les 10 min.
+function isoParis(ms) {
+  const p = partiesParis(ms), dec = decalageParis(ms);
+  return p.year + '-' + p.month + '-' + p.day + 'T' + p.hour + ':' + p.minute + ':00+0' + (dec / 60) + ':00';
+}
+async function trajetTrafic(env, c, arriveeMs) {
+  const r = await fetch('https://api.tomtom.com/routing/1/calculateRoute/' + DOMICILE.lat + ',' + DOMICILE.lon + ':' + c.lat + ',' + c.lon +
+    '/json?key=' + encodeURIComponent(env.TOMTOM_CLE) + '&traffic=true&travelMode=car&routeType=fastest&arriveAt=' + encodeURIComponent(isoParis(arriveeMs)));
+  if (!r.ok) throw new Error('TomTom a répondu ' + r.status);
+  const j = await r.json(), S = j.routes && j.routes[0] && j.routes[0].summary;
+  if (!S) throw new Error('itinéraire TomTom introuvable');
+  return { minutes: Math.round(S.travelTimeInSeconds / 60), km: Math.round(S.lengthInMeters / 1000), depart: Date.parse(S.departureTime),
+    retard: Math.round((S.trafficDelayInSeconds || 0) / 60), source: 'TomTom', calcule: Date.now() };
+}
+async function construireTrajet(lieuBrut, adresseBrute, arriveeBrute, env) {
   const lieu = texte(lieuBrut, 80).replace(/\s+puis\s+.*$/i, ''), adresse = texte(adresseBrute, 160);
   if (!lieu && !adresse) throw new Error('lieu manquant');
   // L'adresse de l'événement (si elle est remplie) est prioritaire sur la recherche du centre Audilab
@@ -692,6 +708,17 @@ async function construireTrajet(lieuBrut, adresseBrute) {
   // une estimation n'est gardée qu'une heure (on retentera un vrai itinéraire)
   let route = await enCache('route:' + centre.lat.toFixed(4) + ',' + centre.lon.toFixed(4), 7 * 86400, async () => { const x = await itineraire(centre); return x.source === 'estimation' ? null : x; });
   if (!route) route = await itineraire(centre);
+  // Heure d'arrivée voulue (« 2026-10-27T08:50 », heure de Paris) + clé TomTom : on tient compte de la circulation
+  const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(arriveeBrute || '');
+  if (m && env && env.TOMTOM_CLE) {
+    const arr = versMs({ y: +m[1], m: +m[2], d: +m[3], h: +m[4], mi: +m[5], s: 0, utc: false }), dans = arr - Date.now();
+    if (dans > 0 && dans < 8 * 86400000) {
+      try {
+        const t = await enCache('trafic:' + centre.lat.toFixed(4) + ',' + centre.lon.toFixed(4) + ':' + arriveeBrute, dans < 4 * 3600000 ? 600 : 3 * 3600, () => trajetTrafic(env, centre, arr));
+        if (t) return { lieu, trouve: true, centre: { nom: centre.nom, adresse: centre.adresse, approx: centre.approx }, minutes: t.minutes, km: t.km, depart: t.depart, retard: t.retard, source: t.source, calcule: t.calcule };
+      } catch (e) {}
+    }
+  }
   return { lieu, trouve: true, centre: { nom: centre.nom, adresse: centre.adresse, approx: centre.approx || route.source === 'estimation' }, minutes: route.minutes, km: route.km, source: route.source };
 }
 
@@ -1002,7 +1029,7 @@ export default {
       const estEcran = cle === env.ECRAN_CLE, estAdmin = !!cleAdmin && cle === cleAdmin;
       if (!estEcran && !estAdmin) return repondre({ erreur: 'Clé absente ou incorrecte' }, 401, entetes);
 
-      if (chemin === '/trajet') return repondre(await construireTrajet(url.searchParams.get('lieu') || '', url.searchParams.get('adresse') || '').catch(e => ({ trouve: false, erreur: String(e.message || e) })), 200, entetes);
+      if (chemin === '/trajet') return repondre(await construireTrajet(url.searchParams.get('lieu') || '', url.searchParams.get('adresse') || '', url.searchParams.get('arrivee') || '', env).catch(e => ({ trouve: false, erreur: String(e.message || e) })), 200, entetes);
       if (chemin === '/agenda') return await avecCache('agenda', 600, () => construireAgenda(env), entetes, ctx);
       if (chemin === '/maison') return repondre(await construireMaison(env), 200, entetes);
       if (chemin === '/vigilance') return await avecCache('vigilance', 300, () => construireVigilance(env), entetes, ctx);
