@@ -194,7 +194,7 @@ body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;fon
 .tv-q{color:var(--p2)}
 .demi .tv-h{font-size:16px;margin-top:2px;padding-left:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .tv-l{margin-top:0}
-.tv-suite{margin-top:12px;border-top:1.5px solid var(--line);padding-top:6px;flex:0 1 auto;min-height:0;overflow:hidden}
+.tv-suite{margin-top:10px;border-top:1.5px solid var(--line);padding-top:4px;flex:0 1 auto;min-height:0;overflow:hidden}
 .tv-r{display:flex;align-items:baseline;font-size:19px;line-height:1.6}
 .tv-j{width:76px;flex:none;color:var(--muted);font-weight:700;margin-right:10px;white-space:nowrap}
 .tv-n{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}
@@ -985,8 +985,9 @@ function tuileTravail(T, now, l, h){
   if (l >= 2) T.className += ' tv-large';
   T.innerHTML = (l >= 2 ? '<div class="tv-hero">' + hero + '</div>' : hero) + '<div class="tv-suite">' + rows + '</div>';
   var S = T.querySelector('.tv-suite'), R = S.querySelectorAll('.tv-r');
-  for (var y = R.length - 1; y >= 0 && S.scrollHeight > S.clientHeight + 1; y--) R[y].style.display = 'none';
-  if (!l || l < 2) { if (S.clientHeight < 30) S.style.display = 'none'; }
+  var y = R.length - 1;
+  for (; y >= 0 && S.scrollHeight > S.clientHeight + 1; y--) R[y].style.display = 'none';
+  if (y < 0) S.style.display = 'none';   // plus aucune ligne ne tient : pas de trait seul
 }
 
 /* ---------- Tuile Maison ---------- */
