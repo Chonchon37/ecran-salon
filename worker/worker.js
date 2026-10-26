@@ -31,7 +31,7 @@ const FLUX_ALERTES = 'https://data.filbleu.fr/ws-tr/gtfs-rt/opendata/service-ale
 const FLUX_INCIDENTS = 'https://www.filbleu.fr/rss-incident.xml';   // l'info trafic du site filbleu.fr (travaux, déviations…)
 const NOMS_ARRETS = { 'A': 'Monconseil', '2': 'Maréchal Juin' };
 const CACHE_SECONDES = 30;   // les écrans redemandent toutes les 30 s
-const VERSION = '21';   // à changer à chaque mise à jour du code : vide les caches
+const VERSION = '22';   // à changer à chaque mise à jour du code : vide les caches
 
 // Horaires prévus, format compact : "jours" = n° de grille pour chaque jour depuis "debut",
 // chaque ligne "g=" = minutes depuis minuit, écrites en écarts successifs.
@@ -161,16 +161,21 @@ function chercherOctets(b, motif, sortie) {
     if (ok) sortie.push(i);
   }
 }
+let DIAG_TR = null;   // petit diagnostic renvoyé avec /transports (taille du flux, arrêts trouvés…)
 function lirePassagesTR(b, stopsVoulus) {
   const parcourir = lecteur(b), res = {}, positions = [];
+  DIAG_TR = { octets: b.length, positions: 0, trajets: 0, decodes: 0 };
   for (const st of stopsVoulus) chercherOctets(b, st.slice(st.indexOf(':') + 1), positions);   // « MONC-1T » plutôt que « TTR:… » (plus rare)
+  DIAG_TR.positions = positions.length;
   if (!positions.length) return res;
   positions.sort((x, y) => x - y);
   let k = 0;
   parcourir(0, b.length, (f, v, a, z) => {
     if (f !== 2) return;                                   // FeedEntity
+    DIAG_TR.trajets++;
     while (k < positions.length && positions[k] < a) k++;
     if (k >= positions.length || positions[k] >= z) return; // aucun de nos arrêts dans ce trajet : on saute
+    DIAG_TR.decodes++;
     parcourir(a, z, (f2, v2, a2, z2) => {
       if (f2 !== 3) return;                                // TripUpdate
       let annule = false; const trouves = [];
@@ -344,6 +349,7 @@ async function construire() {
   return {
     maj: maintenant,
     tempsReelDisponible: tr.status === 'fulfilled',
+    diagTempsReel: tr.status === 'fulfilled' ? Object.assign({}, DIAG_TR, { passages: Object.keys(reels).map(s => s + ':' + reels[s].length).join(' ') }) : String(tr.reason && tr.reason.message || tr.reason),
     infoTraficDisponible: !!incidents || al.status === 'fulfilled',
     horairesJusqua: P.jusqua,
     horairesSource: P.source,
