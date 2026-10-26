@@ -164,7 +164,9 @@ function chercherOctets(b, motif, sortie) {
 let DIAG_TR = null;   // petit diagnostic renvoyé avec /transports (taille du flux, arrêts trouvés…)
 function lirePassagesTR(b, stopsVoulus) {
   const parcourir = lecteur(b), res = {}, positions = [];
-  DIAG_TR = { octets: b.length, positions: 0, trajets: 0, decodes: 0 };
+  DIAG_TR = { octets: b.length, positions: 0, trajets: 0, decodes: 0, horodatage: 0 };
+  // horodatage du flux (FeedHeader.timestamp) : sert à repérer un flux figé
+  parcourir(0, b.length, (f, v, a, z) => { if (f === 1 && a !== undefined) parcourir(a, z, (f2, v2) => { if (f2 === 3 && v2) DIAG_TR.horodatage = v2 * 1000; }); });
   for (const st of stopsVoulus) chercherOctets(b, st.slice(st.indexOf(':') + 1), positions);   // « MONC-1T » plutôt que « TTR:… » (plus rare)
   DIAG_TR.positions = positions.length;
   if (!positions.length) return res;
@@ -348,7 +350,8 @@ async function construire() {
   const P = lirePrevus();
   return {
     maj: maintenant,
-    tempsReelDisponible: tr.status === 'fulfilled',
+    // flux reçu, mais vide et figé depuis plus de 15 min (panne côté Fil Bleu) : pas de temps réel
+    tempsReelDisponible: tr.status === 'fulfilled' && !(DIAG_TR && !DIAG_TR.trajets && DIAG_TR.horodatage && maintenant - DIAG_TR.horodatage > 15 * 60000),
     diagTempsReel: tr.status === 'fulfilled' ? Object.assign({}, DIAG_TR, { passages: Object.keys(reels).map(s => s + ':' + reels[s].length).join(' ') }) : String(tr.reason && tr.reason.message || tr.reason),
     infoTraficDisponible: !!incidents || al.status === 'fulfilled',
     horairesJusqua: P.jusqua,

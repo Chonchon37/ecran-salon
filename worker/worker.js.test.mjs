@@ -30,8 +30,8 @@ const FLUX_TR = 'https://data.filbleu.fr/ws-tr/gtfs-rt/opendata/trip-updates';
 const FLUX_ALERTES = 'https://data.filbleu.fr/ws-tr/gtfs-rt/opendata/service-alerts';
 const FLUX_INCIDENTS = 'https://www.filbleu.fr/rss-incident.xml';   // l'info trafic du site filbleu.fr (travaux, déviations…)
 const NOMS_ARRETS = { 'A': 'Monconseil', '2': 'Maréchal Juin' };
-const CACHE_SECONDES = 20;
-const VERSION = '21';   // à changer à chaque mise à jour du code : vide les caches
+const CACHE_SECONDES = 30;   // les écrans redemandent toutes les 30 s
+const VERSION = '22';   // à changer à chaque mise à jour du code : vide les caches
 
 // Horaires prévus, format compact : "jours" = n° de grille pour chaque jour depuis "debut",
 // chaque ligne "g=" = minutes depuis minuit, écrites en écarts successifs.
@@ -161,16 +161,23 @@ function chercherOctets(b, motif, sortie) {
     if (ok) sortie.push(i);
   }
 }
+let DIAG_TR = null;   // petit diagnostic renvoyé avec /transports (taille du flux, arrêts trouvés…)
 function lirePassagesTR(b, stopsVoulus) {
   const parcourir = lecteur(b), res = {}, positions = [];
+  DIAG_TR = { octets: b.length, positions: 0, trajets: 0, decodes: 0, horodatage: 0 };
+  // horodatage du flux (FeedHeader.timestamp) : sert à repérer un flux figé
+  parcourir(0, b.length, (f, v, a, z) => { if (f === 1 && a !== undefined) parcourir(a, z, (f2, v2) => { if (f2 === 3 && v2) DIAG_TR.horodatage = v2 * 1000; }); });
   for (const st of stopsVoulus) chercherOctets(b, st.slice(st.indexOf(':') + 1), positions);   // « MONC-1T » plutôt que « TTR:… » (plus rare)
+  DIAG_TR.positions = positions.length;
   if (!positions.length) return res;
   positions.sort((x, y) => x - y);
   let k = 0;
   parcourir(0, b.length, (f, v, a, z) => {
     if (f !== 2) return;                                   // FeedEntity
+    DIAG_TR.trajets++;
     while (k < positions.length && positions[k] < a) k++;
     if (k >= positions.length || positions[k] >= z) return; // aucun de nos arrêts dans ce trajet : on saute
+    DIAG_TR.decodes++;
     parcourir(a, z, (f2, v2, a2, z2) => {
       if (f2 !== 3) return;                                // TripUpdate
       let annule = false; const trouves = [];
@@ -343,7 +350,9 @@ async function construire() {
   const P = lirePrevus();
   return {
     maj: maintenant,
-    tempsReelDisponible: tr.status === 'fulfilled',
+    // flux reçu, mais vide et figé depuis plus de 15 min (panne côté Fil Bleu) : pas de temps réel
+    tempsReelDisponible: tr.status === 'fulfilled' && !(DIAG_TR && !DIAG_TR.trajets && DIAG_TR.horodatage && maintenant - DIAG_TR.horodatage > 15 * 60000),
+    diagTempsReel: tr.status === 'fulfilled' ? Object.assign({}, DIAG_TR, { passages: Object.keys(reels).map(s => s + ':' + reels[s].length).join(' ') }) : String(tr.reason && tr.reason.message || tr.reason),
     infoTraficDisponible: !!incidents || al.status === 'fulfilled',
     horairesJusqua: P.jusqua,
     horairesSource: P.source,
@@ -858,14 +867,13 @@ async function etatsUtiles(env, modes) {
   const tpl = "{% set ns = namespace(o=[]) %}" +
     "{% for s in states.light %}{% set ns.o = ns.o + [{'entity_id': s.entity_id, 'state': s.state, 'attributes': {'friendly_name': s.attributes.friendly_name, 'brightness': s.attributes.brightness}}] %}{% endfor %}" +
     "{% for id in " + JSON.stringify(modes.filter(x => !x.startsWith('special.'))) + " %}{% if states(id) != 'unknown' or state_attr(id, 'friendly_name') %}" +
-    "{% set ns.o = ns.o + [{'entity_id': id, 'state': states(id), 'attributes': {'friendly_name': state_attr(id, 'friendly_name'), 'last_triggered': state_attr(id, 'last_triggered') | string}}] %}{% endif %}{% endfor %}" +
+    "{% set ns.o = ns.o + [{'entity_id': id, 'state': states(id), 'attributes': {'friendly_name': state_attr(id, 'friendly_name'), 'last_triggered': (state_attr(id, 'last_triggered').isoformat() if state_attr(id, 'last_triggered') else none)}}] %}{% endif %}{% endfor %}" +
     "{{ ns.o | tojson }}";
   try {
     const r = await fetch(haUrl(env, '/api/template'), { method: 'POST', headers: { Authorization: 'Bearer ' + env.HA_TOKEN, 'Content-Type': 'application/json' }, body: JSON.stringify({ template: tpl }) });
     if (r.ok) {
       const L = JSON.parse(await r.text());
-      for (const e of L) if (e.attributes.last_triggered === 'None') e.attributes.last_triggered = null;
-      return L;
+      if (Array.isArray(L)) return L;
     }
   } catch (e) {}
   return etatsHA(env);   // repli : tout l'état de Home Assistant
