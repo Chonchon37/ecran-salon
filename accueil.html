@@ -188,6 +188,8 @@ body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;fon
 .tv-t i{font-style:normal;margin-right:6px}
 .tv-l{font-size:32px;font-weight:600;line-height:1.08;margin-top:6px;flex:none;color:var(--ink);overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;word-break:break-word;border-left:6px solid var(--p2);padding-left:12px}
 .tv-l.repos{color:var(--muted);border-left-color:var(--line)}
+.tv-dep{display:flex;align-items:center;font-size:20px;font-weight:700;margin-top:6px;padding-left:18px;flex:none;white-space:nowrap}
+.tv-dep svg{width:22px;height:22px;margin-right:7px;flex:none;color:var(--muted)}
 .tv-h{font-size:19px;font-weight:700;margin-top:6px;flex:none;padding-left:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .tv-q{color:var(--p2)}
 .demi .tv-h{font-size:16px;margin-top:2px;padding-left:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -204,7 +206,7 @@ body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;fon
 .demi .tv-t{font-size:15px}
 .tv-c{font-size:20px;margin-right:22px;white-space:nowrap;color:var(--muted)}
 .tv-c b{font-size:24px;font-weight:700;color:var(--ink)}
-.tv-c.p b{border-left:5px solid var(--p2);padding-left:10px;display:inline-block;max-width:100%;overflow:hidden;text-overflow:ellipsis;vertical-align:bottom}
+.tv-c.p > b{border-left:5px solid var(--p2);padding-left:10px;display:inline-block;max-width:100%;overflow:hidden;text-overflow:ellipsis;vertical-align:bottom}
 .tv-c.p{max-width:100%;overflow:hidden}
 
 /* Maison */
@@ -934,6 +936,23 @@ function jourTravailVise(J, now){
   for (var i = 0; i < L.length; i++) if (L[i].journee || L[i].fin > now.getTime()) fini = false;
   return (fini || hr >= 19 || (demainDabord(now) && hr >= 12)) ? 1 : 0;
 }
+// Heure de départ pour arriver au centre à 8 h 50 (temps de route calculé par le Worker, gardé ici)
+var VOITURE_TV = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M5 17h14v-4.5l-1.8-4.6A2 2 0 0 0 15.3 6.6H8.7a2 2 0 0 0-1.9 1.3L5 12.5z"/><path d="M5 12.5h14"/><circle cx="8" cy="15" r="1"/><circle cx="16" cy="15" r="1"/><path d="M6.5 17v2M17.5 17v2"/></svg>';
+var ARRIVEE_TRAVAIL = 8 * 60 + 50, TRAJETS = {}, TRAJETS_EN_COURS = {};
+function departTravail(V, now, k0){
+  var E = V.liste[0]; if (!E) return '';
+  var cle = E.lieu + '|' + (E.adresse || ''), T = TRAJETS[cle];
+  if (T === undefined && !TRAJETS_EN_COURS[cle] && prive()) {
+    TRAJETS_EN_COURS[cle] = true;
+    lireJson(CONFIG.WORKER + '/trajet?cle=' + encodeURIComponent(CLE) + '&lieu=' + encodeURIComponent(E.lieu) + '&adresse=' + encodeURIComponent(E.adresse || ''), function(j){ TRAJETS[cle] = j; afficher(); });
+    setTimeout(function(){ TRAJETS_EN_COURS[cle] = false; }, 10 * 60000);   // nouvel essai plus tard si pas de réponse
+  }
+  if (!prive()) T = { trouve: true, minutes: 34 };
+  if (!T || !T.trouve || !T.minutes) return '';
+  var dep = Math.floor((ARRIVEE_TRAVAIL - T.minutes) / 5) * 5;
+  if (k0 === 0 && now.getHours() * 60 + now.getMinutes() > dep) return '';   // déjà parti(e)
+  return 'Départ ' + Math.floor(dep / 60) + ' h ' + pad(dep % 60);
+}
 function tuileTravail(T, now, l, h){
   T.className += ' tv lien'; T.setAttribute('data-page', 'travail');
   if (prive() && !agendaReel) { T.innerHTML = '<div class="vide">Chargement…</div>'; return; }
@@ -942,11 +961,12 @@ function tuileTravail(T, now, l, h){
   while (k0 < 14 && !J[k0].liste.length) k0++;
   if (k0 >= 14) { T.innerHTML = '<div class="vide">Pas de travail prévu</div>'; return; }
   var V = J[k0], quand = k0 === 0 ? 'aujourd\'hui' : (k0 === 1 ? 'demain' : JOURS[V.date.getDay()] + ' ' + V.date.getDate()), lieu = lieuxDu(V), heures = heuresDu(V, l < 2);
+  var depart = departTravail(V, now, k0);
   function court(k){ return k === 1 ? 'Dem.' : JOURS_C[J[k].date.getDay()] + ' ' + J[k].date.getDate(); }
   if (h < 1) {
     var html = '<span class="tv-c p"><b>' + (lieu ? lieuHtml(lieu) : 'Repos') + '</b></span>';
     for (var u = k0 + 1; u < 14; u++) if (J[u].liste.length) html += '<span class="tv-c">' + court(u) + ' ' + (lieuxDu(J[u]) ? '<b>' + lieuHtml(lieuxDu(J[u])) + '</b>' : 'repos') + '</span>';
-    T.innerHTML = '<div class="tv-ligne">' + html + '</div><div class="tv-h tv-q">' + majuscule(quand) + (heures ? ' · ' + heures : '') + '</div>';
+    T.innerHTML = '<div class="tv-ligne">' + html + '</div><div class="tv-h tv-q">' + majuscule(quand) + (depart ? ' · ' + depart.toLowerCase() : (heures ? ' · ' + heures : '')) + '</div>';
     var LG = T.querySelector('.tv-ligne'), cs = LG.querySelectorAll('.tv-c'), suite = [];
     for (var v = 1; v < cs.length; v++) suite.push(cs[v]);
     // on ne garde que ce qui tient sur la ligne
@@ -954,7 +974,8 @@ function tuileTravail(T, now, l, h){
     return;
   }
   var hero = '<div class="tv-l h' + (lieu ? '' : ' repos') + '">' + (lieu ? lieuHtml(lieu) : 'Repos') + '</div>' +
-    '<div class="tv-h"><span class="tv-q">' + majuscule(quand) + '</span>' + (heures ? ' · ' + heures : '') + '</div>';
+    '<div class="tv-h"><span class="tv-q">' + majuscule(quand) + '</span>' + (heures ? ' · ' + heures : '') + '</div>' +
+    (depart ? '<div class="tv-dep">' + VOITURE_TV + depart + '</div>' : '');
   var rows = '';
   for (var k = k0 + 1; k < 14; k++) {
     if (!J[k].liste.length) continue;
