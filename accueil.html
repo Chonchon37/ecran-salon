@@ -945,7 +945,9 @@ function departTravail(V, now, k0){
   var arrivee = V.date.getFullYear() + '-' + pad(V.date.getMonth() + 1) + '-' + pad(V.date.getDate()) + 'T' + pad(Math.floor(ARRIVEE_TRAVAIL / 60)) + ':' + pad(ARRIVEE_TRAVAIL % 60);
   var cle = E.lieu + '|' + (E.adresse || '') + '|' + arrivee, R = TRAJETS[cle], T = R && R.j;
   // recalcul toutes les 10 min (la circulation du matin évolue)
-  if ((!R || Date.now() - R.t > 10 * 60000) && !TRAJETS_EN_COURS[cle] && prive()) {
+  // recalcul toutes les 5 min de 6 h 30 à 8 h 30 (le départ approche), sinon toutes les 10 min
+  var mn = now.getHours() * 60 + now.getMinutes(), periode = (mn >= 390 && mn < 510) ? 5 * 60000 : 10 * 60000;
+  if ((!R || Date.now() - R.t > periode) && !TRAJETS_EN_COURS[cle] && prive()) {
     TRAJETS_EN_COURS[cle] = true;
     lireJson(CONFIG.WORKER + '/trajet?cle=' + encodeURIComponent(CLE) + '&lieu=' + encodeURIComponent(E.lieu) + '&adresse=' + encodeURIComponent(E.adresse || '') + '&arrivee=' + arrivee,
       function(j){ TRAJETS[cle] = { j: j, t: Date.now() }; TRAJETS_EN_COURS[cle] = false; afficher(); });

@@ -32,7 +32,7 @@ const FLUX_ALERTES = 'https://data.filbleu.fr/ws-tr/gtfs-rt/opendata/service-ale
 const FLUX_INCIDENTS = 'https://www.filbleu.fr/rss-incident.xml';   // l'info trafic du site filbleu.fr (travaux, déviations…)
 const NOMS_ARRETS = { 'A': 'Monconseil', '2': 'Maréchal Juin' };
 const CACHE_SECONDES = 30;   // les écrans redemandent toutes les 30 s
-const VERSION = '24';   // à changer à chaque mise à jour du code : vide les caches
+const VERSION = '25';   // à changer à chaque mise à jour du code : vide les caches
 
 // Horaires prévus, format compact : "jours" = n° de grille pour chaque jour depuis "debut",
 // chaque ligne "g=" = minutes depuis minuit, écrites en écarts successifs.
@@ -714,7 +714,7 @@ async function construireTrajet(lieuBrut, adresseBrute, arriveeBrute, env) {
     const arr = versMs({ y: +m[1], m: +m[2], d: +m[3], h: +m[4], mi: +m[5], s: 0, utc: false }), dans = arr - Date.now();
     if (dans > 0 && dans < 8 * 86400000) {
       try {
-        const t = await enCache('trafic:' + centre.lat.toFixed(4) + ',' + centre.lon.toFixed(4) + ':' + arriveeBrute, dans < 4 * 3600000 ? 600 : 3 * 3600, () => trajetTrafic(env, centre, arr));
+        const t = await enCache('trafic:' + centre.lat.toFixed(4) + ',' + centre.lon.toFixed(4) + ':' + arriveeBrute, dans < 3 * 3600000 ? 290 : 3 * 3600, () => trajetTrafic(env, centre, arr));
         if (t) return { lieu, trouve: true, centre: { nom: centre.nom, adresse: centre.adresse, approx: centre.approx }, minutes: t.minutes, km: t.km, depart: t.depart, retard: t.retard, source: t.source, calcule: t.calcule };
       } catch (e) {}
     }

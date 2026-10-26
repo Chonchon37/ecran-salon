@@ -244,7 +244,8 @@ function majTrajet(lieu, adresse){
   var v = JOUR_VISE || new Date();
   var arrivee = v.getFullYear() + '-' + pad(v.getMonth() + 1) + '-' + pad(v.getDate()) + 'T' + ARRIVEE;
   var cle = lieu + '|' + adresse + '|' + arrivee, avecAdresse = !adresse;
-  if (trajets[cle] && trajets[cle].recu && Date.now() - trajets[cle].recu > 10 * 60000 && !enCours[cle]) delete trajets[cle];   // circulation : recalcul toutes les 10 min
+  var h0 = new Date(), mn = h0.getHours() * 60 + h0.getMinutes(), periode = (mn >= 390 && mn < 510) ? 5 * 60000 : 10 * 60000;   // 5 min de 6 h 30 à 8 h 30
+  if (trajets[cle] && trajets[cle].recu && Date.now() - trajets[cle].recu > periode - 15000 && !enCours[cle]) delete trajets[cle];   // circulation : recalcul régulier
   if (enDemo() && !trajets[cle]) trajets[cle] = { trouve: true, minutes: 34, km: 38, centre: { nom: 'Audilab Langeais', adresse: '15 Rue Thiers, Langeais' } };
   dessinerTrajet(cle, avecAdresse);
   if (trajets[cle] || enCours[cle]) return;
