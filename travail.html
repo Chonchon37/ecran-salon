@@ -36,6 +36,12 @@ body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;fon
 .trajet small{font-size:17px;font-weight:600;color:var(--muted);margin-left:10px}
 .depart{margin-top:12px;font-size:22px;color:var(--muted);white-space:nowrap}
 .depart small{font-size:19px}
+.tj-grand{display:flex;align-items:baseline;margin-top:22px;font-size:24px;color:var(--muted)}
+.tj-grand svg{width:30px;height:30px;margin-right:10px;align-self:center;color:var(--muted);flex:none}
+.tj-grand span{margin-right:10px}
+.tj-grand b{font-family:"Bricolage Grotesque",Figtree,Arial,sans-serif;font-size:44px;font-weight:600;color:var(--ink);letter-spacing:-.01em;margin-right:10px}
+.tj-info{display:flex;align-items:center;margin-top:6px;font-size:19px;color:var(--muted);white-space:nowrap;padding-left:40px}
+.tj-bou{color:var(--warn);font-weight:700}
 .mode{display:flex;align-items:center;margin-top:6px;font-size:17px;color:var(--muted);white-space:nowrap}
 .tm{display:inline-block;width:12px;height:12px;border-radius:50%;margin-right:8px;flex:none;font-style:normal;box-sizing:border-box}
 .tm-direct{background:var(--ok);box-shadow:0 0 0 3px rgba(124,186,135,.3)}
@@ -173,7 +179,6 @@ function afficher(){
     var html = '<div class="quand h"><i>💼</i>' + quand + (k0 > 1 ? ' ' + vise.getDate() : ' · ' + JOURS[vise.getDay()] + ' ' + vise.getDate()) + '</div>' +
       '<div class="lieu h">' + lieuHtml(n) + '</div>' +
       (hr ? '<div class="heures">' + hr + '</div>' : '') +
-      '<div class="adresse" id="adresseCentre">' + echapper(adr.join(' · ')) + '</div>' +
       '<div id="trajet"></div>';
     // Ensuite : les jours travaillés suivants, puis le prochain jour de repos
     var suite = '', nb = 0, repos = null;
@@ -215,29 +220,25 @@ var VISE_PLUS_TARD = false;     // le jour mis en avant n'est pas aujourd'hui
 function dureeTxt(m){ return m < 60 ? m + ' min' : Math.floor(m / 60) + ' h ' + (m % 60 < 10 ? '0' : '') + (m % 60); }
 function dessinerTrajet(cle, avecAdresse){
   var T = trajets[cle], el = $('trajet'); if (!el) return;
-  if (!T) { el.innerHTML = '<div class="trajet attente">' + VOITURE + 'Calcul du trajet…</div>'; return; }
+  if (!T) { el.innerHTML = '<div class="tj-info">Calcul du trajet…</div>'; return; }
   if (T.erreur || !T.trouve) { el.innerHTML = ''; ajusterHero(); return; }
-  if (avecAdresse && T.centre) $('adresseCentre').innerHTML = T.centre.approx
-    ? echapper(T.centre.adresse) + ' · centre-ville (centre Audilab non trouvé, ajoute son adresse dans l\'événement)'
-    : echapper(T.centre.nom + ' · ' + T.centre.adresse);
-  var html = '<div class="trajet">' + VOITURE + (T.centre && T.centre.approx ? '≈ ' : '') + dureeTxt(T.minutes) + ' en voiture<small>' + T.km + ' km</small></div>';
-  // Le lendemain : heure de départ pour arriver à l'heure (arrondie aux 5 minutes d'avant)
-  var auj = new Date(), departOk = true;
+  // Une seule info en grand (l'heure de départ, ou la durée le jour même), le reste en petit sur une ligne
+  var a = ARRIVEE.split(':'), dep = null, auj = new Date();
   if (VISE_PLUS_TARD || T.depart) {
-    var a = ARRIVEE.split(':'), dep;
     if (T.depart) { var dd = new Date(T.depart); dep = dd.getHours() * 60 + dd.getMinutes(); }   // avec la circulation (TomTom)
     else dep = parseInt(a[0], 10) * 60 + parseInt(a[1], 10) - T.minutes;
     dep = Math.floor(dep / 5) * 5;
-    if (!VISE_PLUS_TARD && auj.getHours() * 60 + auj.getMinutes() > dep) departOk = false;   // le jour même, une fois parti(e)
+    if (!VISE_PLUS_TARD && auj.getHours() * 60 + auj.getMinutes() > dep) dep = null;   // le jour même, une fois parti(e)
   }
-  if ((VISE_PLUS_TARD || T.depart) && departOk) {
-    html += '<div class="depart">Partir à <b>' + Math.floor(dep / 60) + ' h ' + pad(dep % 60) + '</b> <small> · arrivée ' + parseInt(ARRIVEE, 10) + ' h ' + ARRIVEE.split(':')[1] + (T.retard >= 3 ? ' · bouchons +' + T.retard + ' min' : '') + '</small></div>';
-    // D'où vient ce temps : circulation en direct (moins de 3 h avant l'arrivée), circulation habituelle prévue, ou sans circulation
-    var v0 = JOUR_VISE || new Date(), arrMs = new Date(v0.getFullYear(), v0.getMonth(), v0.getDate(), parseInt(a[0], 10), parseInt(a[1], 10)).getTime();
-    var mode = T.source === 'TomTom' ? (arrMs - Date.now() < 3 * 3600000 ? 'direct' : 'prevu') : 'sans';
-    html += '<div class="mode">' + (mode === 'sans' ? '<i class="tm tm-sans">≈</i>Estimation sans la circulation' : '<i class="tm tm-' + mode + '"></i>' + (mode === 'direct' ? 'Circulation en direct' : 'Circulation habituelle prévue') +
-      (T.calcule ? ' · calculé à ' + new Date(T.calcule).getHours() + ' h ' + pad(new Date(T.calcule).getMinutes()) : '')) + '</div>';
-  }
+  var v0 = JOUR_VISE || new Date(), arrMs = new Date(v0.getFullYear(), v0.getMonth(), v0.getDate(), parseInt(a[0], 10), parseInt(a[1], 10)).getTime();
+  var mode = T.source === 'TomTom' ? (arrMs - Date.now() < 3 * 3600000 ? 'direct' : 'prevu') : 'sans';
+  var marque = mode === 'sans' ? '<i class="tm tm-sans">≈</i>' : '<i class="tm tm-' + mode + '"></i>';
+  var libelle = mode === 'direct' ? 'trafic en direct' : (mode === 'prevu' ? 'trafic habituel' : 'sans trafic');
+  var html = dep !== null
+    ? '<div class="tj-grand">' + VOITURE + '<span>Partir à</span><b>' + Math.floor(dep / 60) + ' h ' + pad(dep % 60) + '</b></div>'
+    : '<div class="tj-grand">' + VOITURE + '<b>' + dureeTxt(T.minutes) + '</b><span>de route</span></div>';
+  html += '<div class="tj-info">' + marque + (dep !== null ? dureeTxt(T.minutes) + ' · ' : '') + T.km + ' km · ' + libelle + '</div>';
+  if (T.retard >= 3) html += '<div class="tj-info tj-bou">+' + T.retard + ' min de bouchons</div>';
   el.innerHTML = html;
   ajusterHero();
 }
