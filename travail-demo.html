@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1280">
+<title>Travail · démo</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700&family=Figtree:wght@400;500;600;700&display=swap">
+<style>
+:root{
+  --bg:#E3E8DD; --card:#FAFBF8; --card2:#D9E0D1; --ink:#0F1712; --muted:#414D45; --line:#B7C1AF;
+  --p2:#94679A; --ok:#4C8758; --warn:#BC6430; --warn-soft:#F2DCCB;
+}
+html.nuit{
+  --bg:#0B1016; --card:#18212A; --card2:#26323E; --ink:#F4F7F3; --muted:#AEBAB4; --line:#3A4856;
+  --p2:#C49BCB; --ok:#7CBA87; --warn:#E38A52; --warn-soft:#3A2619;
+}
+html,body{margin:0;width:1280px;height:728px;overflow:hidden;background:var(--bg)}
+body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased;transition:background-color .8s,color .8s}
+.h{font-family:"Bricolage Grotesque",Figtree,Arial,sans-serif}
+.wrap{box-sizing:border-box;width:1280px;height:728px;padding:24px 36px;display:flex;flex-direction:column}
+.label{font-size:15px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);display:flex;align-items:center}
+.intro{font-size:21px;margin-top:10px;line-height:1.35}
+.intro b{font-weight:700}
+.rangee{display:flex;margin-top:22px}
+.etat{width:290px;margin-right:16px;flex:none;display:flex;flex-direction:column}
+.etat:last-child{margin-right:0}
+.tuile{background:var(--card);border-radius:20px;box-sizing:border-box;padding:20px 24px;height:216px;overflow:hidden;display:flex;flex-direction:column}
+.quand{font-size:15px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+.legende{font-size:18px;line-height:1.35;margin-top:12px}
+.legende b{display:block;font-size:20px;margin-bottom:2px}
+.bas{margin-top:auto;background:var(--card);border-radius:20px;padding:18px 26px;display:flex;align-items:center;font-size:19px;line-height:1.35}
+.bas div{flex:1;padding-right:24px}
+.bas div + div{border-left:1.5px solid var(--line);padding-left:24px}
+.bas b{display:block;font-size:20px;margin-bottom:3px}
+.cle{display:flex;align-items:center;margin-top:4px}
+.cle .tm{margin:0 10px 0 0}
+.tv-l b{font-weight:700}
+.tv-l .ls{font-weight:400}
+/* Travail (💼) */
+.tv-t{font-size:17px;font-weight:700;color:var(--muted);flex:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tv-t i{font-style:normal;margin-right:6px}
+.tv-l{font-size:32px;font-weight:600;line-height:1.08;margin-top:6px;flex:none;color:var(--ink);overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;word-break:break-word;border-left:6px solid var(--p2);padding-left:12px}
+.tv-l.repos{color:var(--muted);border-left-color:var(--line)}
+.tm{display:inline-block;width:11px;height:11px;border-radius:50%;margin-left:8px;vertical-align:middle;position:relative;top:-1px;flex:none;font-style:normal}
+.tm-direct{background:#3FA35A;-webkit-animation:pouls-vert 1.8s ease-out infinite;animation:pouls-vert 1.8s ease-out infinite}
+.tm-direct.bouchons{background:#D93C3C;-webkit-animation:pouls-rouge 1.1s ease-out infinite;animation:pouls-rouge 1.1s ease-out infinite}
+@-webkit-keyframes pouls-vert{0%{box-shadow:0 0 0 0 rgba(63,163,90,.7)}80%,100%{box-shadow:0 0 0 9px rgba(63,163,90,0)}}
+@keyframes pouls-vert{0%{box-shadow:0 0 0 0 rgba(63,163,90,.7)}80%,100%{box-shadow:0 0 0 9px rgba(63,163,90,0)}}
+@-webkit-keyframes pouls-rouge{0%{box-shadow:0 0 0 0 rgba(217,60,60,.8);opacity:1}50%{opacity:.55}80%,100%{box-shadow:0 0 0 10px rgba(217,60,60,0);opacity:1}}
+@keyframes pouls-rouge{0%{box-shadow:0 0 0 0 rgba(217,60,60,.8);opacity:1}50%{opacity:.55}80%,100%{box-shadow:0 0 0 10px rgba(217,60,60,0);opacity:1}}
+.tm-prevu{border:2.5px solid var(--muted);box-sizing:border-box}
+.tm-sans{width:auto;height:auto;border-radius:0;color:var(--muted);font-weight:700;top:0}
+.tv-bou{font-size:16px;font-weight:700;color:var(--warn);padding-left:47px;margin-top:2px;flex:none;white-space:nowrap}
+.tv-dep{display:flex;align-items:center;font-size:20px;font-weight:700;margin-top:6px;padding-left:18px;flex:none;white-space:nowrap}
+.tv-dep svg{width:22px;height:22px;margin-right:7px;flex:none;color:var(--muted)}
+.tv-h{font-size:19px;font-weight:700;margin-top:6px;flex:none;padding-left:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tv-q{color:var(--p2)}
+.demi .tv-h{font-size:16px;margin-top:2px;padding-left:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tv-l{margin-top:0}
+.tv-suite{margin-top:10px;border-top:1.5px solid var(--line);padding-top:4px;flex:0 1 auto;min-height:0;overflow:hidden}
+.tv-r{display:flex;align-items:baseline;font-size:19px;line-height:1.6}
+.tv-j{width:76px;flex:none;color:var(--muted);font-weight:700;margin-right:10px;white-space:nowrap}
+.tv-n{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}
+.tv-r.repos .tv-n{color:var(--muted);font-weight:400}
+.tv-large{flex-direction:row !important}
+.tv-large .tv-hero{width:46%;flex:none;display:flex;flex-direction:column;justify-content:center;padding-right:22px;min-width:0}
+.tv-large .tv-suite{flex:1;margin:0;border-top:0;border-left:1.5px solid var(--line);padding:0 0 0 22px;max-height:100%}
+.tv-ligne{display:flex;flex-wrap:wrap;align-items:baseline;overflow:hidden;max-height:36px;line-height:34px;margin-top:2px}
+.demi .tv-t{font-size:15px}
+.tv-c{font-size:20px;margin-right:22px;white-space:nowrap;color:var(--muted)}
+.tv-c b{font-size:24px;font-weight:700;color:var(--ink)}
+.tv-c.p > b{border-left:5px solid var(--p2);padding-left:10px;display:inline-block;max-width:100%;overflow:hidden;text-overflow:ellipsis;vertical-align:bottom}
+.tv-c.p{max-width:100%;overflow:hidden}
+
+
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="label">Travail · démonstration</div>
+  <div class="intro">La tuile <b>Travail</b> de l'accueil dit où Flo travaille et <b>à quelle heure partir pour arriver à 8 h 50</b>, en tenant compte de la circulation. La petite pastille indique d'où vient ce calcul.</div>
+  <div class="rangee" id="etats"></div>
+  <div class="bas">
+    <div><b>La veille au soir</b>Calcul d'après la circulation habituelle de ce jour-là, à cette heure-là.</div>
+    <div><b>Le matin même</b>Circulation en direct, recalculée toutes les 5 min de 6 h 30 à 8 h 30.</div>
+    <div><b>Les repères</b>
+      <span class="cle"><i class="tm tm-prevu"></i>trafic habituel prévu</span>
+      <span class="cle"><i class="tm tm-direct"></i>en direct, ça roule</span>
+      <span class="cle"><i class="tm tm-direct bouchons"></i>en direct, bouchons</span>
+    </div>
+  </div>
+</div>
+<script>
+function param(n){ var m = new RegExp('[?&]' + n + '=([^&#]*)').exec(location.search); return m ? decodeURIComponent(m[1]) : null; }
+function themeAuto(){ var h = new Date().getHours(); return (h >= 19 || h < 7) ? 'nuit' : 'jour'; }
+function appliquerTheme(t){ if (!t || t === 'auto') t = themeAuto(); document.documentElement.className = t === 'nuit' ? 'nuit' : ''; }
+appliquerTheme(param('theme'));
+window.addEventListener('message', function(e){ if (e.data && e.data.type === 'theme') appliquerTheme(e.data.value); });
+function signalerToucher(){ if (window.parent !== window) { try { window.parent.postMessage({ type: 'interaction' }, '*'); } catch (err) {} } }
+document.addEventListener('touchstart', signalerToucher, true);
+document.addEventListener('mousedown', signalerToucher, true);
+
+var VOITURE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M5 17h14v-4.5l-1.8-4.6A2 2 0 0 0 15.3 6.6H8.7a2 2 0 0 0-1.9 1.3L5 12.5z"/><path d="M5 12.5h14"/><circle cx="8" cy="15" r="1"/><circle cx="16" cy="15" r="1"/><path d="M6.5 17v2M17.5 17v2"/></svg>';
+// Les quatre états de la tuile (même rendu que sur l'accueil)
+var ETATS = [
+  { quand: 'Lundi soir', jour: 'Demain', marque: '<i class="tm tm-prevu"></i>', depart: '8 h 15', bouchons: 0,
+    titre: 'Trafic habituel', texte: 'La veille : heure de départ d\'après la circulation habituelle.' },
+  { quand: 'Mardi, 7 h 40', jour: 'Aujourd\'hui', marque: '<i class="tm tm-direct"></i>', depart: '8 h 15', bouchons: 0,
+    titre: 'En direct, ça roule', texte: 'La pastille verte pulse : circulation normale.' },
+  { quand: 'Mardi, 7 h 40', jour: 'Aujourd\'hui', marque: '<i class="tm tm-direct bouchons"></i>', depart: '8 h 05', bouchons: 12,
+    titre: 'En direct, bouchons', texte: 'La pastille rouge clignote et le départ est avancé.' },
+  { quand: 'Si le calcul échoue', jour: 'Demain', marque: '<i class="tm tm-sans">≈</i>', depart: '8 h 20', bouchons: 0,
+    titre: 'Sans trafic', texte: 'Estimation de secours, sans la circulation.' }
+];
+var html = '';
+for (var i = 0; i < ETATS.length; i++) {
+  var E = ETATS[i];
+  html += '<div class="etat"><div class="quand">' + E.quand + '</div><div class="tuile">' +
+    '<div class="tv-l h"><b>Amboise</b> <span class="ls">Fabien</span></div>' +
+    '<div class="tv-h"><span class="tv-q">' + E.jour + '</span> · 8 h 30 – 17 h</div>' +
+    '<div class="tv-dep">' + VOITURE + 'Départ ' + E.depart + E.marque + '</div>' +
+    (E.bouchons ? '<div class="tv-bou">+' + E.bouchons + ' min de bouchons</div>' : '') +
+    '</div><div class="legende"><b>' + E.titre + '</b>' + E.texte + '</div></div>';
+}
+document.getElementById('etats').innerHTML = html;
+</script>
+</body>
+</html>

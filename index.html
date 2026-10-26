@@ -121,7 +121,9 @@ var CONFIG = {
     { id: 'agenda', fichier: 'agenda.html',        nom: 'Agenda',        icone: 'agenda' },
     { id: 'maison', fichier: 'maison.html',        nom: 'Maison',        icone: 'maison' },
     { id: 'anniversaires', fichier: 'anniversaires.html', nom: 'Anniversaires', icone: 'gateau' },
-    { id: 'travail', fichier: 'travail.html',       nom: 'Travail',       icone: 'travail', horsRotation: true, onglet: true }
+    { id: 'travail', fichier: 'travail.html',       nom: 'Travail',       icone: 'travail', horsRotation: true, onglet: true },
+    // Page de présentation (onglet seulement, jamais dans la rotation) : gardée même avec les réglages de l'admin
+    { id: 'travailDemo', fichier: 'travail-demo.html', nom: 'Démo', icone: 'travail', horsRotation: true, onglet: true, toujours: true }
   ]
 };
 /* ================================================================= */
@@ -180,6 +182,7 @@ function appliquerReglages(R){
     // une page masquée mais utilisée par une plage fixe reste chargée (hors rotation)
     if (base && (sl.actif || sl.onglet || fixes[sl.id])) liste.push({ id: base.id, fichier: base.fichier, nom: base.nom, icone: base.icone, duree: sl.duree, horsRotation: !sl.actif, onglet: !!(sl.actif || sl.onglet) });
   }
+  for (i = 0; i < CONFIG.SLIDES.length; i++) if (CONFIG.SLIDES[i].toujours && !g.rotation.slides.some(function(x){ return x.id === CONFIG.SLIDES[i].id; })) liste.push(CONFIG.SLIDES[i]);
   if (liste.length) CONFIG.SLIDES = liste;
   CONFIG.PLAGES = plages;
   if (g.veille) CONFIG.VEILLE = g.veille;
