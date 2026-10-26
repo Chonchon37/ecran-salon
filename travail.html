@@ -34,6 +34,9 @@ body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;fon
 .trajet{display:flex;align-items:center;align-self:flex-start;margin-top:14px;padding:9px 16px 9px 12px;border-radius:14px;background:var(--card2);font-size:22px;font-weight:700}
 .trajet svg{width:28px;height:28px;margin-right:10px;flex:none}
 .trajet small{font-size:17px;font-weight:600;color:var(--muted);margin-left:10px}
+.depart{margin-top:12px;font-size:22px;color:var(--muted);white-space:nowrap}
+.depart small{font-size:19px}
+.depart b{font-family:"Bricolage Grotesque",Figtree,Arial,sans-serif;font-size:30px;font-weight:600;color:var(--ink)}
 .trajet.attente{font-size:17px;font-weight:600;color:var(--muted)}
 .suite{margin-top:auto;border-top:1.5px solid var(--line);padding-top:12px}
 .s-l{display:flex;align-items:baseline;font-size:20px;line-height:1.75}
@@ -178,6 +181,7 @@ function afficher(){
     html += '<div class="suite"><div class="label" style="margin-bottom:4px">Ensuite</div>' + (suite || '<div class="s-r">Rien de noté après.</div>') +
       (repos ? '<div class="s-r">Prochain repos : <b>' + JOURS[repos.getDay()] + ' ' + repos.getDate() + '</b></div>' : '') + '</div>';
     $('hero').innerHTML = html;
+    VISE_PLUS_TARD = k0 > 0;
     majTrajet(n, adr[0] || '');
   }
   // Deux semaines, du lundi de cette semaine ; le week-end est plus étroit s'il n'est pas travaillé
@@ -201,6 +205,8 @@ function afficher(){
 // Temps en voiture depuis la maison jusqu'au centre Audilab du jour (calculé par le Worker, gardé ici par lieu)
 var VOITURE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 17h14v-4.5l-1.8-4.6A2 2 0 0 0 15.3 6.6H8.7a2 2 0 0 0-1.9 1.3L5 12.5z"/><path d="M5 12.5h14"/><circle cx="8" cy="15" r="1"/><circle cx="16" cy="15" r="1"/><path d="M6.5 17v2M17.5 17v2"/></svg>';
 var trajets = {};
+var ARRIVEE = '08:50';          // heure d'arrivée visée au centre
+var VISE_PLUS_TARD = false;     // le jour mis en avant n'est pas aujourd'hui
 function dureeTxt(m){ return m < 60 ? m + ' min' : Math.floor(m / 60) + ' h ' + (m % 60 < 10 ? '0' : '') + (m % 60); }
 function dessinerTrajet(cle, avecAdresse){
   var T = trajets[cle], el = $('trajet'); if (!el) return;
@@ -209,7 +215,14 @@ function dessinerTrajet(cle, avecAdresse){
   if (avecAdresse && T.centre) $('adresseCentre').innerHTML = T.centre.approx
     ? echapper(T.centre.adresse) + ' · centre-ville (centre Audilab non trouvé, ajoute son adresse dans l\'événement)'
     : echapper(T.centre.nom + ' · ' + T.centre.adresse);
-  el.innerHTML = '<div class="trajet">' + VOITURE + (T.centre && T.centre.approx ? '≈ ' : '') + dureeTxt(T.minutes) + ' en voiture<small>' + T.km + ' km</small></div>';
+  var html = '<div class="trajet">' + VOITURE + (T.centre && T.centre.approx ? '≈ ' : '') + dureeTxt(T.minutes) + ' en voiture<small>' + T.km + ' km</small></div>';
+  // Le lendemain : heure de départ pour arriver à l'heure (arrondie aux 5 minutes d'avant)
+  if (VISE_PLUS_TARD) {
+    var a = ARRIVEE.split(':'), dep = parseInt(a[0], 10) * 60 + parseInt(a[1], 10) - T.minutes;
+    dep = Math.floor(dep / 5) * 5;
+    html += '<div class="depart">Partir à <b>' + Math.floor(dep / 60) + ' h ' + pad(dep % 60) + '</b> <small> · arrivée ' + parseInt(ARRIVEE, 10) + ' h ' + ARRIVEE.split(':')[1] + '</small></div>';
+  }
+  el.innerHTML = html;
   ajusterHero();
 }
 // La liste « Ensuite » se raccourcit si la colonne déborde

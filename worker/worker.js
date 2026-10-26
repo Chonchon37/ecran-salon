@@ -31,7 +31,7 @@ const FLUX_ALERTES = 'https://data.filbleu.fr/ws-tr/gtfs-rt/opendata/service-ale
 const FLUX_INCIDENTS = 'https://www.filbleu.fr/rss-incident.xml';   // l'info trafic du site filbleu.fr (travaux, déviations…)
 const NOMS_ARRETS = { 'A': 'Monconseil', '2': 'Maréchal Juin' };
 const CACHE_SECONDES = 30;   // les écrans redemandent toutes les 30 s
-const VERSION = '22';   // à changer à chaque mise à jour du code : vide les caches
+const VERSION = '23';   // à changer à chaque mise à jour du code : vide les caches
 
 // Horaires prévus, format compact : "jours" = n° de grille pour chaque jour depuis "debut",
 // chaque ligne "g=" = minutes depuis minuit, écrites en écarts successifs.
@@ -633,7 +633,11 @@ function kmDomicile(lon, lat) {
 }
 const RAYON_KM = 120;
 // Adresse précise (champ « Lieu » de l'événement) → coordonnées, via la Base Adresse Nationale
-async function geocoderAdresse(adresse) {
+async function geocoderAdresse(adresseBrute) {
+  // « Audilab / Audioprothésiste Amboise, 13 Pl. Saint-Denis, 37400 Amboise, France » → « 13 Pl. Saint-Denis, 37400 Amboise »
+  const morceaux = adresseBrute.split(',').map(x => x.trim()).filter(x => x && !/^france$/i.test(x));
+  while (morceaux.length > 1 && !/\d/.test(morceaux[0])) morceaux.shift();
+  const adresse = morceaux.join(', ').slice(0, 150);
   const r = await fetch('https://api-adresse.data.gouv.fr/search/?limit=5&lat=' + DOMICILE.lat + '&lon=' + DOMICILE.lon + '&q=' + encodeURIComponent(adresse));
   if (!r.ok) return null;
   const f = ((await r.json()).features || []).filter(x => x.properties.score > 0.4 && kmDomicile(x.geometry.coordinates[0], x.geometry.coordinates[1]) < RAYON_KM)[0];
@@ -669,11 +673,14 @@ async function itineraire(c) {
       '&start=' + DOMICILE.lon + ',' + DOMICILE.lat + '&end=' + c.lon + ',' + c.lat);
     if (r.ok) { const j = await r.json(); if (isFinite(j.duration)) return { minutes: Math.round(j.duration), km: Math.round(j.distance), source: 'IGN' }; }
   } catch (e) {}
-  const o = await fetch('https://router.project-osrm.org/route/v1/driving/' + DOMICILE.lon + ',' + DOMICILE.lat + ';' + c.lon + ',' + c.lat + '?overview=false');
-  if (!o.ok) throw new Error('itinéraire indisponible');
-  const j = await o.json(), R = j.routes && j.routes[0];
-  if (!R) throw new Error('itinéraire introuvable');
-  return { minutes: Math.round(R.duration / 60), km: Math.round(R.distance / 1000), source: 'OSRM' };
+  try {
+    const o = await fetch('https://router.project-osrm.org/route/v1/driving/' + DOMICILE.lon + ',' + DOMICILE.lat + ';' + c.lon + ',' + c.lat + '?overview=false',
+      { headers: { 'User-Agent': 'ecran-salon/1.0 (cadre photo familial, Tours)' } });
+    if (o.ok) { const j = await o.json(), R = j.routes && j.routes[0]; if (R) return { minutes: Math.round(R.duration / 60), km: Math.round(R.distance / 1000), source: 'OSRM' }; }
+  } catch (e) {}
+  // Dernier recours : estimation d'après la distance à vol d'oiseau (route ≈ 1,3 × la distance, 55 km/h de moyenne)
+  const km = kmDomicile(c.lon, c.lat) * 1.3;
+  return { minutes: Math.round(km / 55 * 60) + 3, km: Math.round(km), source: 'estimation' };
 }
 async function construireTrajet(lieuBrut, adresseBrute) {
   const lieu = texte(lieuBrut, 80).replace(/\s+puis\s+.*$/i, ''), adresse = texte(adresseBrute, 160);
@@ -682,8 +689,10 @@ async function construireTrajet(lieuBrut, adresseBrute) {
   let centre = adresse ? await enCache('adresse:' + adresse.toLowerCase(), 30 * 86400, () => geocoderAdresse(adresse)) : null;
   if (!centre && lieu) centre = await enCache('centre:' + lieu.toLowerCase(), 30 * 86400, () => trouverCentre(lieu));
   if (!centre) return { lieu, trouve: false };
-  const route = await enCache('route:' + centre.lat.toFixed(4) + ',' + centre.lon.toFixed(4), 7 * 86400, () => itineraire(centre));
-  return { lieu, trouve: true, centre: { nom: centre.nom, adresse: centre.adresse, approx: centre.approx }, minutes: route.minutes, km: route.km, source: route.source };
+  // une estimation n'est gardée qu'une heure (on retentera un vrai itinéraire)
+  let route = await enCache('route:' + centre.lat.toFixed(4) + ',' + centre.lon.toFixed(4), 7 * 86400, async () => { const x = await itineraire(centre); return x.source === 'estimation' ? null : x; });
+  if (!route) route = await itineraire(centre);
+  return { lieu, trouve: true, centre: { nom: centre.nom, adresse: centre.adresse, approx: centre.approx || route.source === 'estimation' }, minutes: route.minutes, km: route.km, source: route.source };
 }
 
 /* =====================================================================
@@ -993,7 +1002,7 @@ export default {
       const estEcran = cle === env.ECRAN_CLE, estAdmin = !!cleAdmin && cle === cleAdmin;
       if (!estEcran && !estAdmin) return repondre({ erreur: 'Clé absente ou incorrecte' }, 401, entetes);
 
-      if (chemin === '/trajet') return repondre(await construireTrajet(url.searchParams.get('lieu') || '', url.searchParams.get('adresse') || ''), 200, entetes);
+      if (chemin === '/trajet') return repondre(await construireTrajet(url.searchParams.get('lieu') || '', url.searchParams.get('adresse') || '').catch(e => ({ trouve: false, erreur: String(e.message || e) })), 200, entetes);
       if (chemin === '/agenda') return await avecCache('agenda', 600, () => construireAgenda(env), entetes, ctx);
       if (chemin === '/maison') return repondre(await construireMaison(env), 200, entetes);
       if (chemin === '/vigilance') return await avecCache('vigilance', 300, () => construireVigilance(env), entetes, ctx);
