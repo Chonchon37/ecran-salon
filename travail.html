@@ -8,11 +8,11 @@
 <style>
 :root{
   --bg:#E3E8DD; --card:#FAFBF8; --card2:#D9E0D1; --ink:#0F1712; --muted:#414D45; --line:#B7C1AF;
-  --p2:#94679A; --p2-soft:#EBDDEC; --nous:#2F6FB8; --accent:#587A57; --fete:#C98622; --rain:#3B74A6; --warn:#BC6430; --warn-soft:#F2DCCB;
+  --p2:#94679A; --p2-soft:#EBDDEC; --ok:#4C8758; --nous:#2F6FB8; --accent:#587A57; --fete:#C98622; --rain:#3B74A6; --warn:#BC6430; --warn-soft:#F2DCCB;
 }
 html.nuit{
   --bg:#0B1016; --card:#18212A; --card2:#26323E; --ink:#F4F7F3; --muted:#AEBAB4; --line:#3A4856;
-  --p2:#C49BCB; --p2-soft:#33243A; --nous:#6EA6E6; --accent:#92B28E; --fete:#E0A847; --rain:#6EA5D5; --warn:#E38A52; --warn-soft:#3A2619;
+  --p2:#C49BCB; --p2-soft:#33243A; --ok:#7CBA87; --nous:#6EA6E6; --accent:#92B28E; --fete:#E0A847; --rain:#6EA5D5; --warn:#E38A52; --warn-soft:#3A2619;
 }
 html,body{margin:0;width:1280px;height:728px;overflow:hidden;background:var(--bg)}
 body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased;transition:background-color .8s,color .8s}
@@ -36,6 +36,11 @@ body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;fon
 .trajet small{font-size:17px;font-weight:600;color:var(--muted);margin-left:10px}
 .depart{margin-top:12px;font-size:22px;color:var(--muted);white-space:nowrap}
 .depart small{font-size:19px}
+.mode{display:flex;align-items:center;margin-top:6px;font-size:17px;color:var(--muted);white-space:nowrap}
+.tm{display:inline-block;width:12px;height:12px;border-radius:50%;margin-right:8px;flex:none;font-style:normal;box-sizing:border-box}
+.tm-direct{background:var(--ok);box-shadow:0 0 0 3px rgba(124,186,135,.3)}
+.tm-prevu{border:2.5px solid var(--muted)}
+.tm-sans{width:auto;height:auto;border-radius:0;font-weight:700}
 .depart b{font-family:"Bricolage Grotesque",Figtree,Arial,sans-serif;font-size:30px;font-weight:600;color:var(--ink)}
 .trajet.attente{font-size:17px;font-weight:600;color:var(--muted)}
 .suite{margin-top:auto;border-top:1.5px solid var(--line);padding-top:12px}
@@ -227,6 +232,11 @@ function dessinerTrajet(cle, avecAdresse){
   }
   if ((VISE_PLUS_TARD || T.depart) && departOk) {
     html += '<div class="depart">Partir à <b>' + Math.floor(dep / 60) + ' h ' + pad(dep % 60) + '</b> <small> · arrivée ' + parseInt(ARRIVEE, 10) + ' h ' + ARRIVEE.split(':')[1] + (T.retard >= 3 ? ' · bouchons +' + T.retard + ' min' : '') + '</small></div>';
+    // D'où vient ce temps : circulation en direct (moins de 3 h avant l'arrivée), circulation habituelle prévue, ou sans circulation
+    var v0 = JOUR_VISE || new Date(), arrMs = new Date(v0.getFullYear(), v0.getMonth(), v0.getDate(), parseInt(a[0], 10), parseInt(a[1], 10)).getTime();
+    var mode = T.source === 'TomTom' ? (arrMs - Date.now() < 3 * 3600000 ? 'direct' : 'prevu') : 'sans';
+    html += '<div class="mode">' + (mode === 'sans' ? '<i class="tm tm-sans">≈</i>Estimation sans la circulation' : '<i class="tm tm-' + mode + '"></i>' + (mode === 'direct' ? 'Circulation en direct' : 'Circulation habituelle prévue') +
+      (T.calcule ? ' · calculé à ' + new Date(T.calcule).getHours() + ' h ' + pad(new Date(T.calcule).getMinutes()) : '')) + '</div>';
   }
   el.innerHTML = html;
   ajusterHero();
