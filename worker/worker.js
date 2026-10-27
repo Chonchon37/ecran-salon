@@ -32,7 +32,7 @@ const FLUX_ALERTES = 'https://data.filbleu.fr/ws-tr/gtfs-rt/opendata/service-ale
 const FLUX_INCIDENTS = 'https://www.filbleu.fr/rss-incident.xml';   // l'info trafic du site filbleu.fr (travaux, déviations…)
 const NOMS_ARRETS = { 'A': 'Monconseil', '2': 'Maréchal Juin' };
 const CACHE_SECONDES = 30;   // les écrans redemandent toutes les 30 s
-const VERSION = '26';   // à changer à chaque mise à jour du code : vide les caches
+const VERSION = '27';   // à changer à chaque mise à jour du code : vide les caches
 
 // Horaires prévus, format compact : "jours" = n° de grille pour chaque jour depuis "debut",
 // chaque ligne "g=" = minutes depuis minuit, écrites en écarts successifs.
@@ -901,7 +901,7 @@ const NOM_SPECIAL = { 'special.tout_eteindre': 'Tout éteindre' };
 // Seulement les lumières et les modes choisis, via un modèle Home Assistant (bien plus léger que /api/states en entier)
 async function etatsUtiles(env, modes, lumieresChoisies) {
   const tpl = "{% set ns = namespace(o=[]) %}" +
-    "{% for s in states.light %}{% set ns.o = ns.o + [{'entity_id': s.entity_id, 'state': s.state, 'attributes': {'friendly_name': s.attributes.friendly_name, 'brightness': s.attributes.brightness}}] %}{% endfor %}" +
+    "{% for s in states.light %}{% set ns.o = ns.o + [{'entity_id': s.entity_id, 'state': s.state, 'attributes': {'friendly_name': s.attributes.get('friendly_name'), 'brightness': s.attributes.get('brightness')}}] %}{% endfor %}" +
     "{% for id in " + JSON.stringify(modes.filter(x => !x.startsWith('special.'))) + " %}{% if states(id) != 'unknown' or state_attr(id, 'friendly_name') %}" +
     "{% set ns.o = ns.o + [{'entity_id': id, 'state': states(id), 'attributes': {'friendly_name': state_attr(id, 'friendly_name'), 'last_triggered': (state_attr(id, 'last_triggered').isoformat() if state_attr(id, 'last_triggered') else none)}}] %}{% endif %}{% endfor %}" +
     "{{ ns.o | tojson }}";
