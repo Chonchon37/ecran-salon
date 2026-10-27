@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=1280">
 <title>Accueil</title>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700&family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700&family=Figtree:wght@400;500;600;700&family=Fraunces:opsz,wght,SOFT,WONK@9..144,500..700,0..100,0..1&display=swap">
 <style>
 :root{
   --bg:#E3E8DD; --card:#FAFBF8; --card2:#D9E0D1; --ink:#0F1712; --muted:#414D45; --line:#B7C1AF;
@@ -259,6 +259,61 @@ body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;fon
 .lum.on{background:var(--fete-soft);color:var(--fete)}
 .tv-l b,.tv-n b,.tv-c b b{font-weight:700}
 .tv-l .ls,.tv-n .ls,.tv-c .ls{font-weight:400}
+
+/* =====================================================================
+   STYLE « ORGANIQUE » (essai) : activé par ?style=organique ou par les réglages
+   Formes douces, couleurs de matières naturelles, chiffres en Fraunces.
+   ===================================================================== */
+html.organique{
+  --bg:#EFE8DA; --card:#FBF7EF; --card2:#ECE4D3; --ink:#2A2620; --muted:#6B6253; --line:#D9CFBC;
+  --accent:#6E8F5E; --on-ink:#FBF7EF; --p2:#9A6F9E; --fete:#B8742A; --fete-soft:#F3E0C4;
+  --ok:#5C8A4E; --warn:#B65A2E; --warn-soft:#F2DCCB; --rain:#4F7FA3; --rain-soft:#DCE6EA;
+  --t-meteo:#F5EBD6; --t-transports:#E9EEE0; --t-anniv:#F7E4D6; --t-agenda:#FBF7EF; --t-maison:#E6ECDF; --t-travail:#EFE6EE;
+  --ombre:0 1px 0 rgba(120,100,70,.10),0 10px 24px -14px rgba(90,70,40,.35);
+}
+html.organique.nuit{
+  --bg:#121511; --card:#1D211B; --card2:#2A2F27; --ink:#F1ECE1; --muted:#B3AB9C; --line:#3A3F35;
+  --accent:#9DBB8A; --on-ink:#151812; --p2:#C9A2CD; --fete:#E3AC5E; --fete-soft:#3A2D18;
+  --ok:#8CC07C; --warn:#E39062; --warn-soft:#3A2619; --rain:#86B2D3; --rain-soft:#1F2E36;
+  --t-meteo:#24221A; --t-transports:#1C231B; --t-anniv:#27201B; --t-agenda:#1D211B; --t-maison:#1A2119; --t-travail:#231E24;
+  --ombre:0 10px 26px -16px rgba(0,0,0,.9);
+}
+html.organique body{font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif}
+html.organique .grille{background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 728' preserveAspectRatio='none'%3E %3Cpath fill='%23C9D8BC' fill-opacity='1' d='M-60 -40C120 -70 330 10 360 150C392 300 250 330 170 420C90 510 -10 520 -80 470Z'/%3E %3Cpath fill='%23EBC9AE' fill-opacity='1' d='M1340 330C1250 300 1120 360 1060 470C995 590 1060 700 1150 760L1360 790Z'/%3E %3Cpath fill='%23EED9A6' fill-opacity='1' d='M610 -60C700 -20 860 -40 930 40C1000 120 920 200 800 190C690 180 640 240 560 200C470 150 520 -90 610 -60Z'/%3E %3Cpath fill='%23C9D8BC' fill-opacity='1' d='M380 760C420 650 560 600 660 640C760 680 780 740 760 800Z'/%3E %3C/svg%3E") no-repeat;background-size:100% 100%}
+html.organique.nuit .grille{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 728' preserveAspectRatio='none'%3E %3Cpath fill='%231F2C22' fill-opacity='1' d='M-60 -40C120 -70 330 10 360 150C392 300 250 330 170 420C90 510 -10 520 -80 470Z'/%3E %3Cpath fill='%232E2420' fill-opacity='1' d='M1340 330C1250 300 1120 360 1060 470C995 590 1060 700 1150 760L1360 790Z'/%3E %3Cpath fill='%232A2A1C' fill-opacity='1' d='M610 -60C700 -20 860 -40 930 40C1000 120 920 200 800 190C690 180 640 240 560 200C470 150 520 -90 610 -60Z'/%3E %3Cpath fill='%231F2C22' fill-opacity='1' d='M380 760C420 650 560 600 660 640C760 680 780 740 760 800Z'/%3E %3C/svg%3E")}
+html.organique .h,html.organique .heure,html.organique .greet,html.organique .wx-temp,html.organique .wg-temp span,html.organique .date-meteo span,
+html.organique .tl-m b,html.organique .bd-q,html.organique .tv-l,html.organique .wg-lib,html.organique .ev-sub{font-family:Fraunces,"Bricolage Grotesque",Georgia,serif;font-variation-settings:"SOFT" 100,"WONK" 0;letter-spacing:-.01em}
+html.organique .heure{font-weight:600;letter-spacing:-.02em}
+html.organique .tuile{box-shadow:var(--ombre);border-radius:34px 26px 38px 28px / 30px 36px 26px 34px}
+html.organique .tuile.nu{box-shadow:none}
+html.organique #t-meteo{background:var(--t-meteo);border-radius:44px 30px 40px 34px / 38px 44px 30px 40px}
+html.organique #t-transports{background:var(--t-transports);border-radius:28px 40px 30px 44px / 40px 28px 44px 30px}
+html.organique #t-anniversaires{background:var(--t-anniv);border-radius:40px 28px 44px 30px / 30px 42px 28px 40px}
+html.organique #t-agenda{background:var(--t-agenda);border-radius:30px 44px 34px 40px / 42px 30px 40px 34px}
+html.organique #t-maison{background:var(--t-maison);border-radius:38px 30px 42px 28px / 28px 40px 30px 42px}
+html.organique #t-travail{background:var(--t-travail);border-radius:30px 42px 28px 40px / 40px 30px 42px 28px}
+/* traits : pointillés doux au lieu de filets */
+html.organique .mini,html.organique .bd-suite,html.organique .tv-suite,html.organique .jours-p{border-top:3px dotted var(--line)}
+html.organique .ag-col + .ag-col{border-left:3px dotted var(--line)}
+html.organique .tv-large .tv-suite{border-top:0;border-left:3px dotted var(--line)}
+/* évènements : galets colorés au lieu de barres */
+html.organique .ev{border-left-width:0;position:relative;padding-left:22px}
+html.organique .ev:before{content:"";position:absolute;left:0;top:6px;bottom:6px;width:9px;border-radius:9px;background:var(--c,var(--accent))}
+html.organique .ev.jour{border-radius:16px;padding-left:26px}
+html.organique .ev.jour:before{left:8px}
+html.organique .tv-l,html.organique .tv-c.p > b{border-left:0;padding-left:0}
+html.organique .tv-l:before,html.organique .tv-c.p > b:before{content:"";display:inline-block;width:12px;height:12px;border-radius:50% 45% 55% 40%;background:var(--p2);margin-right:10px;vertical-align:.12em}
+html.organique .tv-dep,html.organique .tv-h{padding-left:22px}
+/* boutons et pastilles en galets */
+html.organique .scene{border-radius:999px;background:rgba(255,255,255,.55)}
+html.organique.nuit .scene{background:rgba(255,255,255,.06)}
+html.organique .scene.on{background:var(--accent);color:var(--on-ink)}
+html.organique .lum,html.organique .wx-puces span,html.organique .alert,html.organique .vigi,html.organique .msg,html.organique .ad{border-radius:999px}
+html.organique .ad.dem{border-radius:0}
+html.organique .wg-j{border-radius:999px;border:0;background:rgba(255,255,255,.5)}
+html.organique.nuit .wg-j{background:rgba(255,255,255,.05)}
+html.organique .badge.bus{border-radius:16px 12px 16px 12px}
+html.organique .demo{border-radius:999px}
 </style>
 </head>
 <body>
@@ -285,7 +340,9 @@ var PRENOM_FLO = 'Flo';   // remplacé par le prénom réglé dans la page admin
 function param(n){ var m = new RegExp('[?&]' + n + '=([^&#]*)').exec(location.search); return m ? decodeURIComponent(m[1]) : null; }
 function pad(n){ return (n < 10 ? '0' : '') + n; }
 function themeAuto(){ var h = new Date().getHours(); return (h >= 19 || h < 7) ? 'nuit' : 'jour'; }
-function appliquerTheme(t){ if (!t || t === 'auto') t = themeAuto(); document.documentElement.className = t === 'nuit' ? 'nuit' : ''; }
+// Style visuel : « organique » à l'essai (?style=organique dans l'adresse)
+var STYLE = param('style') || '';
+function appliquerTheme(t){ if (!t || t === 'auto') t = themeAuto(); document.documentElement.className = (t === 'nuit' ? 'nuit' : '') + (STYLE === 'organique' ? ' organique' : ''); }
 appliquerTheme(param('theme'));
 window.addEventListener('message', function(e){ if (e.data && e.data.type === 'theme') appliquerTheme(e.data.value); });
 function signalerToucher(){ if (window.parent !== window) { try { window.parent.postMessage({ type: 'interaction' }, '*'); } catch (err) {} } }
@@ -881,7 +938,7 @@ function tuileAgenda(T, now, l, h){
       var x = L[r], coul = COULEURS[x.qui] || COULEURS.moi;
       var enCours = k === 0 && x.debut && enMinutes(x.debut) <= minNow;
       var heure = x.debut ? (enCours ? '<div class="ev-h enc">En cours</div>' : '<div class="ev-h">' + x.debut.replace(':', 'H') + '</div>') : '';
-      var ligne = '<div class="ev' + (x.debut ? '' : ' jour') + '" style="border-left-color:' + coul + '">' + (demi ? '<div class="ev-j">' + jourCourt(k) + '</div>' : '') + heure + '<div class="ev-n">' + echapper(x.titre) + '</div></div>';
+      var ligne = '<div class="ev' + (x.debut ? '' : ' jour') + '" style="border-left-color:' + coul + ';--c:' + coul + '">' + (demi ? '<div class="ev-j">' + jourCourt(k) + '</div>' : '') + heure + '<div class="ev-n">' + echapper(x.titre) + '</div></div>';
       blocs.push({ tete: demi ? '' : tete, corps: ligne, premier: r === 0 });
     }
   }

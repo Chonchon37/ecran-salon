@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
 <title>Écran du salon</title>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700&family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700&family=Figtree:wght@400;500;600;700&family=Fraunces:opsz,wght,SOFT,WONK@9..144,500..700,0..100,0..1&display=swap">
 <style>
 /* ============================================================
    COQUILLE (shell) : affiche les slides en plein écran,
@@ -19,6 +19,17 @@ html.nuit{
   --bg:#0B1016; --card:#18212A; --card2:#26323E; --ink:#F4F7F3; --muted:#AEBAB4;
   --line:#3A4856; --accent:#92B28E; --warn:#E38A52; --warn-soft:#3A2619;
 }
+html.organique{
+  --bg:#EFE8DA; --card:#FBF7EF; --card2:#ECE4D3; --ink:#2A2620; --muted:#6B6253;
+  --line:#D9CFBC; --accent:#6E8F5E; --warn:#B65A2E; --warn-soft:#F2DCCB;
+}
+html.organique.nuit{
+  --bg:#121511; --card:#1D211B; --card2:#2A2F27; --ink:#F1ECE1; --muted:#B3AB9C;
+  --line:#3A3F35; --accent:#9DBB8A; --warn:#E39062; --warn-soft:#3A2619;
+}
+html.organique #bar{height:4px;border-radius:4px}
+html.organique .tab.on{box-shadow:0 8px 18px -12px rgba(90,70,40,.45)}
+html.organique #clock{font-family:Fraunces,"Bricolage Grotesque",Georgia,serif;font-variation-settings:"SOFT" 100}
 html,body{margin:0;width:100%;height:100%;overflow:hidden;background:var(--bg)}
 body{
   font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;color:var(--ink);
@@ -44,7 +55,7 @@ body{
 #barFill{height:100%;width:0;background:var(--accent)}
 #tabs{display:flex;align-items:center}
 .tab{
-  display:flex;align-items:center;height:50px;padding:0 18px;margin-right:4px;border-radius:25px;
+  display:flex;align-items:center;height:50px;padding:0 15px;margin-right:4px;border-radius:25px;white-space:nowrap;
   font-size:18px;font-weight:600;color:var(--muted);cursor:pointer;transition:background-color .3s,color .3s;
 }
 .tab svg{width:24px;height:24px;margin-right:9px;flex:none}
@@ -52,7 +63,7 @@ body{
 .tab.on svg{color:var(--accent)}
 #right{margin-left:auto;display:flex;align-items:center}
 #pause{
-  display:none;align-items:center;height:36px;padding:0 14px;margin-right:16px;border-radius:18px;
+  display:none;align-items:center;height:36px;padding:0 14px;margin-right:16px;border-radius:18px;white-space:nowrap;
   background:var(--warn-soft);color:var(--warn);font-size:15px;font-weight:700;cursor:pointer;
 }
 #pause svg{width:16px;height:16px;margin-right:6px}
@@ -121,7 +132,9 @@ var CONFIG = {
     { id: 'agenda', fichier: 'agenda.html',        nom: 'Agenda',        icone: 'agenda' },
     { id: 'maison', fichier: 'maison.html',        nom: 'Maison',        icone: 'maison' },
     { id: 'anniversaires', fichier: 'anniversaires.html', nom: 'Anniversaires', icone: 'gateau' },
-    { id: 'travail', fichier: 'travail.html',       nom: 'Travail',       icone: 'travail', horsRotation: true, onglet: true }
+    { id: 'travail', fichier: 'travail.html',       nom: 'Travail',       icone: 'travail', horsRotation: true, onglet: true },
+    // Essai du style « organique » (onglet seulement, jamais dans la rotation) : gardé même avec les réglages de l'admin
+    { id: 'accueilDemo', fichier: 'accueil.html?style=organique', nom: 'Démo', icone: 'accueil', horsRotation: true, onglet: true, toujours: true }
   ]
 };
 /* ================================================================= */
@@ -180,6 +193,7 @@ function appliquerReglages(R){
     // une page masquée mais utilisée par une plage fixe reste chargée (hors rotation)
     if (base && (sl.actif || sl.onglet || fixes[sl.id])) liste.push({ id: base.id, fichier: base.fichier, nom: base.nom, icone: base.icone, duree: sl.duree, horsRotation: !sl.actif, onglet: !!(sl.actif || sl.onglet) });
   }
+  for (i = 0; i < CONFIG.SLIDES.length; i++) if (CONFIG.SLIDES[i].toujours && !g.rotation.slides.some(function(x){ return x.id === CONFIG.SLIDES[i].id; })) liste.push(CONFIG.SLIDES[i]);
   if (liste.length) CONFIG.SLIDES = liste;
   CONFIG.PLAGES = plages;
   if (g.veille) CONFIG.VEILLE = g.veille;
@@ -225,11 +239,11 @@ var zoneTabs = document.getElementById('tabs');
 function construire(){
   themeForce = param('theme') || CONFIG.THEME;
   theme = calculerTheme();
-  document.documentElement.className = theme === 'nuit' ? 'nuit' : '';
+  document.documentElement.className = (theme === 'nuit' ? 'nuit' : '') + (styleOrga() ? ' organique' : '');
   S = CONFIG.SLIDES;
   for (var i = 0; i < S.length; i++) {
     var f = document.createElement('iframe');
-    f.src = S[i].fichier + '?theme=' + theme + (CLE ? '&cle=' + encodeURIComponent(CLE) : '') + '&v=' + CHARGE;
+    f.src = S[i].fichier + (S[i].fichier.indexOf('?') < 0 ? '?' : '&') + 'theme=' + theme + (CLE ? '&cle=' + encodeURIComponent(CLE) : '') + '&v=' + CHARGE;
     f.setAttribute('scrolling', 'no');
     (function(cadre){ cadre.addEventListener('load', function(){ envoyerReglages(cadre); }); })(f);
     zoneSlides.appendChild(f);
@@ -274,12 +288,15 @@ function afficher(index){
     tabs[j].className = (j === index) ? 'tab on' : 'tab';
   }
   actuel = index;
+  document.documentElement.className = (theme === 'nuit' ? 'nuit' : '') + (styleOrga() ? ' organique' : '');
   majHorloge();
   programmer();
 }
+// Style « organique » à l'essai : seulement pendant l'onglet Démo
+function styleOrga(){ return !!(S && S[actuel] && S[actuel].fichier.indexOf('style=organique') >= 0); }
 // Sur l'accueil, l'heure est dans la tuile Date : on n'affiche pas l'horloge en double
 var accueilAvecHeure = false;
-function majHorloge(){ document.getElementById('clock').style.visibility = (S && S[actuel] && S[actuel].id === 'accueil' && accueilAvecHeure) ? 'hidden' : ''; }
+function majHorloge(){ document.getElementById('clock').style.visibility = (S && S[actuel] && (S[actuel].id === 'accueil' || S[actuel].id === 'accueilDemo') && accueilAvecHeure) ? 'hidden' : ''; }
 window.addEventListener('message', function(e){ if (e.data && e.data.type === 'horlogeAccueil') { accueilAvecHeure = !!e.data.value; majHorloge(); } });
 /* ---------- Écran fixe selon l'heure ---------- */
 function enMinutes(hhmm){ var p = String(hhmm).split(':'); return parseInt(p[0], 10) * 60 + parseInt(p[1], 10); }
@@ -405,7 +422,7 @@ function tic(){
   var nouveau = calculerTheme();
   if (nouveau !== theme) {
     theme = nouveau;
-    document.documentElement.className = theme === 'nuit' ? 'nuit' : '';
+    document.documentElement.className = (theme === 'nuit' ? 'nuit' : '') + (styleOrga() ? ' organique' : '');
     for (var k = 0; k < frames.length; k++) {
       try { frames[k].contentWindow.postMessage({ type: 'theme', value: theme }, '*'); } catch (err) {}
     }

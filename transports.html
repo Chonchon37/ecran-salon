@@ -316,12 +316,13 @@ function afficher(D){
   $('demo').style.display = CONFIG.WORKER ? 'none' : '';
 }
 function majTexte(){
+  if (!derniereMaj) return;
   var s = Math.round((Date.now() - derniereMaj) / 1000), z = $('upd');
   if (s > 180) { z.className = 'upd vieux'; z.innerHTML = 'Pas de mise à jour depuis ' + Math.floor(s / 60) + ' min : vérifie la connexion'; return; }
   z.className = 'upd';
   z.innerHTML = '<span class="leg"><i></i>temps réel <i class="p"></i>horaire prévu</span>' + (tempsReelOk ? '' : 'Temps réel indisponible · ') + (s < 15 ? 'À jour' : 'Mis à jour il y a ' + (s < 60 ? s + ' s' : Math.floor(s / 60) + ' min'));
 }
-var dernieresDonnees = null;
+var dernieresDonnees = null, derniereMaj = 0;
 function charger(){
   if (!CONFIG.WORKER) { dernieresDonnees = donneesDemo(); derniereMaj = Date.now(); afficher(dernieresDonnees); majTexte(); return; }
   var xhr = new XMLHttpRequest();
