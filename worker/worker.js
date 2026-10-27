@@ -32,7 +32,7 @@ const FLUX_ALERTES = 'https://data.filbleu.fr/ws-tr/gtfs-rt/opendata/service-ale
 const FLUX_INCIDENTS = 'https://www.filbleu.fr/rss-incident.xml';   // l'info trafic du site filbleu.fr (travaux, déviations…)
 const NOMS_ARRETS = { 'A': 'Monconseil', '2': 'Maréchal Juin' };
 const CACHE_SECONDES = 30;   // les écrans redemandent toutes les 30 s
-const VERSION = '27';   // à changer à chaque mise à jour du code : vide les caches
+const VERSION = '28';   // à changer à chaque mise à jour du code : vide les caches
 
 // Horaires prévus, format compact : "jours" = n° de grille pour chaque jour depuis "debut",
 // chaque ligne "g=" = minutes depuis minuit, écrites en écarts successifs.
@@ -911,7 +911,7 @@ async function etatsUtiles(env, modes, lumieresChoisies) {
       const texte = await r.text();
       if (r.ok) {
         const L = JSON.parse(texte);
-        if (Array.isArray(L)) return L;
+        if (Array.isArray(L)) return completerModes(env, L, modes);
       }
       MODELE_ERREUR = 'HTTP ' + r.status + ' : ' + texte.slice(0, 300);
     } catch (e) { MODELE_ERREUR = String(e.message || e); }
@@ -934,6 +934,17 @@ async function etatsUtiles(env, modes, lumieresChoisies) {
   }
   return etatsHA(env);   // dernier recours : tout l'état de Home Assistant
 }
+// Modes (automatisations, scènes…) absents du modèle : lus un par un (petites requêtes)
+async function completerModes(env, L, modes) {
+  const vus = {}; for (const e of L) vus[e.entity_id] = true;
+  const manquants = modes.filter(x => !x.startsWith('special.') && !vus[x]);
+  if (!manquants.length) return L;
+  if (!MODES_SIGNALES) { console.log('Modes absents du modèle Home Assistant : ' + manquants.join(', ')); MODES_SIGNALES = true; }
+  const h = { Authorization: 'Bearer ' + env.HA_TOKEN };
+  const R = await Promise.all(manquants.map(id => fetch(haUrl(env, '/api/states/' + id), { headers: h }).then(r => r.ok ? r.json() : null).catch(() => null)));
+  return L.concat(R.filter(Boolean));
+}
+let MODES_SIGNALES = false;
 let MODELE_KO_JUSQUA = 0, MODELE_ERREUR = '', MAISON_MEMO = null, LUMIERES_CONNUES = null;
 async function construireMaison(env) {
   // plusieurs pages interrogent /maison toutes les 30 s : une réponse récente (moins de 10 s) est réutilisée
