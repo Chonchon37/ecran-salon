@@ -67,6 +67,12 @@ body{
 }
 .tab svg{width:24px;height:24px;margin-right:9px;flex:none}
 .tab.on{background:var(--card);color:var(--ink)}
+/* Icônes seules ; l'onglet actif garde son nom (qui glisse d'un onglet à l'autre) */
+.tab{padding:0 17px;margin-right:10px}
+.tab svg{width:28px;height:28px;margin-right:0}
+.tab span{display:inline-block;max-width:0;overflow:hidden;white-space:nowrap;opacity:0;margin-left:0;transition:max-width .35s ease,opacity .25s ease,margin-left .35s ease}
+.tab.on{padding:0 20px 0 17px}
+.tab.on span{max-width:200px;opacity:1;margin-left:10px}
 .tab.on svg{color:var(--accent)}
 #right{margin-left:auto;display:flex;align-items:center}
 #pause{
