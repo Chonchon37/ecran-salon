@@ -32,7 +32,7 @@ const FLUX_ALERTES = 'https://data.filbleu.fr/ws-tr/gtfs-rt/opendata/service-ale
 const FLUX_INCIDENTS = 'https://www.filbleu.fr/rss-incident.xml';   // l'info trafic du site filbleu.fr (travaux, déviations…)
 const NOMS_ARRETS = { 'A': 'Monconseil', '2': 'Maréchal Juin' };
 const CACHE_SECONDES = 30;   // les écrans redemandent toutes les 30 s
-const VERSION = '25';   // à changer à chaque mise à jour du code : vide les caches
+const VERSION = '26';   // à changer à chaque mise à jour du code : vide les caches
 
 // Horaires prévus, format compact : "jours" = n° de grille pour chaque jour depuis "debut",
 // chaque ligne "g=" = minutes depuis minuit, écrites en écarts successifs.
@@ -899,23 +899,51 @@ function lumiere(e) {
 const NOM_SPECIAL = { 'special.tout_eteindre': 'Tout éteindre' };
 
 // Seulement les lumières et les modes choisis, via un modèle Home Assistant (bien plus léger que /api/states en entier)
-async function etatsUtiles(env, modes) {
+async function etatsUtiles(env, modes, lumieresChoisies) {
   const tpl = "{% set ns = namespace(o=[]) %}" +
     "{% for s in states.light %}{% set ns.o = ns.o + [{'entity_id': s.entity_id, 'state': s.state, 'attributes': {'friendly_name': s.attributes.friendly_name, 'brightness': s.attributes.brightness}}] %}{% endfor %}" +
     "{% for id in " + JSON.stringify(modes.filter(x => !x.startsWith('special.'))) + " %}{% if states(id) != 'unknown' or state_attr(id, 'friendly_name') %}" +
     "{% set ns.o = ns.o + [{'entity_id': id, 'state': states(id), 'attributes': {'friendly_name': state_attr(id, 'friendly_name'), 'last_triggered': (state_attr(id, 'last_triggered').isoformat() if state_attr(id, 'last_triggered') else none)}}] %}{% endif %}{% endfor %}" +
     "{{ ns.o | tojson }}";
-  try {
-    const r = await fetch(haUrl(env, '/api/template'), { method: 'POST', headers: { Authorization: 'Bearer ' + env.HA_TOKEN, 'Content-Type': 'application/json' }, body: JSON.stringify({ template: tpl }) });
-    if (r.ok) {
-      const L = JSON.parse(await r.text());
-      if (Array.isArray(L)) return L;
-    }
-  } catch (e) {}
-  return etatsHA(env);   // repli : tout l'état de Home Assistant
+  if (Date.now() > MODELE_KO_JUSQUA) {
+    try {
+      const r = await fetch(haUrl(env, '/api/template'), { method: 'POST', headers: { Authorization: 'Bearer ' + env.HA_TOKEN, 'Content-Type': 'application/json' }, body: JSON.stringify({ template: tpl }) });
+      const texte = await r.text();
+      if (r.ok) {
+        const L = JSON.parse(texte);
+        if (Array.isArray(L)) return L;
+      }
+      MODELE_ERREUR = 'HTTP ' + r.status + ' : ' + texte.slice(0, 300);
+    } catch (e) { MODELE_ERREUR = String(e.message || e); }
+    console.log('Modèle Home Assistant refusé — ' + MODELE_ERREUR);
+    MODELE_KO_JUSQUA = Date.now() + 10 * 60000;   // on ne réessaie pas avant 10 min
+  }
+  // Repli léger : une petite requête par entité choisie (bien moins coûteux que tout l'état de Home Assistant)
+  // sans lumières choisies : la liste des lumières est relevée une fois par heure dans l'état complet
+  if (!lumieresChoisies.length && LUMIERES_CONNUES && Date.now() - LUMIERES_CONNUES.t < 3600000) lumieresChoisies = LUMIERES_CONNUES.ids;
+  if (!lumieresChoisies.length) {
+    const tous = await etatsHA(env);
+    LUMIERES_CONNUES = { t: Date.now(), ids: tous.filter(e => e.entity_id.startsWith('light.')).map(e => e.entity_id) };
+    return tous;
+  }
+  const ids = lumieresChoisies.concat(modes.filter(x => !x.startsWith('special.')));
+  if (ids.length <= 40) {
+    const h = { Authorization: 'Bearer ' + env.HA_TOKEN };
+    const L = await Promise.all(ids.map(id => fetch(haUrl(env, '/api/states/' + id), { headers: h }).then(r => r.ok ? r.json() : null).catch(() => null)));
+    return L.filter(Boolean);
+  }
+  return etatsHA(env);   // dernier recours : tout l'état de Home Assistant
 }
+let MODELE_KO_JUSQUA = 0, MODELE_ERREUR = '', MAISON_MEMO = null, LUMIERES_CONNUES = null;
 async function construireMaison(env) {
-  const R = await lireReglages(env), etats = await etatsUtiles(env, R.reglages.maison.modes);
+  // plusieurs pages interrogent /maison toutes les 30 s : une réponse récente (moins de 10 s) est réutilisée
+  if (MAISON_MEMO && Date.now() - MAISON_MEMO.t < 10000) return MAISON_MEMO.res;
+  const res = await construireMaisonFrais(env);
+  MAISON_MEMO = { t: Date.now(), res: res };
+  return res;
+}
+async function construireMaisonFrais(env) {
+  const R = await lireReglages(env), etats = await etatsUtiles(env, R.reglages.maison.modes, R.reglages.maison.lumieres);
   const parId = {}; for (const e of etats) parId[e.entity_id] = e;
   const choix = R.reglages.maison;
   let lumieres;
@@ -1036,6 +1064,7 @@ export default {
       if (chemin === '/maison/action' && request.method === 'POST') {
         let corps = {};
         try { corps = JSON.parse(await request.text()); } catch (e) {}
+        MAISON_MEMO = null;
         return repondre(await actionMaison(env, corps), 200, entetes);
       }
       if (chemin === '/reglages' && request.method === 'GET') {
