@@ -27,6 +27,9 @@ html.organique.nuit{
   --bg:#121511; --card:#1D211B; --card2:#2A2F27; --ink:#F1ECE1; --muted:#B3AB9C;
   --line:#3A3F35; --accent:#9DBB8A; --warn:#E39062; --warn-soft:#3A2619;
 }
+html.organique.nuit.nuit-bleue{--bg:#0D1322;--card:#172033;--card2:#243049;--ink:#EEF1F8;--muted:#A6B0C6;--line:#33405A;--accent:#8DB4E2;--warn:#EF9A6A;--warn-soft:#3B2519}
+html.organique.nuit.nuit-braise{--bg:#16100D;--card:#231A15;--card2:#33271F;--ink:#F6EDE4;--muted:#C2AE9E;--line:#433429;--accent:#E0A86A;--warn:#F08A5A;--warn-soft:#3E2216}
+html.organique.nuit.nuit-prune{--bg:#151019;--card:#221A29;--card2:#31273B;--ink:#F4EEF7;--muted:#B9AEC4;--line:#3F3349;--accent:#C2A6EA;--warn:#F0967A;--warn-soft:#3D2420}
 html.organique #bar{height:4px;border-radius:4px}
 html.organique .tab.on{box-shadow:0 8px 18px -12px rgba(90,70,40,.45)}
 html.organique #clock{font-family:Fraunces,"Bricolage Grotesque",Georgia,serif;font-variation-settings:"SOFT" 100}
@@ -239,7 +242,7 @@ var zoneTabs = document.getElementById('tabs');
 function construire(){
   themeForce = param('theme') || CONFIG.THEME;
   theme = calculerTheme();
-  document.documentElement.className = (theme === 'nuit' ? 'nuit' : '') + (styleOrga() ? ' organique' : '');
+  document.documentElement.className = (theme === 'nuit' ? 'nuit' : '') + classeOrga();
   S = CONFIG.SLIDES;
   for (var i = 0; i < S.length; i++) {
     var f = document.createElement('iframe');
@@ -288,12 +291,13 @@ function afficher(index){
     tabs[j].className = (j === index) ? 'tab on' : 'tab';
   }
   actuel = index;
-  document.documentElement.className = (theme === 'nuit' ? 'nuit' : '') + (styleOrga() ? ' organique' : '');
+  document.documentElement.className = (theme === 'nuit' ? 'nuit' : '') + classeOrga();
   majHorloge();
   programmer();
 }
 // Style « organique » à l'essai : seulement pendant l'onglet Démo
 function styleOrga(){ return !!(S && S[actuel] && S[actuel].fichier.indexOf('style=organique') >= 0); }
+function classeOrga(){ if (!styleOrga()) return ''; var m = /[?&]nuit=([a-z]+)/.exec(S[actuel].fichier); return ' organique nuit-' + (m ? m[1] : 'bleue'); }
 // Sur l'accueil, l'heure est dans la tuile Date : on n'affiche pas l'horloge en double
 var accueilAvecHeure = false;
 function majHorloge(){ document.getElementById('clock').style.visibility = (S && S[actuel] && (S[actuel].id === 'accueil' || S[actuel].id === 'accueilDemo') && accueilAvecHeure) ? 'hidden' : ''; }
@@ -422,7 +426,7 @@ function tic(){
   var nouveau = calculerTheme();
   if (nouveau !== theme) {
     theme = nouveau;
-    document.documentElement.className = (theme === 'nuit' ? 'nuit' : '') + (styleOrga() ? ' organique' : '');
+    document.documentElement.className = (theme === 'nuit' ? 'nuit' : '') + classeOrga();
     for (var k = 0; k < frames.length; k++) {
       try { frames[k].contentWindow.postMessage({ type: 'theme', value: theme }, '*'); } catch (err) {}
     }
