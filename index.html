@@ -31,6 +31,9 @@ html.organique.nuit.nuit-bleue{--bg:#0D1322;--card:#172033;--card2:#243049;--ink
 html.organique.nuit.nuit-braise{--bg:#16100D;--card:#231A15;--card2:#33271F;--ink:#F6EDE4;--muted:#C2AE9E;--line:#433429;--accent:#E0A86A;--warn:#F08A5A;--warn-soft:#3E2216}
 html.organique.nuit.nuit-prune{--bg:#151019;--card:#221A29;--card2:#31273B;--ink:#F4EEF7;--muted:#B9AEC4;--line:#3F3349;--accent:#C2A6EA;--warn:#F0967A;--warn-soft:#3D2420}
 html.organique #bar{height:4px;border-radius:4px}
+html.organique #stage{background:var(--bg) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 728' preserveAspectRatio='none'%3E %3Cpath fill='%23C9D8BC' fill-opacity='1' d='M-60 -40C120 -70 330 10 360 150C392 300 250 330 170 420C90 510 -10 520 -80 470Z'/%3E %3Cpath fill='%23EBC9AE' fill-opacity='1' d='M1340 330C1250 300 1120 360 1060 470C995 590 1060 700 1150 760L1360 790Z'/%3E %3Cpath fill='%23EED9A6' fill-opacity='1' d='M610 -60C700 -20 860 -40 930 40C1000 120 920 200 800 190C690 180 640 240 560 200C470 150 520 -90 610 -60Z'/%3E %3Cpath fill='%23C9D8BC' fill-opacity='1' d='M380 760C420 650 560 600 660 640C760 680 780 740 760 800Z'/%3E %3C/svg%3E") no-repeat;background-size:1280px 728px}
+html.organique.nuit #stage{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 728' preserveAspectRatio='none'%3E %3Cpath fill='%234A2416' d='M-60 -40C120 -70 330 10 360 150C392 300 250 330 170 420C90 510 -10 520 -80 470Z'/%3E %3Cpath fill='%233B2E14' d='M1340 330C1250 300 1120 360 1060 470C995 590 1060 700 1150 760L1360 790Z'/%3E %3Cpath fill='%232E1E14' d='M610 -60C700 -20 860 -40 930 40C1000 120 920 200 800 190C690 180 640 240 560 200C470 150 520 -90 610 -60Z'/%3E %3Cpath fill='%234A2416' d='M380 760C420 650 560 600 660 640C760 680 780 740 760 800Z'/%3E %3C/svg%3E")}
+html.organique body *{font-variation-settings:"SOFT" 100,"WONK" 0}
 html.organique .tab.on{box-shadow:0 8px 18px -12px rgba(90,70,40,.45)}
 html.organique #clock{font-family:Fraunces,"Bricolage Grotesque",Georgia,serif;font-variation-settings:"SOFT" 100}
 html,body{margin:0;width:100%;height:100%;overflow:hidden;background:var(--bg)}
@@ -86,7 +89,7 @@ body{
 #veille{position:fixed;left:0;top:0;right:0;bottom:0;background:#000;z-index:100;display:none;cursor:pointer}
 #veille.on{display:block}
 #clock{
-  font-family:"Bricolage Grotesque",Figtree,Arial,sans-serif;font-size:30px;font-weight:600;
+  font-family:Fraunces,"Bricolage Grotesque",Figtree,Arial,sans-serif;font-size:30px;font-weight:600;
   letter-spacing:-.01em;font-variant-numeric:tabular-nums;
 }
 </style>
@@ -135,9 +138,7 @@ var CONFIG = {
     { id: 'agenda', fichier: 'agenda.html',        nom: 'Agenda',        icone: 'agenda' },
     { id: 'maison', fichier: 'maison.html',        nom: 'Maison',        icone: 'maison' },
     { id: 'anniversaires', fichier: 'anniversaires.html', nom: 'Anniversaires', icone: 'gateau' },
-    { id: 'travail', fichier: 'travail.html',       nom: 'Travail',       icone: 'travail', horsRotation: true, onglet: true },
-    // Essai du style « organique » (onglet seulement, jamais dans la rotation) : gardé même avec les réglages de l'admin
-    { id: 'accueilDemo', fichier: 'accueil.html?style=organique', nom: 'Démo', icone: 'accueil', horsRotation: true, onglet: true, toujours: true }
+    { id: 'travail', fichier: 'travail.html',       nom: 'Travail',       icone: 'travail', horsRotation: true, onglet: true }
   ]
 };
 /* ================================================================= */
@@ -295,12 +296,11 @@ function afficher(index){
   majHorloge();
   programmer();
 }
-// Style « organique » à l'essai : seulement pendant l'onglet Démo
-function styleOrga(){ return !!(S && S[actuel] && S[actuel].fichier.indexOf('style=organique') >= 0); }
-function classeOrga(){ if (!styleOrga()) return ''; var m = /[?&]nuit=([a-z]+)/.exec(S[actuel].fichier); return ' organique nuit-' + (m ? m[1] : 'bleue'); }
+// Thème organique (jour sable, nuit braise) ; ?style=classique dans l'adresse pour l'ancien
+function classeOrga(){ return param('style') === 'classique' ? '' : ' organique nuit-braise'; }
 // Sur l'accueil, l'heure est dans la tuile Date : on n'affiche pas l'horloge en double
 var accueilAvecHeure = false;
-function majHorloge(){ document.getElementById('clock').style.visibility = (S && S[actuel] && (S[actuel].id === 'accueil' || S[actuel].id === 'accueilDemo') && accueilAvecHeure) ? 'hidden' : ''; }
+function majHorloge(){ document.getElementById('clock').style.visibility = (S && S[actuel] && S[actuel].id === 'accueil' && accueilAvecHeure) ? 'hidden' : ''; }
 window.addEventListener('message', function(e){ if (e.data && e.data.type === 'horlogeAccueil') { accueilAvecHeure = !!e.data.value; majHorloge(); } });
 /* ---------- Écran fixe selon l'heure ---------- */
 function enMinutes(hhmm){ var p = String(hhmm).split(':'); return parseInt(p[0], 10) * 60 + parseInt(p[1], 10); }

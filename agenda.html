@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=1280">
 <title>Agenda</title>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700&family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700&family=Figtree:wght@400;500;600;700&family=Fraunces:opsz,wght,SOFT,WONK@9..144,500..700,0..100,0..1&display=swap">
 <style>
 :root{
   --bg:#E3E8DD; --card:#FAFBF8; --card2:#D9E0D1; --ink:#0F1712; --muted:#414D45; --line:#B7C1AF;
@@ -16,7 +16,7 @@ html.nuit{
 }
 html,body{margin:0;width:1280px;height:728px;overflow:hidden;background:var(--bg)}
 body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased;transition:background-color .8s,color .8s}
-.h{font-family:"Bricolage Grotesque",Figtree,Arial,sans-serif}
+.h{font-family:Fraunces,"Bricolage Grotesque",Figtree,Arial,sans-serif}
 .wrap{box-sizing:border-box;width:1280px;height:728px;padding:24px 36px;display:flex;flex-direction:column}
 .label{font-size:15px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);display:flex;align-items:center}
 .demo{margin-left:10px;font-size:12px;letter-spacing:.06em;padding:3px 9px;border-radius:20px;background:var(--warn-soft);color:var(--warn)}
@@ -46,6 +46,38 @@ body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;fon
 .ev-n{font-size:18px;font-weight:600;line-height:1.2;margin-top:1px;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
 .plus{font-size:15px;font-weight:700;color:var(--muted);padding:2px 4px}
 .vide{font-size:17px;color:var(--line);padding:2px 4px;font-weight:700}
+
+/* =====================================================================
+   THÈME ORGANIQUE (jour sable / nuit braise) — commun à toutes les pages
+   ===================================================================== */
+:root{
+  --bg:#EFE8DA; --card:#FBF7EF; --card2:#ECE4D3; --ink:#2A2620; --muted:#6B6253; --line:#D9CFBC;
+  --accent:#6E8F5E; --on-ink:#FBF7EF; --p2:#9A6F9E; --p2-soft:#EFE6EE; --nous:#3F72A8; --fete:#B8742A; --fete-soft:#F3E0C4;
+  --ok:#5C8A4E; --warn:#B65A2E; --warn-soft:#F2DCCB; --rain:#4F7FA3; --rain-soft:#DCE6EA;
+  --sun:#D6952C; --moon:#A39FB8; --cloud:#BDB6A8; --cool:#7FA9BE; --warm:#D9973A; --nightband:#E2DCCF;
+  --go-bg:#E3EAD8; --go-ink:#2A2620; --go-acc:#5C8A4E; --hurry-bg:#F2DCCB; --hurry-ink:#9A4A1E; --none-bg:#ECE4D3; --none-ink:#6B6253;
+  --glow:#EFC777; --glow-ink:#5A3E08;
+  --ombre:0 1px 0 rgba(120,100,70,.10),0 10px 24px -14px rgba(90,70,40,.35);
+}
+html.nuit{
+  --bg:#16100D; --card:#231A15; --card2:#33271F; --ink:#F6EDE4; --muted:#C2AE9E; --line:#433429;
+  --accent:#E0A86A; --on-ink:#16100D; --p2:#D8A1B8; --p2-soft:#3A2430; --nous:#8FB4DA; --fete:#F0B860; --fete-soft:#3E2C12;
+  --ok:#A9C77A; --warn:#F08A5A; --warn-soft:#3E2216; --rain:#9EC1D6; --rain-soft:#22303A;
+  --sun:#EDB257; --moon:#E3D3A8; --cloud:#6A5A4E; --cool:#86AFC4; --warm:#E2A04A; --nightband:#2A201A;
+  --go-bg:#2B2A1C; --go-ink:#F6EDE4; --go-acc:#A9C77A; --hurry-bg:#3E2216; --hurry-ink:#F3A274; --none-bg:#33271F; --none-ink:#C2AE9E;
+  --glow:#E8B15A; --glow-ink:#2A1C04;
+  --ombre:0 10px 26px -16px rgba(0,0,0,.9);
+}
+body{background:var(--bg) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 728' preserveAspectRatio='none'%3E %3Cpath fill='%23C9D8BC' fill-opacity='1' d='M-60 -40C120 -70 330 10 360 150C392 300 250 330 170 420C90 510 -10 520 -80 470Z'/%3E %3Cpath fill='%23EBC9AE' fill-opacity='1' d='M1340 330C1250 300 1120 360 1060 470C995 590 1060 700 1150 760L1360 790Z'/%3E %3Cpath fill='%23EED9A6' fill-opacity='1' d='M610 -60C700 -20 860 -40 930 40C1000 120 920 200 800 190C690 180 640 240 560 200C470 150 520 -90 610 -60Z'/%3E %3Cpath fill='%23C9D8BC' fill-opacity='1' d='M380 760C420 650 560 600 660 640C760 680 780 740 760 800Z'/%3E %3C/svg%3E") no-repeat;background-size:1280px 728px}
+html.nuit body{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 728' preserveAspectRatio='none'%3E %3Cpath fill='%234A2416' d='M-60 -40C120 -70 330 10 360 150C392 300 250 330 170 420C90 510 -10 520 -80 470Z'/%3E %3Cpath fill='%233B2E14' d='M1340 330C1250 300 1120 360 1060 470C995 590 1060 700 1150 760L1360 790Z'/%3E %3Cpath fill='%232E1E14' d='M610 -60C700 -20 860 -40 930 40C1000 120 920 200 800 190C690 180 640 240 560 200C470 150 520 -90 610 -60Z'/%3E %3Cpath fill='%234A2416' d='M380 760C420 650 560 600 660 640C760 680 780 740 760 800Z'/%3E %3C/svg%3E")}
+body,body *{font-variation-settings:"SOFT" 100,"WONK" 0}
+.card,.tile,.scene,.day,.hero,.pn-item{box-shadow:var(--ombre)}
+.card{border-radius:34px 26px 38px 28px / 30px 36px 26px 34px}
+.card + .card{border-radius:28px 40px 30px 44px / 40px 28px 44px 30px}
+.tile{border-radius:30px 24px 34px 26px / 26px 32px 24px 30px}
+.scene,.chip,.tag,.ln-status,.demo{border-radius:999px}
+.hero{border-radius:40px 30px 44px 32px / 34px 42px 30px 40px}
+.day{border-radius:26px 20px 28px 22px / 22px 28px 20px 26px}
 </style>
 </head>
 <body>
