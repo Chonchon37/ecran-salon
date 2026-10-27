@@ -99,10 +99,48 @@ body{
   font-family:Fraunces,"Bricolage Grotesque",Figtree,Arial,sans-serif;font-size:30px;font-weight:600;
   letter-spacing:-.01em;font-variant-numeric:tabular-nums;
 }
+
+/* Roue crantée et volet de réglages rapides */
+#rouage{width:46px;height:46px;margin-left:14px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:var(--muted);cursor:pointer}
+#rouage svg{width:27px;height:27px}
+#rouage:active,#rouage.on{background:var(--card);color:var(--ink)}
+#volet{position:fixed;left:0;top:0;right:0;bottom:0;z-index:90;display:none}
+#volet.on{display:block}
+#voletFond{position:absolute;left:0;top:0;right:0;bottom:0;background:rgba(20,14,10,.38)}
+#voletCarte{position:absolute;right:28px;bottom:84px;width:560px;box-sizing:border-box;padding:24px 28px 20px;background:var(--card);color:var(--ink);
+  border-radius:30px 24px 32px 26px / 26px 30px 24px 30px;box-shadow:0 18px 40px -18px rgba(0,0,0,.55)}
+.vt{display:flex;align-items:center;margin-bottom:8px}
+.vt span{font-family:Fraunces,"Bricolage Grotesque",Figtree,Arial,sans-serif;font-size:28px;font-weight:600}
+#voletFermer{margin-left:auto;font-size:16px;font-weight:700;color:var(--muted);padding:10px 4px 10px 16px;cursor:pointer}
+.vl{margin-top:14px}
+.vn{font-size:14px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+.seg{display:flex;background:var(--card2);border-radius:999px;padding:4px}
+.seg b{flex:1;text-align:center;font-size:18px;font-weight:600;padding:12px 6px;border-radius:999px;cursor:pointer;color:var(--muted);transition:background-color .2s,color .2s}
+.seg b.on{background:var(--card);color:var(--ink);box-shadow:0 4px 10px -6px rgba(0,0,0,.35)}
+.vb{display:flex;margin-top:20px}
+.bt{flex:1;display:flex;align-items:center;justify-content:center;height:58px;border-radius:22px 18px 22px 18px;background:var(--card2);font-size:18px;font-weight:600;cursor:pointer}
+.bt + .bt{margin-left:12px}
+.bt svg{width:22px;height:22px;margin-right:10px;color:var(--accent)}
+.bt:active{background:var(--accent);color:var(--card)}
+.vi{margin-top:14px;font-size:14px;color:var(--muted);text-align:center}
 </style>
 </head>
 <body>
 <div id="veille" aria-hidden="true"></div>
+<div id="volet">
+  <div id="voletFond"></div>
+  <div id="voletCarte">
+    <div class="vt"><span>Réglages rapides</span><div id="voletFermer">Fermer ✕</div></div>
+    <div class="vl"><div class="vn">Thème</div><div class="seg" id="segTheme"><b data-v="auto">Auto</b><b data-v="jour">Jour</b><b data-v="nuit">Nuit</b></div></div>
+    <div class="vl" id="ligneLum"><div class="vn">Luminosité</div><div class="seg" id="segLum"><b data-v="40">Faible</b><b data-v="110">Moyenne</b><b data-v="180">Forte</b><b data-v="255">Max</b></div></div>
+    <div class="vl"><div class="vn">Défilement des pages</div><div class="seg" id="segDefil"><b data-v="auto">Automatique</b><b data-v="fige">Rester ici</b></div></div>
+    <div class="vb">
+      <div class="bt" id="btVeille"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg>Éteindre l'écran</div>
+      <div class="bt" id="btRecharger"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg>Recharger l'écran</div>
+    </div>
+    <div class="vi" id="voletInfo"></div>
+  </div>
+</div>
 <div id="stage">
   <div id="slides"></div>
   <div id="nav">
@@ -116,6 +154,7 @@ body{
       </div>
       <div id="fixe"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg><span id="fixeTexte"></span></div>
       <div id="clock">--:--</div>
+      <div id="rouage" title="Réglages rapides"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></div>
     </div>
   </div>
 </div>
@@ -333,6 +372,7 @@ function suivanteEnRotation(){
 }
 function programmer(){
   clearTimeout(minuteur);
+  if (fige) { lancerBarre(0); var z = document.getElementById('fixe'); z.className = 'on'; document.getElementById('fixeTexte').innerHTML = 'Page fixée'; etatFixe = 'fige'; return; }
   var maintenant = Date.now();
   if (pauseJusqua > maintenant) {
     lancerBarre(0);
@@ -401,7 +441,7 @@ function luminosite(niveau){
   } catch (e) {}
 }
 function majVeille(){
-  var doit = heureDeVeille() && Date.now() > reveilJusqua;
+  var doit = veilleForcee || (heureDeVeille() && Date.now() > reveilJusqua);
   if (doit === enVeille) return;
   enVeille = doit;
   zoneVeille.className = doit ? 'on' : '';
@@ -410,6 +450,7 @@ function majVeille(){
 function reveiller(e){
   if (!enVeille) return;
   if (e) { e.preventDefault(); e.stopPropagation(); }   // ce toucher ne sert qu'à rallumer
+  veilleForcee = false;
   reveilJusqua = Date.now() + (CONFIG.VEILLE.reveil || 120) * 1000;
   majVeille();
 }
@@ -420,13 +461,60 @@ function prolongerReveil(){ if (heureDeVeille()) reveilJusqua = Math.max(reveilJ
 document.addEventListener('touchstart', prolongerReveil, true);
 window.addEventListener('message', function(e){ if (e.data && e.data.type === 'interaction') prolongerReveil(); });
 
+
+/* ---------- Roue crantée : réglages rapides sur le cadre ----------
+   Les choix sont gardés dans l'adresse de la page (ils survivent aux rechargements automatiques). */
+var volet = document.getElementById('volet'), rouage = document.getElementById('rouage');
+var fige = param('fige') === '1', veilleForcee = false;
+function majAdresse(nom, valeur){
+  try {
+    var u = location.href.replace(new RegExp('([?&])' + nom + '=[^&#]*&?'), '$1').replace(/[?&]$/, '');
+    if (valeur) u += (u.indexOf('?') < 0 ? '?' : '&') + nom + '=' + valeur;
+    history.replaceState(null, '', u);
+  } catch (e) {}
+}
+function marquer(id, v){ var L = document.getElementById(id).getElementsByTagName('b'); for (var i = 0; i < L.length; i++) L[i].className = L[i].getAttribute('data-v') === String(v) ? 'on' : ''; }
+function lumActuelle(){ try { return parseInt(fully.getScreenBrightness(), 10); } catch (e) { return null; } }
+function majVolet(){
+  marquer('segTheme', param('theme') === 'jour' || param('theme') === 'nuit' ? param('theme') : 'auto');
+  marquer('segDefil', fige ? 'fige' : 'auto');
+  var fk = typeof fully !== 'undefined' && fully.setScreenBrightness;
+  document.getElementById('ligneLum').style.display = fk ? '' : 'none';
+  if (fk) { var l = lumActuelle(), best = null, ecart = 999, L = [40, 110, 180, 255]; for (var i = 0; i < 4; i++) if (Math.abs(L[i] - l) < ecart) { ecart = Math.abs(L[i] - l); best = L[i]; } marquer('segLum', best); }
+  document.getElementById('voletInfo').innerHTML = 'Les autres réglages se font dans la page admin' + (fk ? '' : ' · luminosité : activer l\'interface JavaScript de Fully');
+}
+function ouvrirVolet(){ majVolet(); volet.className = 'on'; rouage.className = 'on'; pauseJusqua = Date.now() + 10 * 60000; majPause(); programmer(); }
+function fermerVolet(){ volet.className = ''; rouage.className = ''; pauseJusqua = Date.now() + CONFIG.PAUSE_APRES_TOUCHER * 1000; majPause(); programmer(); }
+rouage.addEventListener('click', function(){ if (volet.className) fermerVolet(); else ouvrirVolet(); });
+document.getElementById('voletFond').addEventListener('click', fermerVolet);
+document.getElementById('voletFermer').addEventListener('click', fermerVolet);
+document.getElementById('segTheme').addEventListener('click', function(e){
+  var v = e.target.getAttribute('data-v'); if (!v) return;
+  majAdresse('theme', v === 'auto' ? '' : v);
+  themeForce = v === 'auto' ? CONFIG.THEME : v;
+  majVolet(); tic();
+});
+document.getElementById('segLum').addEventListener('click', function(e){
+  var v = e.target.getAttribute('data-v'); if (!v) return;
+  try { fully.setScreenBrightness(parseInt(v, 10)); luminositeAvant = null; } catch (err) {}
+  marquer('segLum', v);
+});
+document.getElementById('segDefil').addEventListener('click', function(e){
+  var v = e.target.getAttribute('data-v'); if (!v) return;
+  fige = v === 'fige'; majAdresse('fige', fige ? '1' : '');
+  if (!fige) majFixe(null);
+  majVolet(); programmer();
+});
+document.getElementById('btVeille').addEventListener('click', function(){ fermerVolet(); veilleForcee = true; reveilJusqua = 0; enVeille = false; majVeille(); });
+document.getElementById('btRecharger').addEventListener('click', recharger);
+
 /* ---------- Horloge + changement de thème ---------- */
 var horloge = document.getElementById('clock');
 function tic(){
   majVeille();
   var d = new Date();
   horloge.innerHTML = pad(d.getHours()) + ':' + pad(d.getMinutes());
-  if (S && pauseJusqua <= Date.now()) {
+  if (S && !fige && pauseJusqua <= Date.now()) {
     var P = plageActive(), e = P ? P.index + '|' + P.fin : '';
     if (e !== etatFixe) programmer();
   }
