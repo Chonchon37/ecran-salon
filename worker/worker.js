@@ -32,7 +32,7 @@ const FLUX_ALERTES = 'https://data.filbleu.fr/ws-tr/gtfs-rt/opendata/service-ale
 const FLUX_INCIDENTS = 'https://www.filbleu.fr/rss-incident.xml';   // l'info trafic du site filbleu.fr (travaux, déviations…)
 const NOMS_ARRETS = { 'A': 'Monconseil', '2': 'Maréchal Juin' };
 const CACHE_SECONDES = 30;   // les écrans redemandent toutes les 30 s
-const VERSION = '28';   // à changer à chaque mise à jour du code : vide les caches
+const VERSION = '29';   // à changer à chaque mise à jour du code : vide les caches
 
 // Horaires prévus, format compact : "jours" = n° de grille pour chaque jour depuis "debut",
 // chaque ligne "g=" = minutes depuis minuit, écrites en écarts successifs.
@@ -1012,13 +1012,53 @@ async function catalogueMaison(env) {
   res.lumieres.sort(tri); res.modes.sort((a, b) => a.type === 'intégré' ? -1 : b.type === 'intégré' ? 1 : tri(a, b));
   return res;
 }
+/* Automatisations « bascule » : lecture de leur configuration (gardée 10 min) */
+const CONFIGS_AUTO = {};
+async function configAutomatisation(env, id) {
+  const m = CONFIGS_AUTO[id];
+  if (m && Date.now() - m.t < 600000) return m.c;
+  const h = { Authorization: 'Bearer ' + env.HA_TOKEN };
+  const e = await fetch(haUrl(env, '/api/states/' + id), { headers: h }).then(r => r.ok ? r.json() : null).catch(() => null);
+  const cid = e && e.attributes && e.attributes.id;
+  const c = cid ? await fetch(haUrl(env, '/api/config/automation/config/' + cid), { headers: h }).then(r => r.ok ? r.json() : null).catch(() => null) : null;
+  CONFIGS_AUTO[id] = { t: Date.now(), c: c };
+  return c;
+}
+// Une seule action « choose » dont une branche éteint et dont la branche « sinon » allume : on joue la branche « sinon »
+async function jouerBrancheAllumage(env, id) {
+  const c = await configAutomatisation(env, id);
+  const A = c && (c.actions || c.action);
+  if (!Array.isArray(A) || A.length !== 1 || !A[0].choose || !A[0].default) return false;
+  const eteint = JSON.stringify(A[0].choose).indexOf('turn_off') >= 0;
+  if (!eteint) return false;
+  await executerActions(env, A[0].default);
+  return true;
+}
+async function executerActions(env, liste) {
+  for (const etape of [].concat(liste || [])) {
+    if (etape.parallel) { await Promise.all([].concat(etape.parallel).map(x => executerActions(env, x))); continue; }
+    if (etape.sequence) { await executerActions(env, etape.sequence); continue; }
+    const nom = etape.action || etape.service;
+    if (!nom || nom.indexOf('.') < 0) continue;
+    const corps = Object.assign({}, etape.target || {}, etape.data || {});
+    const r = await fetch(haUrl(env, '/api/services/' + nom.replace('.', '/')), {
+      method: 'POST', headers: { Authorization: 'Bearer ' + env.HA_TOKEN, 'Content-Type': 'application/json' }, body: JSON.stringify(corps)
+    }).catch(e => null);
+    if ((!r || !r.ok) && !etape.continue_on_error) throw new Error('Home Assistant a refusé ' + nom);
+  }
+}
 async function actionMaison(env, corps) {
   const id = String(corps.id || ''), R = await lireReglages(env);
   let service, donnees = { entity_id: id };
   if (corps.action === 'basculer' && /^light\.[a-z0-9_]+$/.test(id)) service = '/api/services/light/toggle';
   else if (corps.action === 'scene' && R.reglages.maison.modes.indexOf(id) >= 0) {     // seuls les modes choisis sont autorisés
     if (id === 'special.tout_eteindre') { service = '/api/services/light/turn_off'; donnees = { entity_id: 'all' }; }
-    else if (id.startsWith('automation.')) { service = '/api/services/automation/trigger'; donnees = { entity_id: id, skip_condition: true }; }
+    else if (id.startsWith('automation.')) {
+      // Automatisation « interrupteur » (si allumé → tout éteindre, sinon → allumer) : depuis l'écran,
+      // on veut toujours le mode, donc on joue directement la branche « sinon » quand elle existe
+      if (await jouerBrancheAllumage(env, id)) return { ok: true, direct: true };
+      service = '/api/services/automation/trigger'; donnees = { entity_id: id, skip_condition: true };
+    }
     else if (id.startsWith('scene.')) service = '/api/services/scene/turn_on';
     else if (id.startsWith('script.')) service = '/api/services/script/turn_on';
   }
