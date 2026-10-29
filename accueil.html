@@ -54,10 +54,14 @@ body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;fon
 .ad{display:flex;align-items:center;align-self:flex-start;max-width:100%;box-sizing:border-box;margin-top:8px;padding:5px 12px 5px 9px;border-radius:12px;background:var(--fete-soft);color:var(--fete);font-size:20px;line-height:1.2;flex:none}
 .ad span{font-size:20px;margin-right:8px;flex:none}
 .ad b{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
-.ad.dem{background:none;color:var(--ink);padding:0;margin-top:6px;font-size:19px}
-.ad.dem span{font-size:18px}
 .ad em{font-style:normal;font-weight:600;color:var(--muted);margin-right:8px;white-space:nowrap}
 .ad small{font-size:17px;font-weight:600;margin-left:8px;white-space:nowrap;opacity:.85}
+/* aujourd'hui et demain : même présentation, seul le mot du jour change de couleur */
+.ad,.ad.dem{background:none;color:var(--ink);padding:0;margin-top:6px;font-size:20px;border-radius:0}
+.ad span,.ad.dem span{font-size:19px}
+.ad em{color:var(--fete);font-weight:700}
+.ad.dem em{color:var(--muted);font-weight:600}
+.ad small{color:var(--muted);opacity:1}
 .demi.nu > .ad{display:none}
 .msg{display:inline-block;margin-top:12px;padding:8px 14px;border-radius:12px;background:var(--fete-soft);color:var(--fete);font-size:20px;font-weight:700;line-height:1.3;align-self:flex-start}
 
@@ -319,9 +323,8 @@ html.organique.nuit.nuit-prune{--bg:#151019;--card:#221A29;--card2:#31273B;--ink
 html.organique.nuit.nuit-prune .grille{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 728' preserveAspectRatio='none'%3E %3Cpath fill='%233A2352' d='M-60 -40C120 -70 330 10 360 150C392 300 250 330 170 420C90 510 -10 520 -80 470Z'/%3E %3Cpath fill='%234A2238' d='M1340 330C1250 300 1120 360 1060 470C995 590 1060 700 1150 760L1360 790Z'/%3E %3Cpath fill='%2324284A' d='M610 -60C700 -20 860 -40 930 40C1000 120 920 200 800 190C690 180 640 240 560 200C470 150 520 -90 610 -60Z'/%3E %3Cpath fill='%233A2352' d='M380 760C420 650 560 600 660 640C760 680 780 740 760 800Z'/%3E %3C/svg%3E")}
 html.organique.nuit .scene{background:rgba(255,255,255,.06)}
 html.organique .scene.on{background:var(--accent);color:var(--on-ink)}
-html.organique .lum,html.organique .wx-puces span,html.organique .ad{border-radius:999px}
+html.organique .lum,html.organique .wx-puces span{border-radius:999px}
 html.organique .alert,html.organique .vigi,html.organique .msg{border-radius:20px 16px 20px 16px;padding-left:16px;padding-right:16px}
-html.organique .ad.dem{border-radius:0}
 html.organique .wg-j{border-radius:999px;border:0;background:rgba(255,255,255,.5)}
 html.organique.nuit .wg-j{background:rgba(255,255,255,.05)}
 html.organique .badge.bus{border-radius:16px 12px 16px 12px}
@@ -508,7 +511,7 @@ function annivDuJour(now){
   var R = anniversaires(now, 1), A = R.liste, html = '', n = 0;
   for (var i = 0; i < A.length; i++) {
     var demain = A[i].date.getTime() !== R.auj.getTime();
-    html += '<div class="ad' + (demain ? ' dem' : '') + '" data-p="' + (demain ? 2 : (n++ ? 4 + n : 1)) + '"><span>🎂</span>' + (demain ? '<em>Demain</em>' : '') +
+    html += '<div class="ad' + (demain ? ' dem' : '') + '" data-p="' + (demain ? 2 : (n++ ? 4 + n : 1)) + '"><span>🎂</span><em>' + (demain ? 'Demain' : 'Aujourd\'hui') + '</em>' +
       '<b>' + echapper(A[i].nom) + '</b>' + (A[i].age ? '<small>' + A[i].age + ' ans</small>' : '') + '</div>';
   }
   return html;
