@@ -134,6 +134,21 @@ body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;fon
 .wg-jp{font-size:15px;font-weight:700;color:var(--rain);margin-left:6px}
 .wg-jp:empty{display:none}
 .jours-p{border-top:2px solid var(--line);margin-top:12px;padding-top:8px}
+/* Alternance prochaines heures / prochains jours (fondu enchaîné) */
+.alt{position:relative}
+.alt > .v-h,.alt > .v-j{-webkit-transition:opacity .7s ease;transition:opacity .7s ease}
+.alt > .v-j{position:absolute;left:0;top:0;right:0;bottom:0;opacity:0;pointer-events:none}
+.alt.jours > .v-h{opacity:0}
+.alt.jours > .v-j{opacity:1}
+.mini.alt > .v-j{top:auto;height:auto}
+.wj{display:flex;height:100%;align-items:center}
+.wj-c{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.wj-n{font-size:17px;font-weight:700;color:var(--muted);white-space:nowrap}
+.wj-c:first-child .wj-n{color:var(--ink)}
+.wj-c svg{margin:6px 0 4px}
+.wj-t{font-size:20px;color:var(--muted);white-space:nowrap}
+.wj-t b{color:var(--ink);font-weight:700;margin-right:4px}
+.wj-p{font-size:14px;font-weight:700;color:var(--rain);margin-top:2px;min-height:17px}
 .jp{display:flex;align-items:center;font-size:19px;line-height:1.9}
 .jp-n{width:70px;font-weight:600}
 .jp-i{width:40px;display:flex;align-items:center}
@@ -456,7 +471,7 @@ function chargerMeteo(){
   lireJson('https://api.open-meteo.com/v1/forecast?latitude=' + CONFIG.LAT + '&longitude=' + CONFIG.LON +
     '&current=temperature_2m,weather_code,is_day,apparent_temperature,wind_speed_10m,wind_direction_10m,relative_humidity_2m&minutely_15=precipitation&forecast_minutely_15=26' +
     '&hourly=temperature_2m,weather_code,is_day,precipitation,precipitation_probability&forecast_hours=40' +
-    '&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset&timezone=Europe%2FParis&forecast_days=5', function(j){ meteo = j; afficher(); });
+    '&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset&timezone=Europe%2FParis&forecast_days=7', function(j){ meteo = j; afficher(); });
 }
 function chargerTransports(){ if (CONFIG.WORKER_TRANSPORTS) lireJson(CONFIG.WORKER_TRANSPORTS, function(j){ transportsReels = j; afficher(); }); }
 function chargerAgenda(){ if (prive()) lireJson(CONFIG.WORKER + '/agenda?cle=' + encodeURIComponent(CLE), function(j){ agendaReel = j; afficher(); }); }
@@ -550,7 +565,9 @@ function tuileMeteoLarge(T, now, l){
       '<div class="wl-courbe"></div>' +
     '</div>' + texteVigi() + '<div class="wl-pluie">' + textePluie(now) + '</div>';
   var zone = T.querySelector('.wl-courbe'), W = zone.clientWidth, Hc = zone.clientHeight;
-  zone.innerHTML = courbe(serieHeures(now, Math.min(12, Math.max(6, Math.floor(W / 46))), demain), W, Hc, !demain);
+  var cb = courbe(serieHeures(now, Math.min(12, Math.max(6, Math.floor(W / 46))), demain), W, Hc, !demain), jj = joursPrevus(Math.max(3, Math.min(6, Math.floor(W / 92))), Hc >= 140 ? 44 : 36);
+  zone.className += ' alt' + (VUE_JOURS && jj ? ' jours' : '');
+  zone.innerHTML = '<div class="v-h">' + cb + '</div>' + (jj ? '<div class="v-j">' + jj + '</div>' : '');
   // si la vigilance prend trop de place, on retire la ligne de pluie
   if (deborde(T)) { var pl = T.querySelector('.wl-pluie'); if (pl) pl.style.display = 'none'; }
 }
@@ -630,6 +647,29 @@ function heuresPrevues(now, nb){
   }
   return { titre: titre, liste: res };
 }
+/* ---------- Alternance des prévisions : prochaines heures ↔ prochains jours (toutes les 12 s) ---------- */
+var VUE_JOURS = false;
+function joursPrevus(nb, tailleIcone){
+  var D = meteo && meteo.daily, html = '<div class="wj">';
+  if (!D || !D.time) return '';
+  for (var d = 1; d < D.time.length && d <= nb; d++) {
+    var dj = lireDate(D.time[d]), pp = D.precipitation_probability_max ? D.precipitation_probability_max[d] : 0;
+    html += '<div class="wj-c"><div class="wj-n">' + (d === 1 ? 'Demain' : JOURS_C[dj.getDay()]) + '</div>' + iconeMeteo(D.weather_code[d], true, tailleIcone) +
+      '<div class="wj-t"><b>' + Math.round(D.temperature_2m_max[d]) + '°</b>' + Math.round(D.temperature_2m_min[d]) + '°</div>' +
+      '<div class="wj-p">' + (pp >= 30 ? 'pluie ' + pp + ' %' : '') + '</div></div>';
+  }
+  return html + '</div>';
+}
+function basculerVueMeteo(){
+  VUE_JOURS = !VUE_JOURS;
+  var L = document.querySelectorAll('.alt');
+  for (var i = 0; i < L.length; i++) {
+    L[i].className = L[i].className.replace(/ jours/g, '') + (VUE_JOURS ? ' jours' : '');
+    var t = L[i].querySelector('[data-th]');
+    if (t) t.innerHTML = VUE_JOURS ? t.getAttribute('data-tj') : t.getAttribute('data-th');
+  }
+}
+setInterval(basculerVueMeteo, 12000);
 /* ---------- Grande tuile météo : courbe des températures et de la pluie ---------- */
 function libelleMeteo(c, jour){
   if (c === 0) return jour ? 'Ensoleillé' : 'Ciel dégagé';
@@ -741,7 +781,11 @@ function tuileMeteoGrande(T, now, l, h){
   // La courbe prend toute la place restante
   var zone = T.querySelector('.wg-courbe'), W = zone.clientWidth, Hc = zone.clientHeight;
   var nb = Math.min(24, Math.max(8, Math.floor(W / 40)));
-  zone.innerHTML = courbe(serieHeures(now, nb, demain), W, Hc, !demain);
+  var cb = courbe(serieHeures(now, nb, demain), W, Hc, !demain);
+  // sans la rangée des jours (tuile basse), la courbe alterne avec les prochains jours
+  var jj = h < 2 && cb ? joursPrevus(Math.max(3, Math.min(6, Math.floor(W / 92))), Hc >= 140 ? 44 : 36) : '';
+  if (jj) { zone.className += ' alt' + (VUE_JOURS ? ' jours' : ''); zone.innerHTML = '<div class="v-h">' + cb + '</div><div class="v-j">' + jj + '</div>'; }
+  else zone.innerHTML = cb;
   if (!zone.innerHTML) { zone.style.display = 'none'; T.querySelector('.wg-titre').style.display = 'none'; }
 
 }
@@ -793,7 +837,14 @@ function tuileMeteo(T, now, l, h){
     gauche = '<div class="wx-gauche"><div class="wx-main">' + iconeMeteo(code, jour, petit || large ? 84 : 112) + '<div class="wx-temp h">' + temp + '°</div></div>' +
       '<div class="wx-hl">Max ' + max + '° · Min ' + min + '°</div>' + texteVigi() + '<div data-p="3">' + textePluie(now) + '</div></div>';
   }
-  var mini = '<div class="mini" data-p="4"><div class="mini-t">' + P.titre + '</div><div class="mini-h">' + mh + '</div></div>';
+  var mini;
+  if (!jp && meteo && meteo.daily && meteo.daily.time) {
+    // pas de liste des jours dans la tuile : les heures alternent avec les prochains jours
+    var mj = '', nbJ = Math.min(meteo.daily.time.length - 1, P.liste.length || 5);
+    for (var q = 1; q <= nbJ; q++) mj += '<div class="mh"><div class="mh-t">' + (q === 1 ? 'Dem.' : JOURS_C[lireDate(meteo.daily.time[q]).getDay()]) + '</div>' + iconeMeteo(meteo.daily.weather_code[q], true, 40) + '<div class="mh-v">' + Math.round(meteo.daily.temperature_2m_max[q]) + '°</div></div>';
+    mini = '<div class="mini alt' + (VUE_JOURS ? ' jours' : '') + '" data-p="4"><div class="mini-t" data-th="' + P.titre + '" data-tj="Prochains jours">' + (VUE_JOURS ? 'Prochains jours' : P.titre) + '</div>' +
+      '<div class="mini-h v-h">' + mh + '</div><div class="mini-h v-j">' + mj + '</div></div>';
+  } else mini = '<div class="mini" data-p="4"><div class="mini-t">' + P.titre + '</div><div class="mini-h">' + mh + '</div></div>';
   T.innerHTML = '<div class="wx-corps">' + gauche + (large ? '<div class="wx-droite">' + mini + '</div>' : mini + (jp ? '<div class="jours-p">' + jp + '</div>' : '')) + '</div>';
   if (!large && jp) { var m = T.querySelector('.mini'); m.style.marginTop = '14px'; T.querySelector('.jours-p').style.marginTop = 'auto'; }
   taillerParPriorite(T);
