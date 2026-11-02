@@ -96,13 +96,14 @@ body{
 #veille{position:fixed;left:0;top:0;right:0;bottom:0;background:#000;z-index:100;display:none;cursor:pointer}
 #veille.on{display:block}
 /* Horloge en mots (veille) : les mots de l'heure s'allument dans une grille de lettres */
-#mots{position:absolute;left:50%;top:50%;width:888px;margin:-322px 0 0 -444px;font-family:Figtree,Roboto,Arial,sans-serif;display:none}
-#veille.mots #mots,#veille.mots #motsPoints{display:block}
-#mots div{display:flex;justify-content:space-between;height:66px;align-items:center}
-#mots span{width:74px;text-align:center;font-size:50px;font-weight:600;color:#2C221C;-webkit-transition:color 1.2s,text-shadow 1.2s;transition:color 1.2s,text-shadow 1.2s}
+#mots{position:absolute;left:4vw;right:4vw;top:4vh;bottom:11vh;font-family:Figtree,Roboto,Arial,sans-serif;display:none;-webkit-box-orient:vertical;-webkit-flex-direction:column;flex-direction:column;-webkit-justify-content:space-between;justify-content:space-between}
+#veille.mots #mots{display:-webkit-flex;display:flex}
+#veille.mots #motsPoints{display:block}
+#mots div{display:-webkit-flex;display:flex;-webkit-justify-content:space-between;justify-content:space-between;-webkit-align-items:center;align-items:center;-webkit-flex:1;flex:1}
+#mots span{width:7.6vw;text-align:center;font-size:7.4vh;line-height:1;font-weight:600;color:#2C221C;-webkit-transition:color 1.2s,text-shadow 1.2s;transition:color 1.2s,text-shadow 1.2s}
 #mots span.on{color:#F6D8A8;text-shadow:0 0 18px rgba(240,170,90,.55)}
-#motsPoints{position:absolute;left:50%;top:50%;margin:290px 0 0 -66px;width:132px;display:none;text-align:center}
-#motsPoints i{display:inline-block;width:14px;height:14px;border-radius:50%;margin:0 8px;background:#2C221C;-webkit-transition:background-color 1.2s;transition:background-color 1.2s}
+#motsPoints{position:absolute;left:0;right:0;bottom:4.5vh;display:none;text-align:center}
+#motsPoints i{display:inline-block;width:1.9vh;height:1.9vh;border-radius:50%;margin:0 1.2vh;background:#2C221C;-webkit-transition:background-color 1.2s;transition:background-color 1.2s}
 #motsPoints i.on{background:#F0B060;box-shadow:0 0 12px rgba(240,170,90,.6)}
 #clock{
   font-family:Fraunces,"Bricolage Grotesque",Figtree,Arial,sans-serif;font-size:30px;font-weight:600;
@@ -121,10 +122,10 @@ body{
 .vt{display:flex;align-items:center;margin-bottom:8px}
 .vt span{font-family:Fraunces,"Bricolage Grotesque",Figtree,Arial,sans-serif;font-size:28px;font-weight:600}
 #voletFermer{margin-left:auto;font-size:16px;font-weight:700;color:var(--muted);padding:10px 4px 10px 16px;cursor:pointer}
-.vl{margin-top:14px}
+.vl{margin-top:10px}
 .vn{font-size:14px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
 .seg{display:flex;background:var(--card2);border-radius:999px;padding:4px}
-.seg b{flex:1;text-align:center;font-size:18px;font-weight:600;padding:12px 6px;border-radius:999px;cursor:pointer;color:var(--muted);transition:background-color .2s,color .2s}
+.seg b{flex:1;text-align:center;font-size:18px;font-weight:600;padding:10px 6px;border-radius:999px;cursor:pointer;color:var(--muted);transition:background-color .2s,color .2s}
 .seg b.on{background:var(--card);color:var(--ink);box-shadow:0 4px 10px -6px rgba(0,0,0,.35)}
 .vb{display:flex;margin-top:20px}
 .bt{flex:1;display:flex;align-items:center;justify-content:center;height:58px;border-radius:22px 18px 22px 18px;background:var(--card2);font-size:18px;font-weight:600;cursor:pointer}
@@ -143,6 +144,7 @@ body{
     <div class="vl"><div class="vn">Thème</div><div class="seg" id="segTheme"><b data-v="auto">Auto</b><b data-v="jour">Jour</b><b data-v="nuit">Nuit</b></div></div>
     <div class="vl" id="ligneLum"><div class="vn">Luminosité</div><div class="seg" id="segLum"><b data-v="40">Faible</b><b data-v="110">Moyenne</b><b data-v="180">Forte</b><b data-v="255">Max</b></div></div>
     <div class="vl"><div class="vn">Veille la nuit</div><div class="seg" id="segVeille"><b data-v="off">Non</b><b data-v="22">22 h → 7 h</b><b data-v="23">23 h → 7 h</b><b data-v="0">0 h → 7 h</b></div></div>
+    <div class="vl"><div class="vn">Veille en journée, sans toucher l'écran</div><div class="seg" id="segInactif"><b data-v="off">Non</b><b data-v="5">Après 5 min</b><b data-v="15">15 min</b><b data-v="30">30 min</b></div></div>
     <div class="vl"><div class="vn">Pendant la veille</div><div class="seg" id="segStyle"><b data-v="mots">Horloge en mots</b><b data-v="noir">Écran noir</b></div></div>
     <div class="vl"><div class="vn">Défilement des pages</div><div class="seg" id="segDefil"><b data-v="auto">Automatique</b><b data-v="fige">Rester ici</b></div></div>
     <div class="vb">
@@ -494,26 +496,30 @@ function luminosite(niveau){
   } catch (e) {}
 }
 function majVeille(){
-  var doit = veilleForcee || (heureDeVeille() && Date.now() > reveilJusqua);
+  // veille : bouton, plage de nuit, ou (à toute heure) après un temps sans toucher l'écran
+  var delai = parseInt(param('inactif'), 10), inactif = delai > 0 && !(volet && volet.className) && Date.now() - dernierToucher > delai * 60000;
+  var doit = veilleForcee || inactif || (heureDeVeille() && Date.now() > reveilJusqua);
   if (doit === enVeille) return;
   enVeille = doit;
   var mots = styleVeille() === 'mots';
   zoneVeille.className = doit ? 'on' + (mots ? ' mots' : '') : '';
   if (doit && mots) majMots();
-  luminosite(doit ? (mots ? 25 : 0) : null);   // horloge en mots : rétroéclairage très bas, pas éteint
+  luminosite(doit ? (mots ? (heureDeVeille() ? 25 : 70) : 0) : null);   // horloge en mots : rétroéclairage bas (très bas la nuit), pas éteint
 }
 function reveiller(e){
   if (!enVeille) return;
   if (e) { e.preventDefault(); e.stopPropagation(); }   // ce toucher ne sert qu'à rallumer
-  veilleForcee = false;
+  veilleForcee = false; dernierToucher = Date.now();
   reveilJusqua = Date.now() + ((CONFIG.VEILLE && CONFIG.VEILLE.reveil) || 120) * 1000;
   majVeille();
 }
 zoneVeille.addEventListener('touchstart', reveiller);
 zoneVeille.addEventListener('mousedown', reveiller);
 // Tant qu'on se sert de l'écran, on repousse la mise en veille
-function prolongerReveil(){ if (heureDeVeille()) reveilJusqua = Math.max(reveilJusqua, Date.now() + ((CONFIG.VEILLE && CONFIG.VEILLE.reveil) || 120) * 1000); }
+var dernierToucher = Date.now();
+function prolongerReveil(){ dernierToucher = Date.now(); if (heureDeVeille()) reveilJusqua = Math.max(reveilJusqua, Date.now() + ((CONFIG.VEILLE && CONFIG.VEILLE.reveil) || 120) * 1000); }
 document.addEventListener('touchstart', prolongerReveil, true);
+document.addEventListener('mousedown', prolongerReveil, true);
 window.addEventListener('message', function(e){ if (e.data && e.data.type === 'interaction') prolongerReveil(); });
 
 
@@ -536,6 +542,7 @@ function majVolet(){
   var pv = param('veille'), V0 = CONFIG.VEILLE || {};
   marquer('segVeille', pv !== null ? pv : (!V0.actif ? 'off' : String(parseInt(String(V0.debut).split(':')[0], 10))));
   marquer('segStyle', styleVeille());
+  marquer('segInactif', parseInt(param('inactif'), 10) > 0 ? param('inactif') : 'off');
   var fk = typeof fully !== 'undefined' && fully.setScreenBrightness;
   document.getElementById('ligneLum').style.display = fk ? '' : 'none';
   if (fk) { var l = lumActuelle(), best = null, ecart = 999, L = [40, 110, 180, 255]; for (var i = 0; i < 4; i++) if (Math.abs(L[i] - l) < ecart) { ecart = Math.abs(L[i] - l); best = L[i]; } marquer('segLum', best); }
@@ -566,6 +573,10 @@ document.getElementById('segDefil').addEventListener('click', function(e){
 document.getElementById('segVeille').addEventListener('click', function(e){
   var v = e.target.getAttribute('data-v'); if (!v) return;
   majAdresse('veille', v); reveilJusqua = Date.now() + 60000; majVolet();
+});
+document.getElementById('segInactif').addEventListener('click', function(e){
+  var v = e.target.getAttribute('data-v'); if (!v) return;
+  majAdresse('inactif', v === 'off' ? '' : v); dernierToucher = Date.now(); majVolet();
 });
 document.getElementById('segStyle').addEventListener('click', function(e){
   var v = e.target.getAttribute('data-v'); if (!v) return;
