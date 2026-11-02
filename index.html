@@ -132,6 +132,13 @@ body{
 .bt + .bt{margin-left:12px}
 .bt svg{width:22px;height:22px;margin-right:10px;color:var(--accent)}
 .bt:active{background:var(--accent);color:var(--card)}
+.curseur{padding:4px 6px 0}
+.vn span{float:right;letter-spacing:0;text-transform:none;font-size:18px;color:var(--ink)}
+#delai{-webkit-appearance:none;appearance:none;width:100%;height:44px;background:transparent;margin:0;cursor:pointer}
+#delai::-webkit-slider-runnable-track{height:10px;border-radius:5px;background:var(--card2)}
+#delai::-webkit-slider-thumb{-webkit-appearance:none;width:34px;height:34px;border-radius:50%;margin-top:-12px;background:var(--accent);box-shadow:0 3px 10px -3px rgba(0,0,0,.5);border:4px solid var(--card)}
+.graduations{position:relative;height:18px;font-size:14px;color:var(--muted);margin:-2px 6px 0}
+.graduations span{position:absolute;top:0;-webkit-transform:translateX(-50%);transform:translateX(-50%);white-space:nowrap}
 .vi{margin-top:14px;font-size:14px;color:var(--muted);text-align:center}
 </style>
 </head>
@@ -143,8 +150,8 @@ body{
     <div class="vt"><span>Réglages rapides</span><div id="voletFermer">Fermer ✕</div></div>
     <div class="vl"><div class="vn">Thème</div><div class="seg" id="segTheme"><b data-v="auto">Auto</b><b data-v="jour">Jour</b><b data-v="nuit">Nuit</b></div></div>
     <div class="vl" id="ligneLum"><div class="vn">Luminosité</div><div class="seg" id="segLum"><b data-v="40">Faible</b><b data-v="110">Moyenne</b><b data-v="180">Forte</b><b data-v="255">Max</b></div></div>
-    <div class="vl"><div class="vn">Veille la nuit</div><div class="seg" id="segVeille"><b data-v="off">Non</b><b data-v="22">22 h → 7 h</b><b data-v="23">23 h → 7 h</b><b data-v="0">0 h → 7 h</b></div></div>
-    <div class="vl"><div class="vn">Veille en journée, sans toucher l'écran</div><div class="seg" id="segInactif"><b data-v="off">Non</b><b data-v="5">Après 5 min</b><b data-v="15">15 min</b><b data-v="30">30 min</b></div></div>
+    <div class="vl"><div class="vn">Mise en veille sans toucher l'écran<span id="delaiTexte"></span></div>
+      <div class="curseur"><input type="range" id="delai" min="0" max="9" step="1" value="0"><div class="graduations"><span style="left:calc(0.0000 * (100% - 34px) + 17px)">Jamais</span><span style="left:calc(0.2222 * (100% - 34px) + 17px)">5 min</span><span style="left:calc(0.4444 * (100% - 34px) + 17px)">15 min</span><span style="left:calc(0.6667 * (100% - 34px) + 17px)">30 min</span><span style="left:calc(1.0000 * (100% - 34px) + 17px)">1 h 30</span></div></div></div>
     <div class="vl"><div class="vn">Pendant la veille</div><div class="seg" id="segStyle"><b data-v="mots">Horloge en mots</b><b data-v="noir">Écran noir</b></div></div>
     <div class="vl"><div class="vn">Défilement des pages</div><div class="seg" id="segDefil"><b data-v="auto">Automatique</b><b data-v="fige">Rester ici</b></div></div>
     <div class="vb">
@@ -539,10 +546,10 @@ function lumActuelle(){ try { return parseInt(fully.getScreenBrightness(), 10); 
 function majVolet(){
   marquer('segTheme', param('theme') === 'jour' || param('theme') === 'nuit' ? param('theme') : 'auto');
   marquer('segDefil', fige ? 'fige' : 'auto');
-  var pv = param('veille'), V0 = CONFIG.VEILLE || {};
-  marquer('segVeille', pv !== null ? pv : (!V0.actif ? 'off' : String(parseInt(String(V0.debut).split(':')[0], 10))));
   marquer('segStyle', styleVeille());
-  marquer('segInactif', parseInt(param('inactif'), 10) > 0 ? param('inactif') : 'off');
+  var dv = parseInt(param('inactif'), 10) || 0, k = 0;
+  for (var j = 0; j < DELAIS.length; j++) if (DELAIS[j] === dv) k = j;
+  document.getElementById('delai').value = k; texteDelai(k);
   var fk = typeof fully !== 'undefined' && fully.setScreenBrightness;
   document.getElementById('ligneLum').style.display = fk ? '' : 'none';
   if (fk) { var l = lumActuelle(), best = null, ecart = 999, L = [40, 110, 180, 255]; for (var i = 0; i < 4; i++) if (Math.abs(L[i] - l) < ecart) { ecart = Math.abs(L[i] - l); best = L[i]; } marquer('segLum', best); }
@@ -570,14 +577,12 @@ document.getElementById('segDefil').addEventListener('click', function(e){
   if (!fige) majFixe(null);
   majVolet(); programmer();
 });
-document.getElementById('segVeille').addEventListener('click', function(e){
-  var v = e.target.getAttribute('data-v'); if (!v) return;
-  majAdresse('veille', v); reveilJusqua = Date.now() + 60000; majVolet();
-});
-document.getElementById('segInactif').addEventListener('click', function(e){
-  var v = e.target.getAttribute('data-v'); if (!v) return;
-  majAdresse('inactif', v === 'off' ? '' : v); dernierToucher = Date.now(); majVolet();
-});
+// Curseur : délai avant la mise en veille (0 = jamais), en minutes
+var DELAIS = [0, 2, 5, 10, 15, 20, 30, 45, 60, 90];
+function texteDelai(k){ var d = DELAIS[k]; document.getElementById('delaiTexte').innerHTML = d ? (d >= 60 ? (d / 60 === 1 ? '1 h' : '1 h 30') : d + ' min') : 'Jamais'; }
+var curseurDelai = document.getElementById('delai');
+curseurDelai.addEventListener('input', function(){ texteDelai(parseInt(curseurDelai.value, 10)); });
+curseurDelai.addEventListener('change', function(){ var d = DELAIS[parseInt(curseurDelai.value, 10)]; majAdresse('inactif', d ? String(d) : ''); dernierToucher = Date.now(); });
 document.getElementById('segStyle').addEventListener('click', function(e){
   var v = e.target.getAttribute('data-v'); if (!v) return;
   majAdresse('veilleStyle', v === 'noir' ? 'noir' : ''); majVolet();
