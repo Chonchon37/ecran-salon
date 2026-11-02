@@ -95,6 +95,15 @@ body{
 /* Veille : écran noir, réveil au toucher */
 #veille{position:fixed;left:0;top:0;right:0;bottom:0;background:#000;z-index:100;display:none;cursor:pointer}
 #veille.on{display:block}
+/* Horloge en mots (veille) : les mots de l'heure s'allument dans une grille de lettres */
+#mots{position:absolute;left:50%;top:50%;width:888px;margin:-322px 0 0 -444px;font-family:Figtree,Roboto,Arial,sans-serif;display:none}
+#veille.mots #mots,#veille.mots #motsPoints{display:block}
+#mots div{display:flex;justify-content:space-between;height:66px;align-items:center}
+#mots span{width:74px;text-align:center;font-size:50px;font-weight:600;color:#2C221C;-webkit-transition:color 1.2s,text-shadow 1.2s;transition:color 1.2s,text-shadow 1.2s}
+#mots span.on{color:#F6D8A8;text-shadow:0 0 18px rgba(240,170,90,.55)}
+#motsPoints{position:absolute;left:50%;top:50%;margin:290px 0 0 -66px;width:132px;display:none;text-align:center}
+#motsPoints i{display:inline-block;width:14px;height:14px;border-radius:50%;margin:0 8px;background:#2C221C;-webkit-transition:background-color 1.2s;transition:background-color 1.2s}
+#motsPoints i.on{background:#F0B060;box-shadow:0 0 12px rgba(240,170,90,.6)}
 #clock{
   font-family:Fraunces,"Bricolage Grotesque",Figtree,Arial,sans-serif;font-size:30px;font-weight:600;
   letter-spacing:-.01em;font-variant-numeric:tabular-nums;
@@ -126,16 +135,18 @@ body{
 </style>
 </head>
 <body>
-<div id="veille" aria-hidden="true"></div>
+<div id="veille" aria-hidden="true"><div id="mots"></div><div id="motsPoints"><i></i><i></i><i></i><i></i></div></div>
 <div id="volet">
   <div id="voletFond"></div>
   <div id="voletCarte">
     <div class="vt"><span>Réglages rapides</span><div id="voletFermer">Fermer ✕</div></div>
     <div class="vl"><div class="vn">Thème</div><div class="seg" id="segTheme"><b data-v="auto">Auto</b><b data-v="jour">Jour</b><b data-v="nuit">Nuit</b></div></div>
     <div class="vl" id="ligneLum"><div class="vn">Luminosité</div><div class="seg" id="segLum"><b data-v="40">Faible</b><b data-v="110">Moyenne</b><b data-v="180">Forte</b><b data-v="255">Max</b></div></div>
+    <div class="vl"><div class="vn">Veille la nuit</div><div class="seg" id="segVeille"><b data-v="off">Non</b><b data-v="22">22 h → 7 h</b><b data-v="23">23 h → 7 h</b><b data-v="0">0 h → 7 h</b></div></div>
+    <div class="vl"><div class="vn">Pendant la veille</div><div class="seg" id="segStyle"><b data-v="mots">Horloge en mots</b><b data-v="noir">Écran noir</b></div></div>
     <div class="vl"><div class="vn">Défilement des pages</div><div class="seg" id="segDefil"><b data-v="auto">Automatique</b><b data-v="fige">Rester ici</b></div></div>
     <div class="vb">
-      <div class="bt" id="btVeille"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg>Éteindre l'écran</div>
+      <div class="bt" id="btVeille"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg>Mettre en veille</div>
       <div class="bt" id="btRecharger"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg>Recharger l'écran</div>
     </div>
     <div class="vi" id="voletInfo"></div>
@@ -423,11 +434,53 @@ window.addEventListener('message', function(e){
   }
 });
 
+
+/* ---------- Horloge en mots (affichage de veille) ---------- */
+var GRILLE = ['ILNESTODEUXR', 'QUATRETROISB', 'UNEJSIXSEPTO', 'HUITNEUFCINQ', 'DIXONZEMIDIA', 'MINUITHEURES', 'MOINSLEDIXET', 'QUARTOVINGT-', 'CINQLDEMIEVE'];
+// mot : [rangée, début, longueur]
+var MOTS = { il: [0, 0, 2], est: [0, 3, 3], deux: [0, 7, 4], quatre: [1, 0, 6], trois: [1, 6, 5], une: [2, 0, 3], six: [2, 4, 3], sept: [2, 7, 4],
+  huit: [3, 0, 4], neuf: [3, 4, 4], cinqH: [3, 8, 4], dixH: [4, 0, 3], onze: [4, 3, 4], midi: [4, 7, 4], minuit: [5, 0, 6], heure: [5, 6, 5], s: [5, 11, 1],
+  moins: [6, 0, 5], le: [6, 5, 2], dix: [6, 7, 3], et: [6, 10, 2], quart: [7, 0, 5], vingt: [7, 6, 5], tiret: [7, 11, 1], cinq: [8, 0, 4], demi: [8, 5, 4], e: [8, 9, 1] };
+var HEURES_MOTS = ['', 'une', 'deux', 'trois', 'quatre', 'cinqH', 'six', 'sept', 'huit', 'neuf', 'dixH', 'onze'];
+function construireMots(){
+  var html = '';
+  for (var r = 0; r < GRILLE.length; r++) {
+    html += '<div>';
+    for (var c = 0; c < GRILLE[r].length; c++) html += '<span id="m' + r + '_' + c + '">' + GRILLE[r].charAt(c) + '</span>';
+    html += '</div>';
+  }
+  document.getElementById('mots').innerHTML = html;
+}
+function motsDeLHeure(d){
+  var h = d.getHours(), m = d.getMinutes(), m5 = Math.floor(m / 5) * 5, L = ['il', 'est'];
+  if (m5 >= 35) h = (h + 1) % 24;
+  var midiMinuit = h === 0 || h === 12;
+  if (h === 0) L.push('minuit'); else if (h === 12) L.push('midi');
+  else { L.push(HEURES_MOTS[h % 12]); L.push('heure'); if (h % 12 !== 1) L.push('s'); }
+  var suite = { 5: ['cinq'], 10: ['dix'], 15: ['et', 'quart'], 20: ['vingt'], 25: ['vingt', 'tiret', 'cinq'], 30: midiMinuit ? ['et', 'demi'] : ['et', 'demi', 'e'],
+    35: ['moins', 'vingt', 'tiret', 'cinq'], 40: ['moins', 'vingt'], 45: ['moins', 'le', 'quart'], 50: ['moins', 'dix'], 55: ['moins', 'cinq'] }[m5] || [];
+  return { mots: L.concat(suite), points: m % 5 };
+}
+function majMots(){
+  if (!document.getElementById('m0_0')) construireMots();
+  var R = motsDeLHeure(new Date()), allume = {}, i, k;
+  for (i = 0; i < R.mots.length; i++) { var M = MOTS[R.mots[i]]; for (k = 0; k < M[2]; k++) allume[M[0] + '_' + (M[1] + k)] = true; }
+  for (var r = 0; r < GRILLE.length; r++) for (var c = 0; c < GRILLE[r].length; c++) {
+    var el = document.getElementById('m' + r + '_' + c), on = !!allume[r + '_' + c];
+    if ((el.className === 'on') !== on) el.className = on ? 'on' : '';
+  }
+  var P = document.getElementById('motsPoints').getElementsByTagName('i');
+  for (i = 0; i < 4; i++) P[i].className = i < R.points ? 'on' : '';
+}
+function styleVeille(){ return param('veilleStyle') === 'noir' ? 'noir' : 'mots'; }
+
 /* ---------- Veille : écran noir la nuit, réveil au toucher ---------- */
 var zoneVeille = document.getElementById('veille'), reveilJusqua = 0, enVeille = false;
 var luminositeAvant = null;
 function heureDeVeille(){
-  var V = CONFIG.VEILLE;
+  var V = CONFIG.VEILLE || {}, pv = param('veille');
+  if (pv === 'off') return false;
+  if (pv !== null) V = { actif: true, debut: (pv.length < 2 ? '0' : '') + pv + ':00', fin: '07:00', reveil: V.reveil || 120 };
   if (!V || !V.actif) return false;
   var d = new Date(), m = d.getHours() * 60 + d.getMinutes(), a = enMinutes(V.debut), b = enMinutes(V.fin);
   return a < b ? (m >= a && m < b) : (m >= a || m < b);
@@ -444,20 +497,22 @@ function majVeille(){
   var doit = veilleForcee || (heureDeVeille() && Date.now() > reveilJusqua);
   if (doit === enVeille) return;
   enVeille = doit;
-  zoneVeille.className = doit ? 'on' : '';
-  luminosite(doit ? 0 : null);
+  var mots = styleVeille() === 'mots';
+  zoneVeille.className = doit ? 'on' + (mots ? ' mots' : '') : '';
+  if (doit && mots) majMots();
+  luminosite(doit ? (mots ? 25 : 0) : null);   // horloge en mots : rétroéclairage très bas, pas éteint
 }
 function reveiller(e){
   if (!enVeille) return;
   if (e) { e.preventDefault(); e.stopPropagation(); }   // ce toucher ne sert qu'à rallumer
   veilleForcee = false;
-  reveilJusqua = Date.now() + (CONFIG.VEILLE.reveil || 120) * 1000;
+  reveilJusqua = Date.now() + ((CONFIG.VEILLE && CONFIG.VEILLE.reveil) || 120) * 1000;
   majVeille();
 }
 zoneVeille.addEventListener('touchstart', reveiller);
 zoneVeille.addEventListener('mousedown', reveiller);
 // Tant qu'on se sert de l'écran, on repousse la mise en veille
-function prolongerReveil(){ if (heureDeVeille()) reveilJusqua = Math.max(reveilJusqua, Date.now() + (CONFIG.VEILLE.reveil || 120) * 1000); }
+function prolongerReveil(){ if (heureDeVeille()) reveilJusqua = Math.max(reveilJusqua, Date.now() + ((CONFIG.VEILLE && CONFIG.VEILLE.reveil) || 120) * 1000); }
 document.addEventListener('touchstart', prolongerReveil, true);
 window.addEventListener('message', function(e){ if (e.data && e.data.type === 'interaction') prolongerReveil(); });
 
@@ -478,6 +533,9 @@ function lumActuelle(){ try { return parseInt(fully.getScreenBrightness(), 10); 
 function majVolet(){
   marquer('segTheme', param('theme') === 'jour' || param('theme') === 'nuit' ? param('theme') : 'auto');
   marquer('segDefil', fige ? 'fige' : 'auto');
+  var pv = param('veille'), V0 = CONFIG.VEILLE || {};
+  marquer('segVeille', pv !== null ? pv : (!V0.actif ? 'off' : String(parseInt(String(V0.debut).split(':')[0], 10))));
+  marquer('segStyle', styleVeille());
   var fk = typeof fully !== 'undefined' && fully.setScreenBrightness;
   document.getElementById('ligneLum').style.display = fk ? '' : 'none';
   if (fk) { var l = lumActuelle(), best = null, ecart = 999, L = [40, 110, 180, 255]; for (var i = 0; i < 4; i++) if (Math.abs(L[i] - l) < ecart) { ecart = Math.abs(L[i] - l); best = L[i]; } marquer('segLum', best); }
@@ -505,6 +563,14 @@ document.getElementById('segDefil').addEventListener('click', function(e){
   if (!fige) majFixe(null);
   majVolet(); programmer();
 });
+document.getElementById('segVeille').addEventListener('click', function(e){
+  var v = e.target.getAttribute('data-v'); if (!v) return;
+  majAdresse('veille', v); reveilJusqua = Date.now() + 60000; majVolet();
+});
+document.getElementById('segStyle').addEventListener('click', function(e){
+  var v = e.target.getAttribute('data-v'); if (!v) return;
+  majAdresse('veilleStyle', v === 'noir' ? 'noir' : ''); majVolet();
+});
 document.getElementById('btVeille').addEventListener('click', function(){ fermerVolet(); veilleForcee = true; reveilJusqua = 0; enVeille = false; majVeille(); });
 document.getElementById('btRecharger').addEventListener('click', recharger);
 
@@ -512,6 +578,7 @@ document.getElementById('btRecharger').addEventListener('click', recharger);
 var horloge = document.getElementById('clock');
 function tic(){
   majVeille();
+  if (enVeille && styleVeille() === 'mots') majMots();
   var d = new Date();
   horloge.innerHTML = pad(d.getHours()) + ':' + pad(d.getMinutes());
   if (S && !fige && pauseJusqua <= Date.now()) {
