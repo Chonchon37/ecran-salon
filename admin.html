@@ -242,6 +242,13 @@ button.discret{background:transparent;color:var(--muted);padding:8px 10px;font-s
       <p class="aide">Jusqu'à 5 boutons (automatisations, scènes ou scripts de Home Assistant). Les 4 premiers apparaissent aussi sur l'accueil. Tu peux changer le nom affiché sur chaque bouton.</p>
       <div id="modes"></div>
     </section>
+
+    <section data-groupe="donnees">
+      <h2>Musique · favoris</h2>
+      <p class="aide">Boutons de la tuile Musique quand rien ne joue (8 au plus). Chaque bouton envoie une phrase à l'Assistant Google ; <b>{enceinte}</b> est remplacé par l'enceinte choisie sur l'écran. Exemple : « Joue ma playlist Soirée sur Spotify sur {enceinte} ».</p>
+      <div id="favorisMusique"></div>
+      <button type="button" id="ajoutFavori">+ Ajouter un favori</button>
+    </section>
   </div>
 </div>
 
@@ -315,7 +322,7 @@ function remplir() {
   $('veilleActif').checked = V.actif; $('veilleDebut').value = V.debut; $('veilleFin').value = V.fin; $('reveil').value = V.reveil;
   majVeille();
   dessinerDispo(); dessinerMoments();
-  dessinerSlides(); dessinerPlages(); dessinerLignes(); dessinerAgendas();
+  dessinerSlides(); dessinerPlages(); dessinerLignes(); dessinerAgendas(); dessinerFavoris();
   $('lumieres').innerHTML = $('modes').innerHTML = '<p class="vide">Lecture de Home Assistant…</p>';
   majResume();
 }
@@ -325,8 +332,8 @@ $('veilleDebut').addEventListener('change', () => { R.reglages.veille.debut = $(
 $('veilleFin').addEventListener('change', () => { R.reglages.veille.fin = $('veilleFin').value; aChange(); });
 $('reveil').addEventListener('change', () => { R.reglages.veille.reveil = +$('reveil').value; aChange(); });
 /* ---------- Taille des tuiles de l'accueil ---------- */
-const NOMS_TUILES = { date: 'Date & message', meteo: 'Météo', transports: 'Transports', anniversaires: 'Anniversaires', agenda: 'Agenda', maison: 'Maison', travail: 'Travail 💼' };
-const DISPO_ORIGINE = [{ id: 'date', l: 1, h: 1 }, { id: 'transports', l: 2, h: 1 }, { id: 'anniversaires', l: 1, h: 1 }, { id: 'meteo', l: 1, h: 2 }, { id: 'agenda', l: 3, h: 1.5 }, { id: 'maison', l: 3, h: 0.5 }, { id: 'travail', l: 1, h: 0.5 }];
+const NOMS_TUILES = { date: 'Date & message', meteo: 'Météo', transports: 'Transports', anniversaires: 'Anniversaires', agenda: 'Agenda', maison: 'Maison', travail: 'Travail 💼', musique: 'Musique 🎵' };
+const DISPO_ORIGINE = [{ id: 'date', l: 1, h: 1 }, { id: 'transports', l: 2, h: 1 }, { id: 'anniversaires', l: 1, h: 1 }, { id: 'meteo', l: 1, h: 2 }, { id: 'agenda', l: 3, h: 1.5 }, { id: 'maison', l: 3, h: 0.5 }, { id: 'travail', l: 1, h: 0.5 }, { id: 'musique', l: 2, h: 1, off: true }];
 function dispoDefaut() { return R.reglages.accueil.disposition || (R.reglages.accueil.disposition = JSON.parse(JSON.stringify(DISPO_ORIGINE))); }
 // Moment choisi dans « Disposition pour » (null = disposition par défaut)
 function momentChoisi() { const v = $('apercuMoment').value, M = moments(); return v === '' || +v >= M.length ? null : M[+v]; }
@@ -489,7 +496,7 @@ $('dispoMoment').addEventListener('click', e => {
 });
 
 /* ---------- Accueil selon le moment de la journée ---------- */
-const TUILES = [['date', 'Date'], ['meteo', 'Météo'], ['transports', 'Transports'], ['anniversaires', 'Anniversaires'], ['agenda', 'Agenda'], ['maison', 'Maison'], ['travail', 'Travail 💼']];
+const TUILES = [['date', 'Date'], ['meteo', 'Météo'], ['transports', 'Transports'], ['anniversaires', 'Anniversaires'], ['agenda', 'Agenda'], ['maison', 'Maison'], ['travail', 'Travail 💼'], ['musique', 'Musique 🎵']];
 function moments() { return R.reglages.accueil.moments || (R.reglages.accueil.moments = []); }
 function dessinerMoments() {
   const M = moments();
@@ -712,6 +719,20 @@ $('modes').addEventListener('input', e => {
 brancherChoix($('lumieres'), () => R.reglages.maison.lumieres, dessinerMaison);
 brancherChoix($('modes'), () => R.reglages.maison.modes, dessinerMaison);
 
+/* ---------- Musique : favoris (phrases pour l'Assistant Google) ---------- */
+function favoris() { R.reglages.musique = R.reglages.musique || { favoris: [], masques: [] }; return R.reglages.musique.favoris; }
+function dessinerFavoris() {
+  const F = favoris();
+  $('favorisMusique').innerHTML = F.length ? F.map((f, i) => `<div class="ligne" style="gap:8px;margin-bottom:8px">
+    <input type="text" data-fav="${i}" data-champ="nom" maxlength="24" value="${echapper(f.nom)}" placeholder="Nom du bouton" style="width:150px">
+    <input type="text" data-fav="${i}" data-champ="commande" maxlength="160" value="${echapper(f.commande)}" placeholder="Phrase pour l'Assistant" style="flex:1;min-width:260px">
+    <button type="button" data-fav-retirer="${i}">Retirer</button></div>`).join('') : '<p class="vide">Aucun favori.</p>';
+  $('ajoutFavori').disabled = F.length >= 8;
+}
+$('favorisMusique').addEventListener('input', e => { const i = e.target.dataset.fav; if (i !== undefined) { favoris()[+i][e.target.dataset.champ] = e.target.value; aChange(); } });
+$('favorisMusique').addEventListener('click', e => { const i = e.target.dataset.favRetirer; if (i !== undefined) { favoris().splice(+i, 1); dessinerFavoris(); aChange(); } });
+$('ajoutFavori').addEventListener('click', () => { favoris().push({ nom: '', commande: 'Joue … sur Spotify sur {enceinte}' }); dessinerFavoris(); aChange(); });
+
 /* ---------- Champs simples ---------- */
 $('message').addEventListener('input', () => { R.reglages.message = $('message').value; majCompteur(); aChange(); });
 $('pause').addEventListener('change', () => { R.reglages.rotation.pause = +$('pause').value; aChange(); });
@@ -749,7 +770,7 @@ function majResume() {
   const plage = (g.rotation.plages || []).find(p => p.jours.includes(n.getDay()) && dansPlage(p.debut, p.fin, m));
   morceaux.push(['Pages', plage ? NOMS_SLIDES[plage.page] + ' en fixe jusqu\'à ' + plage.fin.replace(':', ' h ') : g.rotation.slides.filter(s => s.actif).length + ' en rotation']);
   const mo = (g.accueil.moments || []).find(x => dansPlage(x.debut, x.fin, m));
-  const NT = { meteo: 'météo', transports: 'transports', anniversaires: 'anniversaires', agenda: 'agenda', maison: 'maison', travail: 'travail' };
+  const NT = { meteo: 'météo', transports: 'transports', anniversaires: 'anniversaires', agenda: 'agenda', maison: 'maison', travail: 'travail', musique: 'musique' };
   morceaux.push(['Accueil', mo ? '« ' + mo.nom + ' » : ' + Object.keys(NT).filter(k => mo.tuiles[k]).map(k => NT[k]).join(', ') + (mo.demain ? ' · demain d\'abord' : '') : 'toutes les tuiles']);
   const th = g.theme.mode;
   morceaux.push(['Thème', th === 'jour' ? 'toujours clair' : th === 'nuit' ? 'toujours sombre' : th === 'soleil' ? 'selon le soleil' : 'sombre de ' + g.theme.nuitDebut + ' h à ' + g.theme.nuitFin + ' h']);

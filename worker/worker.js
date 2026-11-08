@@ -32,7 +32,7 @@ const FLUX_ALERTES = 'https://data.filbleu.fr/ws-tr/gtfs-rt/opendata/service-ale
 const FLUX_INCIDENTS = 'https://www.filbleu.fr/rss-incident.xml';   // l'info trafic du site filbleu.fr (travaux, déviations…)
 const NOMS_ARRETS = { 'A': 'Monconseil', '2': 'Maréchal Juin' };
 const CACHE_SECONDES = 30;   // les écrans redemandent toutes les 30 s
-const VERSION = '29';   // à changer à chaque mise à jour du code : vide les caches
+const VERSION = '30';   // à changer à chaque mise à jour du code : vide les caches
 
 // Horaires prévus, format compact : "jours" = n° de grille pour chaque jour depuis "debut",
 // chaque ligne "g=" = minutes depuis minuit, écrites en écarts successifs.
@@ -756,7 +756,7 @@ const REGLAGES_DEFAUT = {
     disposition: [
       { id: 'date', l: 1, h: 1 }, { id: 'transports', l: 2, h: 1 }, { id: 'anniversaires', l: 1, h: 1 },
       { id: 'meteo', l: 1, h: 2 }, { id: 'agenda', l: 3, h: 1.5 }, { id: 'maison', l: 3, h: 0.5 },
-      { id: 'travail', l: 1, h: 0.5 }
+      { id: 'travail', l: 1, h: 0.5 }, { id: 'musique', l: 2, h: 1, off: true }
     ],
     moments: [
     { nom: 'Soir', debut: '21:00', fin: '05:00', tuiles: { meteo: true, transports: false, anniversaires: true, agenda: true, maison: true }, demain: true }
@@ -764,6 +764,13 @@ const REGLAGES_DEFAUT = {
   transports: { A: { actif: true, marche: 7 }, '2': { actif: true, marche: 9 } },
   agenda: { personnes: { moi: 'Nico', flo: 'Flo' }, agendas: { GOOGLE_ICS1: 'flo', GOOGLE_ICS2: 'moi', GOOGLE_ICS3: 'nous' } },
   maison: { lumieres: [], modes: ['automation.apero', 'automation.all_cine', 'special.tout_eteindre'], noms: { 'automation.apero': 'Apéro', 'automation.all_cine': 'Ciné' } },
+  // Musique (enceintes Google) : favoris lancés par l'Assistant Google ; {enceinte} = nom de l'enceinte choisie
+  musique: { favoris: [
+    { nom: 'Titres likés', commande: 'Joue mes titres likés sur Spotify sur {enceinte}' },
+    { nom: 'Daily Mix', commande: 'Joue mon Daily Mix 1 sur Spotify sur {enceinte}' },
+    { nom: 'Découvertes', commande: 'Joue Découvertes de la semaine sur Spotify sur {enceinte}' },
+    { nom: 'FIP', commande: 'Mets la radio FIP sur {enceinte}' }
+  ], masques: [] },
   message: ''
 };
 const entier = (v, min, max, defaut) => { const n = Math.round(Number(v)); return isFinite(n) ? Math.min(max, Math.max(min, n)) : defaut; };
@@ -815,7 +822,7 @@ function nettoyerReglages(r) {
     const so = acc.soir;
     brutsMoments = so ? (so.actif === false ? [] : [{ nom: 'Soir', debut: so.debut, fin: so.fin, tuiles: { transports: !!so.transports }, demain: true }]) : D.accueil.moments;
   }
-  const TUILES = ['date', 'meteo', 'transports', 'anniversaires', 'agenda', 'maison', 'travail'];
+  const TUILES = ['date', 'meteo', 'transports', 'anniversaires', 'agenda', 'maison', 'travail', 'musique'];
   // Disposition : par défaut, ou propre à un moment (les tuiles absentes sont ajoutées, retirées pour un moment)
   const nettoyerDispo = (liste, absentesRetirees) => {
     const dispo = [], vuesT = new Set();
@@ -827,7 +834,7 @@ function nettoyerReglages(r) {
       if (t.off) tu.off = true;   // tuile retirée de l'écran (gardée dans la liste pour pouvoir la remettre)
       dispo.push(tu);
     }
-    for (const t of D.accueil.disposition) if (!vuesT.has(t.id)) dispo.push(Object.assign({}, t, absentesRetirees ? { off: true } : {}));
+    for (const t of D.accueil.disposition) if (!vuesT.has(t.id)) dispo.push(Object.assign({}, t, absentesRetirees || t.off ? { off: true } : {}));
     return dispo;
   };
   const dispo = nettoyerDispo(acc.disposition, false);
@@ -864,6 +871,14 @@ function nettoyerReglages(r) {
   };
   const noms = ma.noms && typeof ma.noms === 'object' ? ma.noms : D.maison.noms;
   for (const id of res.maison.modes) { const n = texte(noms[id], 24); if (n) res.maison.noms[id] = n; }
+  const mu = r.musique || {};
+  res.musique = { favoris: [], masques: [] };
+  for (const f of Array.isArray(mu.favoris) ? mu.favoris : D.musique.favoris) {
+    const nom = texte(f && f.nom, 24), commande = texte(f && f.commande, 160);
+    if (nom && commande) res.musique.favoris.push({ nom, commande });
+    if (res.musique.favoris.length >= 8) break;
+  }
+  res.musique.masques = (Array.isArray(mu.masques) ? mu.masques : []).filter(x => /^media_player\.[a-z0-9_]+$/.test(x)).slice(0, 20);
   res.message = texte(r.message, 140);
   return res;
 }
@@ -1047,6 +1062,64 @@ async function executerActions(env, liste) {
     if ((!r || !r.ok) && !etape.continue_on_error) throw new Error('Home Assistant a refusé ' + nom);
   }
 }
+/* ---------- Musique : enceintes Google (intégration Cast de Home Assistant), Spotify compris ---------- */
+const TPL_MUSIQUE = "{% set ns = namespace(o=[]) %}{% for s in states.media_player %}{% if s.state not in ['unavailable', 'unknown'] %}" +
+  "{% set a = s.attributes %}{% set ns.o = ns.o + [{'id': s.entity_id, 'nom': a.get('friendly_name'), 'etat': s.state, 'titre': a.get('media_title'), " +
+  "'artiste': a.get('media_artist') or a.get('media_album_artist'), 'app': a.get('app_name'), 'volume': a.get('volume_level'), 'image': a.get('entity_picture'), " +
+  "'duree': a.get('media_duration'), 'position': a.get('media_position'), " +
+  "'majPos': (as_timestamp(a.get('media_position_updated_at')) if a.get('media_position_updated_at') else none)}] %}{% endif %}{% endfor %}{{ ns.o | tojson }}";
+let MUSIQUE_MEMO = null;
+const IMAGES_MUSIQUE = {};   // entité → adresse de la pochette chez Home Assistant (jamais envoyée à l'écran : elle contient un jeton)
+async function construireMusique(env) {
+  if (MUSIQUE_MEMO && Date.now() - MUSIQUE_MEMO.t < 4000) return MUSIQUE_MEMO.res;
+  const R = await lireReglages(env), masques = R.reglages.musique.masques;
+  const r = await fetch(haUrl(env, '/api/template'), { method: 'POST', headers: { Authorization: 'Bearer ' + env.HA_TOKEN, 'Content-Type': 'application/json' }, body: JSON.stringify({ template: TPL_MUSIQUE }) });
+  const t = await r.text();
+  if (!r.ok) throw new Error('Home Assistant : ' + t.slice(0, 160));
+  const L = JSON.parse(t).filter(x => masques.indexOf(x.id) < 0 && !/freebox|^media_player\.hub/.test(x.id));
+  const lecteurs = L.map(x => {
+    let v = null;
+    if (x.image) { IMAGES_MUSIQUE[x.id] = x.image; const m = /[?&]cache=([^&]+)/.exec(x.image); v = m ? m[1] : String(x.titre || '').length + '-' + (x.titre || ''); }
+    return { id: x.id, nom: x.nom || x.id, etat: x.etat, titre: x.titre || '', artiste: x.artiste || '', app: x.app || '', volume: typeof x.volume === 'number' ? Math.round(x.volume * 100) : null,
+      image: v, duree: x.duree || 0, position: x.position || 0, majPos: x.majPos ? Math.round(x.majPos * 1000) : 0 };
+  });
+  lecteurs.sort((a, b) => a.nom.localeCompare(b.nom, 'fr'));
+  const res = { maj: Date.now(), lecteurs, favoris: R.reglages.musique.favoris.map(f => f.nom) };
+  MUSIQUE_MEMO = { t: Date.now(), res };
+  return res;
+}
+async function pochetteMusique(env, id) {
+  let chemin = IMAGES_MUSIQUE[id];
+  if (!chemin) { const e = await fetch(haUrl(env, '/api/states/' + id), { headers: { Authorization: 'Bearer ' + env.HA_TOKEN } }).then(r => r.ok ? r.json() : null).catch(() => null); chemin = e && e.attributes && e.attributes.entity_picture; }
+  if (!chemin) return new Response('', { status: 404 });
+  const r = await fetch(/^https?:/.test(chemin) ? chemin : haUrl(env, chemin), { headers: { Authorization: 'Bearer ' + env.HA_TOKEN } });
+  return new Response(r.body, { status: r.status, headers: { 'Content-Type': r.headers.get('Content-Type') || 'image/jpeg', 'Cache-Control': 'public, max-age=86400', 'Access-Control-Allow-Origin': '*' } });
+}
+async function actionMusique(env, c) {
+  const id = String(c.id || '');
+  if (!/^media_player\.[a-z0-9_]+$/.test(id)) return { ok: false, erreur: 'Enceinte inconnue' };
+  const appel = (service, donnees) => fetch(haUrl(env, '/api/services/' + service), {
+    method: 'POST', headers: { Authorization: 'Bearer ' + env.HA_TOKEN, 'Content-Type': 'application/json' }, body: JSON.stringify(Object.assign({ entity_id: id }, donnees || {}))
+  }).then(r => ({ ok: r.ok, statut: r.status }));
+  MUSIQUE_MEMO = null;
+  if (c.action === 'lecture') return appel('media_player/media_play_pause');
+  if (c.action === 'suivant') return appel('media_player/media_next_track');
+  if (c.action === 'precedent') return appel('media_player/media_previous_track');
+  if (c.action === 'stop') return appel('media_player/media_stop');
+  if (c.action === 'volume') return appel('media_player/volume_set', { volume_level: Math.min(1, Math.max(0, Number(c.valeur) / 100)) });
+  if (c.action === 'lancer') {
+    const R = await lireReglages(env), f = R.reglages.musique.favoris[parseInt(c.favori, 10)];
+    if (!f) return { ok: false, erreur: 'Favori inconnu' };
+    const e = await fetch(haUrl(env, '/api/states/' + id), { headers: { Authorization: 'Bearer ' + env.HA_TOKEN } }).then(r => r.ok ? r.json() : null).catch(() => null);
+    const nom = (e && e.attributes && e.attributes.friendly_name) || id.replace('media_player.', '').replace(/_/g, ' ');
+    const commande = f.commande.indexOf('{enceinte}') >= 0 ? f.commande.replace('{enceinte}', nom) : f.commande + ' sur ' + nom;
+    const r = await fetch(haUrl(env, '/api/services/google_assistant_sdk/send_text_command'), {
+      method: 'POST', headers: { Authorization: 'Bearer ' + env.HA_TOKEN, 'Content-Type': 'application/json' }, body: JSON.stringify({ command: commande })
+    });
+    return { ok: r.ok, statut: r.status, commande };
+  }
+  return { ok: false, erreur: 'Action inconnue' };
+}
 async function actionMaison(env, corps) {
   const id = String(corps.id || ''), R = await lireReglages(env);
   let service, donnees = { entity_id: id };
@@ -1111,6 +1184,13 @@ export default {
       if (chemin === '/trajet') return repondre(await construireTrajet(url.searchParams.get('lieu') || '', url.searchParams.get('adresse') || '', url.searchParams.get('arrivee') || '', env).catch(e => ({ trouve: false, erreur: String(e.message || e) })), 200, entetes);
       if (chemin === '/agenda') return await avecCache('agenda', 600, () => construireAgenda(env), entetes, ctx);
       if (chemin === '/maison') return repondre(await construireMaison(env), 200, entetes);
+      if (chemin === '/musique') return repondre(await construireMusique(env), 200, entetes);
+      if (chemin === '/musique/pochette') return await pochetteMusique(env, url.searchParams.get('id') || '');
+      if (chemin === '/musique/action' && request.method === 'POST') {
+        let corps = {};
+        try { corps = JSON.parse(await request.text()); } catch (e) {}
+        return repondre(await actionMusique(env, corps), 200, entetes);
+      }
       if (chemin === '/vigilance') return await avecCache('vigilance', 300, () => construireVigilance(env), entetes, ctx);
       if (chemin === '/maison/action' && request.method === 'POST') {
         let corps = {};
@@ -1135,7 +1215,7 @@ export default {
         if (!estAdmin) return repondre({ erreur: 'Clé admin requise' }, 403, entetes);
         return repondre(await catalogueMaison(env), 200, entetes);
       }
-      return repondre({ ok: true, adresses: ['/transports', '/agenda', '/maison', '/vigilance', '/reglages'] }, 200, entetes);
+      return repondre({ ok: true, adresses: ['/transports', '/agenda', '/maison', '/musique', '/vigilance', '/reglages'] }, 200, entetes);
     } catch (e) {
       return repondre({ erreur: String(e.message || e) }, 502, entetes);
     }
