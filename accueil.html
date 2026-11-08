@@ -520,7 +520,7 @@ function chargerMeteo(){
 function chargerTransports(){ if (CONFIG.WORKER_TRANSPORTS) lireJson(CONFIG.WORKER_TRANSPORTS, function(j){ transportsReels = j; afficher(); }); }
 function chargerAgenda(){ if (prive()) lireJson(CONFIG.WORKER + '/agenda?cle=' + encodeURIComponent(CLE), function(j){ agendaReel = j; afficher(); }); }
 function chargerMaison(){ if (prive()) lireJson(CONFIG.WORKER + '/maison?cle=' + encodeURIComponent(CLE), function(j){ maisonReelle = j; afficher(); }); }
-function chargerVigi(){ if (prive()) lireJson(CONFIG.WORKER + '/vigilance?cle=' + encodeURIComponent(CLE), function(j){ vigilance = j; afficher(); }); }
+function chargerVigi(){ if (prive() && (!CADRE || CADRE.ha)) lireJson(CONFIG.WORKER + '/vigilance?cle=' + encodeURIComponent(CLE), function(j){ vigilance = j && j.absent ? null : j; afficher(); }); }
 var AGENDAS = { GOOGLE_ICS1: 'flo', GOOGLE_ICS2: 'moi', GOOGLE_ICS3: 'nous', commun: 'nous' };
 function quiPour(e){ return AGENDAS[e.agenda] || 'moi'; }
 
@@ -536,7 +536,15 @@ function momentActif(now){
   }
   return null;
 }
-function tuileVisible(id, now){ var M = momentActif(now); return !M || !M.tuiles || M.tuiles[id] !== false; }
+// Modules du cadre (famille) : une tuile dont le module est désactivé n'apparaît jamais
+var CADRE = null;
+function moduleActif(id){
+  if (!CADRE || !CADRE.modules) return true;
+  if (id === 'maison' || id === 'musique') return !!(CADRE.modules[id] && CADRE.ha);
+  if (id === 'transports' || id === 'travail') return !!CADRE.modules[id];
+  return true;
+}
+function tuileVisible(id, now){ if (!moduleActif(id)) return false; var M = momentActif(now); return !M || !M.tuiles || M.tuiles[id] !== false; }
 function demainDabord(now){ var M = momentActif(now); return !!(M && M.demain); }
 
 /* ---------- Ajustement : on retire ce qui dépasse de la tuile ---------- */
@@ -1432,7 +1440,7 @@ function afficher(){
   }
   VISIBLES = {}; for (var vz = 0; vz < visibles.length; vz++) VISIBLES[visibles[vz].id] = true;
   // Les tuiles retirées (page admin) ne prennent aucune place ; celles masquées par un moment laissent leur vide
-  var actives = []; for (var ia = 0; ia < DISPOSITION.length; ia++) if (!DISPOSITION[ia].off) actives.push(DISPOSITION[ia]);
+  var actives = []; for (var ia = 0; ia < DISPOSITION.length; ia++) if (!DISPOSITION[ia].off && moduleActif(DISPOSITION[ia].id)) actives.push(DISPOSITION[ia]);
   var P = placer(actives, function(t){ return visibles.indexOf(t) < 0; });
   for (var k = 0; k < P.places.length; k++) {
     var V = P.places[k];
@@ -1478,6 +1486,12 @@ window.addEventListener('message', function(e){
   if (g.transports) for (k = 0; k < LIGNES.length; k++) { var t = g.transports[LIGNES[k].ligne]; if (t) { LIGNES[k].marche = t.marche; LIGNES[k].actif = t.actif; } }
   if (g.agenda) { for (k in g.agenda.agendas) AGENDAS[k] = g.agenda.agendas[k]; if (g.agenda.personnes && g.agenda.personnes.flo) PRENOM_FLO = g.agenda.personnes.flo; }
   MESSAGE = g.message || '';
+  if (g.cadre) {
+    var ancien = CONFIG.LAT + ',' + CONFIG.LON;
+    CADRE = g.cadre;
+    if (CADRE.lieu) { CONFIG.LAT = CADRE.lieu.lat; CONFIG.LON = CADRE.lieu.lon; }
+    if (ancien !== CONFIG.LAT + ',' + CONFIG.LON) chargerMeteo();   // autre ville : nouvelle météo
+  }
   if (g.accueil && g.accueil.moments) MOMENTS = g.accueil.moments;
   if (g.accueil && g.accueil.disposition && g.accueil.disposition.length) DISPO_DEFAUT = g.accueil.disposition;
   afficher();

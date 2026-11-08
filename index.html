@@ -257,13 +257,23 @@ function lireReglages(quandFini){
 function appliquerReglages(R){
   if (!R || !R.reglages) return;
   var g = R.reglages, parId = {}, i;
+  // Cadre (famille) : ville et modules ; les pages reçoivent ces infos avec les réglages
+  var C = R.cadre || null;
+  g.cadre = C;
+  if (C && C.lieu) { CONFIG.LAT = C.lieu.lat; CONFIG.LON = C.lieu.lon; }
+  var modOk = function(id){
+    if (!C || !C.modules) return true;
+    if (id === 'maison' || id === 'musique') return !!(C.modules[id] && C.ha);
+    if (id === 'transports' || id === 'travail') return !!C.modules[id];
+    return true;
+  };
   for (i = 0; i < CONFIG.SLIDES.length; i++) parId[CONFIG.SLIDES[i].id] = CONFIG.SLIDES[i];
   var liste = [], plages = g.rotation.plages || [], fixes = {};
   for (i = 0; i < plages.length; i++) fixes[plages[i].page] = true;
   for (i = 0; i < g.rotation.slides.length; i++) {
     var sl = g.rotation.slides[i], base = parId[sl.id];
     // une page masquée mais utilisée par une plage fixe reste chargée (hors rotation)
-    if (base && (sl.actif || sl.onglet || fixes[sl.id])) liste.push({ id: base.id, fichier: base.fichier, nom: base.nom, icone: base.icone, duree: sl.duree, horsRotation: !sl.actif, onglet: !!(sl.actif || sl.onglet) });
+    if (base && modOk(sl.id) && (sl.actif || sl.onglet || fixes[sl.id])) liste.push({ id: base.id, fichier: base.fichier, nom: base.nom, icone: base.icone, duree: sl.duree, horsRotation: !sl.actif, onglet: !!(sl.actif || sl.onglet) });
   }
   for (i = 0; i < CONFIG.SLIDES.length; i++) if (CONFIG.SLIDES[i].toujours && !g.rotation.slides.some(function(x){ return x.id === CONFIG.SLIDES[i].id; })) liste.push(CONFIG.SLIDES[i]);
   if (liste.length) CONFIG.SLIDES = liste;

@@ -457,6 +457,14 @@ function chargerVigi(quandOk){
 }
 function majVigi(){ chargerVigi(function(v){ $('vigi').innerHTML = texteVigi(v); }); }
 majVigi(); setInterval(majVigi, 5 * 60000);
+// Lieu du cadre (multi-familles) : reçu du shell avec les réglages
+window.addEventListener('message', function(e){
+  var d = e.data;
+  if (!d || d.type !== 'reglages' || !d.value || !d.value.cadre || !d.value.cadre.lieu) return;
+  var L = d.value.cadre.lieu;
+  if (L.nom) $('lieu').textContent = L.nom;
+  if (L.lat !== CONFIG.LAT || L.lon !== CONFIG.LON) { CONFIG.LAT = L.lat; CONFIG.LON = L.lon; charger(); }
+});
 </script>
 </body>
 </html>

@@ -32,7 +32,7 @@ const FLUX_ALERTES = 'https://data.filbleu.fr/ws-tr/gtfs-rt/opendata/service-ale
 const FLUX_INCIDENTS = 'https://www.filbleu.fr/rss-incident.xml';   // l'info trafic du site filbleu.fr (travaux, déviations…)
 const NOMS_ARRETS = { 'A': 'Monconseil', '2': 'Maréchal Juin' };
 const CACHE_SECONDES = 30;   // les écrans redemandent toutes les 30 s
-const VERSION = '34';   // à changer à chaque mise à jour du code : vide les caches
+const VERSION = '35';   // à changer à chaque mise à jour du code : vide les caches
 
 // Horaires prévus, format compact : "jours" = n° de grille pour chaque jour depuis "debut",
 // chaque ligne "g=" = minutes depuis minuit, écrites en écarts successifs.
@@ -550,7 +550,7 @@ async function construireAgenda(env) {
   // Tous les agendas déclarés : GOOGLE_ICS, GOOGLE_ICS1, GOOGLE_ICS2… (autant que tu veux)
   const cles = Object.keys(env).filter(k => /^GOOGLE_ICS\d*$/.test(k) && env[k]).sort();
   const adresses = cles.map(k => env[k]);
-  if (!adresses.length) throw new Error('Aucun agenda : ajoute GOOGLE_ICS1 dans les réglages du Worker');
+  if (!adresses.length) throw new Error('Aucun agenda : ajoute un agenda Google dans la page admin');
   const reponses = await Promise.allSettled(adresses.map(u => fetch(u, { cf: { cacheTtl: 300 } }).then(r => { if (!r.ok) throw new Error('Google Agenda a répondu ' + r.status); return r.text(); })));
   const sources = [];
   reponses.forEach((x, i) => { if (x.status === 'fulfilled') sources.push({ cle: cles[i], texte: x.value, nom: ((/X-WR-CALNAME:(.*)/.exec(x.value) || [])[1] || '').trim() }); });
@@ -883,21 +883,32 @@ function nettoyerReglages(r) {
   res.message = texte(r.message, 140);
   return res;
 }
-let REGLAGES_MEMOIRE = null, REGLAGES_LUS = 0;
+/* =====================================================================
+   PLUSIEURS CADRES : chaque cadre (famille) a ses propres mémoires
+   ===================================================================== */
+const ETATS = {};
+function E(env) {
+  const id = env.CADRE || 'principal';
+  return ETATS[id] || (ETATS[id] = { REGLAGES_MEMOIRE: null, REGLAGES_LUS: 0, MODELE_KO_JUSQUA: 0, MODELE_ERREUR: '', MAISON_MEMO: null, LUMIERES_CONNUES: null,
+    MODES_SIGNALES: false, CONFIGS_AUTO: {}, MUSIQUE_MEMO: null, IMAGES_MUSIQUE: {}, SPOTIFY_JETON: {}, SPOTIFY_LISTES: {} });
+}
+// clé du KV propre à un cadre (le cadre « principal » garde les anciennes clés)
+function cleKV(env, nom) { return env.CADRE && env.CADRE !== 'principal' ? nom + ':' + env.CADRE : nom; }
+
 async function lireReglages(env) {
-  if (REGLAGES_MEMOIRE && Date.now() - REGLAGES_LUS < 30000) return REGLAGES_MEMOIRE;
+  if (E(env).REGLAGES_MEMOIRE && Date.now() - E(env).REGLAGES_LUS < 30000) return E(env).REGLAGES_MEMOIRE;
   let brut = null;
-  if (env.REGLAGES) { try { brut = await env.REGLAGES.get('reglages', 'json'); } catch (e) {} }
+  if (env.REGLAGES) { try { brut = await env.REGLAGES.get(cleKV(env, 'reglages'), 'json'); } catch (e) {} }
   const res = { reglages: nettoyerReglages(brut ? brut.reglages : REGLAGES_DEFAUT), maj: brut ? brut.maj : 0, stockage: !!env.REGLAGES };
-  REGLAGES_MEMOIRE = res; REGLAGES_LUS = Date.now();
+  E(env).REGLAGES_MEMOIRE = res; E(env).REGLAGES_LUS = Date.now();
   return res;
 }
 async function ecrireReglages(env, corps) {
   if (!env.REGLAGES) throw new Error('Stockage des réglages non configuré (liaison KV « REGLAGES » manquante)');
   const propre = nettoyerReglages(corps), maj = Date.now();
-  await env.REGLAGES.put('reglages', JSON.stringify({ reglages: propre, maj: maj }));
-  REGLAGES_MEMOIRE = { reglages: propre, maj: maj, stockage: true }; REGLAGES_LUS = Date.now();
-  return REGLAGES_MEMOIRE;
+  await env.REGLAGES.put(cleKV(env, 'reglages'), JSON.stringify({ reglages: propre, maj: maj }));
+  E(env).REGLAGES_MEMOIRE = { reglages: propre, maj: maj, stockage: true }; E(env).REGLAGES_LUS = Date.now();
+  return E(env).REGLAGES_MEMOIRE;
 }
 
 /* =====================================================================
@@ -921,7 +932,7 @@ async function etatsUtiles(env, modes, lumieresChoisies) {
     "{% for id in " + JSON.stringify(modes.filter(x => !x.startsWith('special.'))) + " %}{% if states(id) != 'unknown' or state_attr(id, 'friendly_name') %}" +
     "{% set ns.o = ns.o + [{'entity_id': id, 'state': states(id), 'attributes': {'friendly_name': state_attr(id, 'friendly_name'), 'last_triggered': (state_attr(id, 'last_triggered').isoformat() if state_attr(id, 'last_triggered') else none)}}] %}{% endif %}{% endfor %}" +
     "{{ ns.o | tojson }}";
-  if (Date.now() > MODELE_KO_JUSQUA) {
+  if (Date.now() > E(env).MODELE_KO_JUSQUA) {
     try {
       const r = await fetch(haUrl(env, '/api/template'), { method: 'POST', headers: { Authorization: 'Bearer ' + env.HA_TOKEN, 'Content-Type': 'application/json' }, body: JSON.stringify({ template: tpl }) });
       const texte = await r.text();
@@ -929,17 +940,17 @@ async function etatsUtiles(env, modes, lumieresChoisies) {
         const L = JSON.parse(texte);
         if (Array.isArray(L)) return completerModes(env, L, modes);
       }
-      MODELE_ERREUR = 'HTTP ' + r.status + ' : ' + texte.slice(0, 300);
-    } catch (e) { MODELE_ERREUR = String(e.message || e); }
-    console.log('Modèle Home Assistant refusé — ' + MODELE_ERREUR);
-    MODELE_KO_JUSQUA = Date.now() + 10 * 60000;   // on ne réessaie pas avant 10 min
+      E(env).MODELE_ERREUR = 'HTTP ' + r.status + ' : ' + texte.slice(0, 300);
+    } catch (e) { E(env).MODELE_ERREUR = String(e.message || e); }
+    console.log('Modèle Home Assistant refusé — ' + E(env).MODELE_ERREUR);
+    E(env).MODELE_KO_JUSQUA = Date.now() + 10 * 60000;   // on ne réessaie pas avant 10 min
   }
   // Repli léger : une petite requête par entité choisie (bien moins coûteux que tout l'état de Home Assistant)
   // sans lumières choisies : la liste des lumières est relevée une fois par heure dans l'état complet
-  if (!lumieresChoisies.length && LUMIERES_CONNUES && Date.now() - LUMIERES_CONNUES.t < 3600000) lumieresChoisies = LUMIERES_CONNUES.ids;
+  if (!lumieresChoisies.length && E(env).LUMIERES_CONNUES && Date.now() - E(env).LUMIERES_CONNUES.t < 3600000) lumieresChoisies = E(env).LUMIERES_CONNUES.ids;
   if (!lumieresChoisies.length) {
     const tous = await etatsHA(env);
-    LUMIERES_CONNUES = { t: Date.now(), ids: tous.filter(e => e.entity_id.startsWith('light.')).map(e => e.entity_id) };
+    E(env).LUMIERES_CONNUES = { t: Date.now(), ids: tous.filter(e => e.entity_id.startsWith('light.')).map(e => e.entity_id) };
     return tous;
   }
   const ids = lumieresChoisies.concat(modes.filter(x => !x.startsWith('special.')));
@@ -955,18 +966,16 @@ async function completerModes(env, L, modes) {
   const vus = {}; for (const e of L) vus[e.entity_id] = true;
   const manquants = modes.filter(x => !x.startsWith('special.') && !vus[x]);
   if (!manquants.length) return L;
-  if (!MODES_SIGNALES) { console.log('Modes absents du modèle Home Assistant : ' + manquants.join(', ')); MODES_SIGNALES = true; }
+  if (!E(env).MODES_SIGNALES) { console.log('Modes absents du modèle Home Assistant : ' + manquants.join(', ')); E(env).MODES_SIGNALES = true; }
   const h = { Authorization: 'Bearer ' + env.HA_TOKEN };
   const R = await Promise.all(manquants.map(id => fetch(haUrl(env, '/api/states/' + id), { headers: h }).then(r => r.ok ? r.json() : null).catch(() => null)));
   return L.concat(R.filter(Boolean));
 }
-let MODES_SIGNALES = false;
-let MODELE_KO_JUSQUA = 0, MODELE_ERREUR = '', MAISON_MEMO = null, LUMIERES_CONNUES = null;
 async function construireMaison(env) {
   // plusieurs pages interrogent /maison toutes les 30 s : une réponse récente (moins de 10 s) est réutilisée
-  if (MAISON_MEMO && Date.now() - MAISON_MEMO.t < 10000) return MAISON_MEMO.res;
+  if (E(env).MAISON_MEMO && Date.now() - E(env).MAISON_MEMO.t < 10000) return E(env).MAISON_MEMO.res;
   const res = await construireMaisonFrais(env);
-  MAISON_MEMO = { t: Date.now(), res: res };
+  E(env).MAISON_MEMO = { t: Date.now(), res: res };
   return res;
 }
 async function construireMaisonFrais(env) {
@@ -1029,15 +1038,14 @@ async function catalogueMaison(env) {
   return res;
 }
 /* Automatisations « bascule » : lecture de leur configuration (gardée 10 min) */
-const CONFIGS_AUTO = {};
 async function configAutomatisation(env, id) {
-  const m = CONFIGS_AUTO[id];
+  const m = E(env).CONFIGS_AUTO[id];
   if (m && Date.now() - m.t < 600000) return m.c;
   const h = { Authorization: 'Bearer ' + env.HA_TOKEN };
   const e = await fetch(haUrl(env, '/api/states/' + id), { headers: h }).then(r => r.ok ? r.json() : null).catch(() => null);
   const cid = e && e.attributes && e.attributes.id;
   const c = cid ? await fetch(haUrl(env, '/api/config/automation/config/' + cid), { headers: h }).then(r => r.ok ? r.json() : null).catch(() => null) : null;
-  CONFIGS_AUTO[id] = { t: Date.now(), c: c };
+  E(env).CONFIGS_AUTO[id] = { t: Date.now(), c: c };
   return c;
 }
 // Une seule action « choose » dont une branche éteint et dont la branche « sinon » allume : on joue la branche « sinon »
@@ -1069,11 +1077,9 @@ const TPL_MUSIQUE = "{% set ns = namespace(o=[]) %}{% for s in states.media_play
   "'artiste': a.get('media_artist') or a.get('media_album_artist'), 'app': a.get('app_name'), 'volume': a.get('volume_level'), 'image': a.get('entity_picture'), " +
   "'duree': a.get('media_duration'), 'position': a.get('media_position'), " +
   "'majPos': (as_timestamp(a.get('media_position_updated_at')) if a.get('media_position_updated_at') else none)}] %}{% endif %}{% endfor %}{{ ns.o | tojson }}";
-let MUSIQUE_MEMO = null;
 const PRINCIPALE_MUSIQUE = 'media_player.maison';
-const IMAGES_MUSIQUE = {};   // entité → adresse de la pochette chez Home Assistant (jamais envoyée à l'écran : elle contient un jeton)
 async function construireMusique(env) {
-  if (MUSIQUE_MEMO && Date.now() - MUSIQUE_MEMO.t < 4000) return MUSIQUE_MEMO.res;
+  if (E(env).MUSIQUE_MEMO && Date.now() - E(env).MUSIQUE_MEMO.t < 4000) return E(env).MUSIQUE_MEMO.res;
   const R = await lireReglages(env), masques = R.reglages.musique.masques;
   const r = await fetch(haUrl(env, '/api/template'), { method: 'POST', headers: { Authorization: 'Bearer ' + env.HA_TOKEN, 'Content-Type': 'application/json' }, body: JSON.stringify({ template: TPL_MUSIQUE }) });
   const t = await r.text();
@@ -1081,7 +1087,7 @@ async function construireMusique(env) {
   const L = JSON.parse(t).filter(x => masques.indexOf(x.id) < 0 && !/freebox|^media_player\.hub/.test(x.id));
   const lecteurs = L.map(x => {
     let v = null;
-    if (x.image) { IMAGES_MUSIQUE[x.id] = x.image; const m = /[?&]cache=([^&]+)/.exec(x.image); v = m ? m[1] : String(x.titre || '').length + '-' + (x.titre || ''); }
+    if (x.image) { E(env).IMAGES_MUSIQUE[x.id] = x.image; const m = /[?&]cache=([^&]+)/.exec(x.image); v = m ? m[1] : String(x.titre || '').length + '-' + (x.titre || ''); }
     return { id: x.id, nom: x.nom || x.id, etat: x.etat, titre: x.titre || '', artiste: x.artiste || '', app: x.app || '', volume: typeof x.volume === 'number' ? Math.round(x.volume * 100) : null,
       image: v, duree: x.duree || 0, position: x.position || 0, majPos: x.majPos ? Math.round(x.majPos * 1000) : 0 };
   });
@@ -1094,11 +1100,11 @@ async function construireMusique(env) {
   }
   const res = { maj: Date.now(), lecteurs, favoris: R.reglages.musique.favoris.map(f => f.nom), spotify: comptes.length > 0, spotifyConfigure: !!env.SPOTIFY_ID,
     comptes, playlists: comptes.length ? comptes[0].playlists : [] };
-  MUSIQUE_MEMO = { t: Date.now(), res };
+  E(env).MUSIQUE_MEMO = { t: Date.now(), res };
   return res;
 }
 async function pochetteMusique(env, id) {
-  let chemin = IMAGES_MUSIQUE[id];
+  let chemin = E(env).IMAGES_MUSIQUE[id];
   if (!chemin) { const e = await fetch(haUrl(env, '/api/states/' + id), { headers: { Authorization: 'Bearer ' + env.HA_TOKEN } }).then(r => r.ok ? r.json() : null).catch(() => null); chemin = e && e.attributes && e.attributes.entity_picture; }
   if (!chemin) return new Response('', { status: 404 });
   const r = await fetch(/^https?:/.test(chemin) ? chemin : haUrl(env, chemin), { headers: { Authorization: 'Bearer ' + env.HA_TOKEN } });
@@ -1110,14 +1116,13 @@ const SPOTIFY_RETOUR = 'https://ecran-salon.nico-michon37.workers.dev/spotify/re
 const SPOTIFY_DROITS = 'playlist-read-private playlist-read-collaborative user-read-playback-state user-modify-playback-state user-library-read';
 // Deux comptes possibles : « moi » et « flo » (prénoms réglés dans l'admin) ; un jeton par compte
 const COMPTES_SPOTIFY = ['moi', 'flo'];
-const SPOTIFY_JETON = {}, SPOTIFY_LISTES = {};
 async function jetonSpotify(env, compte) {
   if (!env.SPOTIFY_ID || !env.SPOTIFY_SECRET || !env.REGLAGES) return null;
-  const m = SPOTIFY_JETON[compte];
+  const m = E(env).SPOTIFY_JETON[compte];
   if (m && m.exp > Date.now() + 60000) return m.acces;
-  const k = await env.REGLAGES.get('spotify-' + compte, 'json').catch(() => null);
+  const k = await env.REGLAGES.get(cleKV(env, 'spotify-' + compte), 'json').catch(() => null);
   if (!k || !k.refresh) return null;
-  if (k.acces && k.exp > Date.now() + 60000) { SPOTIFY_JETON[compte] = k; return k.acces; }
+  if (k.acces && k.exp > Date.now() + 60000) { E(env).SPOTIFY_JETON[compte] = k; return k.acces; }
   const r = await fetch('https://accounts.spotify.com/api/token', {
     method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded', Authorization: 'Basic ' + btoa(env.SPOTIFY_ID + ':' + env.SPOTIFY_SECRET) },
     body: 'grant_type=refresh_token&refresh_token=' + encodeURIComponent(k.refresh)
@@ -1125,8 +1130,8 @@ async function jetonSpotify(env, compte) {
   if (!r.ok) return null;
   const j = await r.json();
   const n = { refresh: j.refresh_token || k.refresh, acces: j.access_token, exp: Date.now() + (j.expires_in || 3600) * 1000 };
-  await env.REGLAGES.put('spotify-' + compte, JSON.stringify(n));
-  SPOTIFY_JETON[compte] = n;
+  await env.REGLAGES.put(cleKV(env, 'spotify-' + compte), JSON.stringify(n));
+  E(env).SPOTIFY_JETON[compte] = n;
   return n.acces;
 }
 async function spotify(env, compte, chemin, options) {
@@ -1136,7 +1141,7 @@ async function spotify(env, compte, chemin, options) {
 }
 // Mes playlists (gardées 30 min) : nom, petite pochette, adresse Spotify
 async function playlistsSpotify(env, compte) {
-  const m = SPOTIFY_LISTES[compte];
+  const m = E(env).SPOTIFY_LISTES[compte];
   if (m && Date.now() - m.t < 1800000) return m.l;
   const r = await spotify(env, compte, '/me/playlists?limit=50');
   if (!r || !r.ok) return null;
@@ -1146,18 +1151,19 @@ async function playlistsSpotify(env, compte) {
     const im = p.images && p.images.length ? (p.images[p.images.length - 1].url || p.images[0].url) : null;
     l.push({ nom: String(p.name || 'Playlist').slice(0, 40), image: im, uri: p.uri });
   }
-  SPOTIFY_LISTES[compte] = { t: Date.now(), l };
+  E(env).SPOTIFY_LISTES[compte] = { t: Date.now(), l };
   return l;
 }
 async function connexionSpotify(env, url) {
   if (!env.SPOTIFY_ID) return new Response('SPOTIFY_ID manquant dans les réglages du Worker', { status: 503 });
   const compte = COMPTES_SPOTIFY.indexOf(url.searchParams.get('compte')) >= 0 ? url.searchParams.get('compte') : 'moi';
-  const etat = compte + '.' + crypto.randomUUID();
+  const etat = (env.CADRE || 'principal') + '.' + compte + '.' + crypto.randomUUID();
   await env.REGLAGES.put('spotify-etat', etat, { expirationTtl: 900 });
   const q = new URLSearchParams({ client_id: env.SPOTIFY_ID, response_type: 'code', redirect_uri: SPOTIFY_RETOUR, scope: SPOTIFY_DROITS, state: etat });
   return Response.redirect('https://accounts.spotify.com/authorize?' + q.toString(), 302);
 }
-async function retourSpotify(env, url) {
+async function retourSpotify(envBase, url) {
+  let env = envBase;
   const page = (titre, texte) => new Response('<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width"><body style="font-family:system-ui;padding:40px;background:#16100D;color:#F6EDE4"><h1>' + titre + '</h1><p>' + texte + '</p></body>', { headers: { 'Content-Type': 'text/html; charset=utf-8' } });
   const attendu = await env.REGLAGES.get('spotify-etat');
   if (!attendu || url.searchParams.get('state') !== attendu) return page('Lien expiré', 'Recommence la connexion depuis la page admin.');
@@ -1168,10 +1174,12 @@ async function retourSpotify(env, url) {
   });
   const j = await r.json().catch(() => ({}));
   if (!r.ok || !j.refresh_token) return page('Échec', 'Spotify n\'a pas donné de jeton (' + String(j.error_description || j.error || r.status).replace(/[<>]/g, '') + ').');
-  const compte = attendu.split('.')[0];
-  await env.REGLAGES.put('spotify-' + compte, JSON.stringify({ refresh: j.refresh_token, acces: j.access_token, exp: Date.now() + (j.expires_in || 3600) * 1000 }));
+  const morceaux = attendu.split('.'), compte = morceaux[1];
+  env = await envCadre(envBase, morceaux[0]);
+  if (!env) return page('Cadre introuvable', 'Ce cadre a été supprimé.');
+  await env.REGLAGES.put(cleKV(env, 'spotify-' + compte), JSON.stringify({ refresh: j.refresh_token, acces: j.access_token, exp: Date.now() + (j.expires_in || 3600) * 1000 }));
   await env.REGLAGES.delete('spotify-etat');
-  delete SPOTIFY_JETON[compte]; delete SPOTIFY_LISTES[compte];
+  delete E(env).SPOTIFY_JETON[compte]; delete E(env).SPOTIFY_LISTES[compte];
   return page('Spotify est connecté ✓', 'Tes playlists vont apparaître sur l\'écran. Tu peux fermer cette page.');
 }
 // Lancer une playlist : directement par Spotify si l'enceinte est visible, sinon par l'Assistant Google
@@ -1200,7 +1208,7 @@ async function actionMusique(env, c) {
   const appel = (service, donnees) => fetch(haUrl(env, '/api/services/' + service), {
     method: 'POST', headers: { Authorization: 'Bearer ' + env.HA_TOKEN, 'Content-Type': 'application/json' }, body: JSON.stringify(Object.assign({ entity_id: id }, donnees || {}))
   }).then(r => ({ ok: r.ok, statut: r.status }));
-  MUSIQUE_MEMO = null;
+  E(env).MUSIQUE_MEMO = null;
   if (c.action === 'lecture') return appel('media_player/media_play_pause');
   if (c.action === 'suivant') return appel('media_player/media_next_track');
   if (c.action === 'precedent') return appel('media_player/media_previous_track');
@@ -1212,7 +1220,7 @@ async function actionMusique(env, c) {
       const M = await construireMusique(env).catch(() => null);
       const ids = M ? M.lecteurs.map(x => x.id) : [];
       if (ids.indexOf(id) < 0) ids.push(id);
-      MUSIQUE_MEMO = null;
+      E(env).MUSIQUE_MEMO = null;
       return fetch(haUrl(env, '/api/services/media_player/volume_set'), {
         method: 'POST', headers: { Authorization: 'Bearer ' + env.HA_TOKEN, 'Content-Type': 'application/json' }, body: JSON.stringify({ entity_id: ids, volume_level: niveau })
       }).then(r => ({ ok: r.ok, statut: r.status, enceintes: ids.length }));
@@ -1279,8 +1287,131 @@ async function avecCache(cle, secondes, fabriquer, entetes, ctx) {
   return new Response(corps, { headers: entetes });
 }
 
+/* =====================================================================
+   REGISTRE DES CADRES (plusieurs familles, un seul Worker)
+   Le cadre « principal » garde ses secrets dans les réglages du Worker (ECRAN_CLE, GOOGLE_ICS…, HA_…).
+   Les autres cadres sont décrits dans le KV (clé « cadres ») : nom, clés, ville, modules, agendas, Home Assistant.
+   ===================================================================== */
+const MODULES = ['maison', 'musique', 'transports', 'travail'];
+let CADRES_MEMO = null, CADRES_LUS = 0;
+async function lireCadres(env) {
+  if (CADRES_MEMO && Date.now() - CADRES_LUS < 30000) return CADRES_MEMO;
+  let l = null;
+  if (env.REGLAGES) { try { l = await env.REGLAGES.get('cadres', 'json'); } catch (e) {} }
+  CADRES_MEMO = Array.isArray(l) ? l : []; CADRES_LUS = Date.now();
+  return CADRES_MEMO;
+}
+async function ecrireCadres(env, liste) {
+  await env.REGLAGES.put('cadres', JSON.stringify(liste));
+  CADRES_MEMO = liste; CADRES_LUS = Date.now();
+}
+// Clés lisibles, sans caractères ambigus (0/O, 1/I/L)
+function nouvelleCle(n) {
+  const A = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789', o = new Uint8Array(n);
+  crypto.getRandomValues(o);
+  let r = ''; for (let i = 0; i < n; i++) r += A[o[i] % A.length];
+  return r;
+}
+function egalite(a, b) {   // comparaison à temps constant
+  a = String(a || ''); b = String(b || '');
+  if (!a || a.length !== b.length) return false;
+  let d = 0; for (let i = 0; i < a.length; i++) d |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return d === 0;
+}
+const LIEU_PRINCIPAL = { nom: 'Tours Nord', lat: 47.418, lon: 0.688 };
+// L'environnement d'un cadre : celui du Worker pour le principal, sinon reconstruit depuis le registre
+async function envCadre(env, id) {
+  if (!id || id === 'principal') return Object.assign({}, env, { CADRE: 'principal', CADRE_INFO: { id: 'principal', nom: env.NOM_CADRE || 'Écran du salon', lieu: LIEU_PRINCIPAL, modules: { maison: true, musique: true, transports: true, travail: true } } });
+  const c = (await lireCadres(env)).find(x => x.id === id);
+  if (!c) return null;
+  const e = {};
+  for (const k of Object.keys(env)) if (!/^(GOOGLE_ICS\d*|HA_URL|HA_TOKEN|HA_ALERTE|TOMTOM_CLE|ECRAN_CLE)$/.test(k)) e[k] = env[k];
+  const cfg = c.config || {};
+  (cfg.agendas || []).forEach((a, i) => { if (a && a.url) e['GOOGLE_ICS' + (i + 1)] = a.url; });
+  if (cfg.ha && cfg.ha.url && cfg.ha.token) { e.HA_URL = cfg.ha.url; e.HA_TOKEN = cfg.ha.token; if (cfg.ha.alerte) e.HA_ALERTE = cfg.ha.alerte; }
+  e.CADRE = c.id;
+  e.CADRE_INFO = { id: c.id, nom: c.nom, lieu: cfg.lieu || LIEU_PRINCIPAL, modules: Object.assign({ maison: false, musique: false, transports: false, travail: false }, cfg.modules || {}) };
+  return e;
+}
+// Qui appelle ? super-admin (toi), admin d'une famille, ou un écran
+async function identifier(env, cle, cadreDemande) {
+  const superCle = env.ADMIN_CLE || env.ECRAN_CLE;
+  if (egalite(cle, superCle)) return { role: 'super', cadre: cadreDemande || 'principal' };
+  if (egalite(cle, env.ECRAN_CLE)) return { role: 'ecran', cadre: 'principal' };
+  for (const c of await lireCadres(env)) {
+    if (egalite(cle, c.cle)) return { role: 'ecran', cadre: c.id };
+    if (egalite(cle, c.cleAdmin)) return { role: 'admin', cadre: c.id };
+  }
+  return null;
+}
+// Ce que l'admin voit d'un cadre : jamais les secrets en clair
+function masquer(t) { t = String(t || ''); return t ? '••••' + t.slice(-4) : ''; }
+function vueCadre(c, avecCles) {
+  const cfg = c.config || {};
+  const v = { id: c.id, nom: c.nom, cree: c.cree, lieu: cfg.lieu || null, modules: cfg.modules || {},
+    agendas: (cfg.agendas || []).map((a, i) => ({ cle: 'GOOGLE_ICS' + (i + 1), nom: a.nom || '', url: masquer(a.url) })),
+    ha: cfg.ha && cfg.ha.url ? { url: cfg.ha.url, token: masquer(cfg.ha.token), alerte: cfg.ha.alerte || '' } : null };
+  if (avecCles) { v.cle = c.cle; v.cleAdmin = c.cleAdmin; }
+  return v;
+}
+// Modification de la configuration d'un cadre (champs vides ou masqués = inchangés)
+function appliquerConfig(c, n) {
+  const cfg = c.config = c.config || {};
+  if (typeof n.nom === 'string' && n.nom.trim()) c.nom = n.nom.trim().slice(0, 40);
+  if (n.lieu && isFinite(n.lieu.lat) && isFinite(n.lieu.lon)) cfg.lieu = { nom: String(n.lieu.nom || '').slice(0, 60), lat: Math.round(n.lieu.lat * 1e4) / 1e4, lon: Math.round(n.lieu.lon * 1e4) / 1e4 };
+  if (n.modules) { cfg.modules = {}; for (const m of MODULES) cfg.modules[m] = !!n.modules[m]; cfg.modules.travail = false; }
+  if (Array.isArray(n.agendas)) {
+    const anciens = cfg.agendas || [];
+    cfg.agendas = n.agendas.slice(0, 6).map((a, i) => {
+      const url = String(a.url || '').trim(), garde = /^••••/.test(url) || !url;
+      return { nom: String(a.nom || '').slice(0, 30), url: garde ? (anciens[i] && anciens[i].url) || '' : url };
+    }).filter(a => a.url && /^https:\/\/calendar\.google\.com\/|^https:\/\//.test(a.url));
+  }
+  if (n.ha === null) delete cfg.ha;
+  else if (n.ha) {
+    const url = String(n.ha.url || '').trim().replace(/\/+$/, ''), jeton = String(n.ha.token || '').trim();
+    cfg.ha = { url: url, token: /^••••/.test(jeton) || !jeton ? (cfg.ha && cfg.ha.token) || '' : jeton, alerte: String(n.ha.alerte || '').trim().slice(0, 80) };
+    if (!cfg.ha.url) delete cfg.ha;
+  }
+}
+async function gererCadres(env, corps) {
+  const L = (await lireCadres(env)).slice();
+  if (corps.action === 'creer') {
+    const c = { id: nouvelleCle(8).toLowerCase(), nom: String(corps.nom || 'Nouveau cadre').trim().slice(0, 40) || 'Nouveau cadre', cle: nouvelleCle(10), cleAdmin: nouvelleCle(12), cree: Date.now(),
+      config: { modules: { maison: false, musique: false, transports: false, travail: false }, agendas: [] } };
+    appliquerConfig(c, corps);
+    L.push(c); await ecrireCadres(env, L);
+    // réglages de départ de la famille : prénoms neutres, tous les agendas « ensemble », pas de modes domotique
+    const init = JSON.parse(JSON.stringify(REGLAGES_DEFAUT));
+    init.agenda = { personnes: { moi: String(corps.prenom1 || 'Moi').slice(0, 20), flo: String(corps.prenom2 || 'Ma moitié').slice(0, 20) }, agendas: {} };
+    for (let i = 1; i <= 6; i++) init.agenda.agendas['GOOGLE_ICS' + i] = 'nous';
+    init.maison = { lumieres: [], modes: ['special.tout_eteindre'], noms: {} };
+    init.message = '';
+    await env.REGLAGES.put('reglages:' + c.id, JSON.stringify({ reglages: nettoyerReglages(init), maj: Date.now() }));
+    return { ok: true, cadre: vueCadre(c, true) };
+  }
+  const c = L.find(x => x.id === corps.id);
+  if (!c) return { ok: false, erreur: 'Cadre introuvable' };
+  if (corps.action === 'cles') { c.cle = nouvelleCle(10); c.cleAdmin = nouvelleCle(12); await ecrireCadres(env, L); return { ok: true, cadre: vueCadre(c, true) }; }
+  if (corps.action === 'supprimer') {
+    await ecrireCadres(env, L.filter(x => x.id !== c.id));
+    for (const k of ['reglages:' + c.id, 'spotify-moi:' + c.id, 'spotify-flo:' + c.id]) { try { await env.REGLAGES.delete(k); } catch (e) {} }
+    delete ETATS[c.id];
+    return { ok: true };
+  }
+  return { ok: false, erreur: 'Action inconnue' };
+}
+// Dernière visite de chaque écran (cache, sans écriture dans le KV)
+async function noterVisite(cadre) {
+  try { await caches.default.put(new Request('https://cache.ecran-salon.local/vu/' + cadre), new Response(String(Date.now()), { headers: { 'Cache-Control': 'max-age=2592000' } })); } catch (e) {}
+}
+async function lireVisite(cadre) {
+  try { const r = await caches.default.match(new Request('https://cache.ecran-salon.local/vu/' + cadre)); return r ? parseInt(await r.text(), 10) : 0; } catch (e) { return 0; }
+}
+
 export default {
-  async fetch(request, env, ctx) {
+  async fetch(request, envBase, ctx) {
+    let env = envBase;
     const entetes = {
       'Access-Control-Allow-Origin': ORIGINE_AUTORISEE,
       'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
@@ -1296,13 +1427,50 @@ export default {
 
       // Tout le reste est privé
       const cle = url.searchParams.get('cle') || '';
-      const cleAdmin = env.ADMIN_CLE || env.ECRAN_CLE;
       if (!env.ECRAN_CLE) return repondre({ erreur: 'ECRAN_CLE manquant dans les réglages du Worker' }, 503, entetes);
-      const estEcran = cle === env.ECRAN_CLE, estAdmin = !!cleAdmin && cle === cleAdmin;
-      if (!estEcran && !estAdmin) return repondre({ erreur: 'Clé absente ou incorrecte' }, 401, entetes);
+      const qui = await identifier(envBase, cle, url.searchParams.get('cadre'));
+      if (!qui) return repondre({ erreur: 'Clé absente ou incorrecte' }, 401, entetes);
+      const estSuper = qui.role === 'super', estAdmin = estSuper || qui.role === 'admin';
+      env = await envCadre(envBase, qui.cadre);
+      if (!env) return repondre({ erreur: 'Cadre introuvable' }, 404, entetes);
+      const MOD = env.CADRE_INFO.modules;
+      if (qui.role === 'ecran' && chemin === '/reglages') ctx.waitUntil(noterVisite(env.CADRE));
+
+      // Gestion des cadres : réservée au super-admin
+      if (chemin === '/cadres' && request.method === 'GET') {
+        if (!estSuper) return repondre({ erreur: 'Réservé à l\'administrateur principal' }, 403, entetes);
+        const L = await lireCadres(envBase), liste = [];
+        liste.push({ id: 'principal', nom: envBase.NOM_CADRE || 'Écran du salon', principal: true, lieu: LIEU_PRINCIPAL, modules: { maison: true, musique: true, transports: true, travail: true }, vu: await lireVisite('principal') });
+        for (const c of L) liste.push(Object.assign(vueCadre(c, true), { vu: await lireVisite(c.id) }));
+        return repondre({ cadres: liste }, 200, entetes);
+      }
+      if (chemin === '/cadres' && request.method === 'POST') {
+        if (!estSuper) return repondre({ erreur: 'Réservé à l\'administrateur principal' }, 403, entetes);
+        let corps = {};
+        try { corps = JSON.parse(await request.text()); } catch (e) {}
+        return repondre(await gererCadres(envBase, corps), 200, entetes);
+      }
+      // Configuration du cadre (ville, modules, agendas, Home Assistant) : admin de la famille ou super-admin
+      if (chemin === '/cadre/config') {
+        if (!estAdmin) return repondre({ erreur: 'Clé admin requise' }, 403, entetes);
+        if (env.CADRE === 'principal') return repondre({ principal: true, nom: env.CADRE_INFO.nom, lieu: LIEU_PRINCIPAL, modules: MOD }, 200, entetes);
+        const L = (await lireCadres(envBase)).slice(), c = L.find(x => x.id === env.CADRE);
+        if (request.method === 'POST') {
+          let corps = {};
+          try { corps = JSON.parse(await request.text()); } catch (e) {}
+          appliquerConfig(c, corps);
+          await ecrireCadres(envBase, L);
+          delete ETATS[c.id];
+        }
+        return repondre(vueCadre(c, estSuper), 200, entetes);
+      }
+      // Modules désactivés pour ce cadre
+      if ((chemin === '/maison' || chemin === '/maison/action' || chemin === '/maison/catalogue' || chemin === '/vigilance') && !env.HA_URL) return repondre({ erreur: 'Home Assistant n\'est pas configuré pour ce cadre', absent: true }, 200, entetes);
+      if (chemin.indexOf('/musique') === 0 && !env.HA_URL) return repondre({ erreur: 'Home Assistant n\'est pas configuré pour ce cadre', absent: true, lecteurs: [], favoris: [], comptes: [] }, 200, entetes);
+      if (chemin === '/trajet' && !MOD.travail) return repondre({ trouve: false, erreur: 'Module travail désactivé' }, 200, entetes);
 
       if (chemin === '/trajet') return repondre(await construireTrajet(url.searchParams.get('lieu') || '', url.searchParams.get('adresse') || '', url.searchParams.get('arrivee') || '', env).catch(e => ({ trouve: false, erreur: String(e.message || e) })), 200, entetes);
-      if (chemin === '/agenda') return await avecCache('agenda', 600, () => construireAgenda(env), entetes, ctx);
+      if (chemin === '/agenda') return await avecCache('agenda-' + env.CADRE, 600, () => construireAgenda(env), entetes, ctx);
       if (chemin === '/maison') return repondre(await construireMaison(env), 200, entetes);
       if (chemin === '/spotify/connexion') return estAdmin ? await connexionSpotify(env, url) : repondre({ erreur: 'Clé admin requise' }, 403, entetes);
       if (chemin === '/musique') return repondre(await construireMusique(env), 200, entetes);
@@ -1312,16 +1480,16 @@ export default {
         try { corps = JSON.parse(await request.text()); } catch (e) {}
         return repondre(await actionMusique(env, corps), 200, entetes);
       }
-      if (chemin === '/vigilance') return await avecCache('vigilance', 300, () => construireVigilance(env), entetes, ctx);
+      if (chemin === '/vigilance') return await avecCache('vigilance-' + env.CADRE, 300, () => construireVigilance(env), entetes, ctx);
       if (chemin === '/maison/action' && request.method === 'POST') {
         let corps = {};
         try { corps = JSON.parse(await request.text()); } catch (e) {}
-        MAISON_MEMO = null;
+        E(env).MAISON_MEMO = null;
         return repondre(await actionMaison(env, corps), 200, entetes);
       }
       if (chemin === '/reglages' && request.method === 'GET') {
         const R = await lireReglages(env);
-        return repondre({ reglages: R.reglages, maj: R.maj, stockage: R.stockage, admin: estAdmin }, 200, entetes);
+        return repondre({ reglages: R.reglages, maj: R.maj, stockage: R.stockage, admin: estAdmin, super: estSuper, cadre: { id: env.CADRE, nom: env.CADRE_INFO.nom, lieu: env.CADRE_INFO.lieu, modules: MOD, ha: !!env.HA_URL } }, 200, entetes);
       }
       // Réservé à l'admin
       if (chemin === '/reglages' && request.method === 'POST') {

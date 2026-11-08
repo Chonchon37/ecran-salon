@@ -83,6 +83,48 @@ input[type=time]{font:inherit;color:var(--ink);background:var(--bg);border:1.5px
 .dispo-l.off .nom{color:var(--muted);text-decoration:line-through}
 .dispo-l .act{margin-left:auto}
 [hidden]{display:none!important}
+/* Plusieurs cadres */
+.choix-cadre{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--card);border-radius:14px;padding:10px 14px;margin:0 0 14px}
+.choix-cadre label{color:var(--muted);font-weight:600;font-size:14px}
+.choix-cadre select{flex:1;min-width:180px;font-weight:600}
+.cadre{border-top:1px solid var(--line);padding:16px 0}
+.cadre:first-of-type{border-top:0;padding-top:4px}
+.cadre .haut{display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap}
+.cadre .titre{flex:1;min-width:180px}
+.cadre .titre b{font:700 18px/1.25 var(--display);display:block}
+.cadre .titre span{color:var(--muted);font-size:14px}
+.cadre .actions{display:flex;gap:6px;flex-wrap:wrap}
+.cadre .actions button{padding:8px 12px;font-size:14px}
+.puces{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.vu{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--muted)}
+.vu i{width:9px;height:9px;border-radius:50%;background:var(--line);display:inline-block}
+.vu.on i{background:var(--ok)}
+.adresses{margin-top:14px;background:var(--bg);border-radius:12px;padding:14px;display:grid;gap:14px}
+.adresse label{display:block;font-size:13px;color:var(--muted);margin-bottom:4px}
+.adresse .rang{gap:8px;flex-wrap:nowrap}
+.adresse code{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;background:var(--card);border-radius:8px;padding:8px 10px;font-size:13px}
+.adresse button{flex:none;padding:8px 12px;font-size:14px}
+.qr{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+.qr .code{background:#fff;padding:8px;border-radius:10px;line-height:0}
+.qr p{margin:0;color:var(--muted);font-size:14px;flex:1;min-width:180px}
+.zone-danger{display:flex;gap:8px;flex-wrap:wrap}
+.zone-danger button{font-size:14px;padding:8px 12px}
+button.danger{background:var(--warn-soft);color:var(--warn)}
+.champ{display:grid;gap:6px;margin-bottom:14px}
+.champ input{width:100%}
+.champ small{color:var(--muted);font-size:13px}
+.resultats{display:grid;gap:4px;margin-top:6px}
+.resultats button{text-align:left;background:var(--bg);font-weight:500}
+.resultats button b{font-weight:700}
+.modules{display:grid;gap:8px}
+.modules label{display:flex;gap:10px;align-items:flex-start;font-weight:600;cursor:pointer}
+.modules input{width:20px;height:20px;accent-color:var(--accent);margin-top:2px;flex:none}
+.modules small{display:block;color:var(--muted);font-weight:400;font-size:13px}
+.agenda-l{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+.agenda-l input[data-ag-nom]{width:150px}
+.agenda-l input[data-ag-url]{flex:1;min-width:220px}
+.nouveau{background:var(--bg);border-radius:14px;padding:16px;margin-top:16px}
+
 /* Résumé et rubriques */
 .resume{background:var(--card2);padding:16px 20px}
 .resume-t{font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
@@ -108,12 +150,12 @@ button.discret{background:transparent;color:var(--muted);padding:8px 10px;font-s
 <body>
 <div class="page">
   <div class="tete"><h1>Réglages de l'écran</h1><button id="deconnexion" type="button" class="discret" hidden>Se déconnecter</button></div>
-  <p class="sous">Écran du salon · les changements s'affichent sur le cadre en quelques minutes.</p>
+  <p class="sous"><span id="nomCadre">Écran du salon</span> · les changements s'affichent sur le cadre en quelques minutes.</p>
 
   <!-- Connexion -->
   <section id="connexion">
     <h2>Connexion</h2>
-    <p class="aide">Saisis la clé de l'écran (celle de l'adresse du cadre, après <code>?cle=</code>).</p>
+    <p class="aide">Saisis ta clé d'administration (ou ouvre directement le lien d'administration reçu).</p>
     <form id="formCle" class="rang">
       <input type="password" id="cle" autocomplete="current-password" placeholder="Clé" style="flex:1" required>
       <label class="interrupteur"><input type="checkbox" id="souvenir"> Se souvenir sur cet appareil</label>
@@ -125,6 +167,12 @@ button.discret{background:transparent;color:var(--muted);padding:8px 10px;font-s
   <div id="reglages" hidden>
     <div id="avertissement" class="bandeau alerte" hidden></div>
 
+    <!-- Super-admin : quel cadre est modifié -->
+    <div class="choix-cadre" id="choixCadre" hidden>
+      <label for="cadreActif">Cadre modifié</label>
+      <select id="cadreActif"></select>
+    </div>
+
     <!-- Ce que l'écran affiche en ce moment, d'après les réglages -->
     <section class="resume" aria-live="polite">
       <div class="resume-t">Sur l'écran en ce moment</div>
@@ -135,7 +183,9 @@ button.discret{background:transparent;color:var(--muted);padding:8px 10px;font-s
       <button type="button" data-g="accueil">Accueil</button>
       <button type="button" data-g="pages">Pages</button>
       <button type="button" data-g="jour-nuit">Jour & nuit</button>
-      <button type="button" data-g="donnees">Transports, agenda, maison</button>
+      <button type="button" data-g="donnees">Données</button>
+      <button type="button" data-g="cadre">Ce cadre</button>
+      <button type="button" data-g="cadres" id="ongletCadres" hidden>Tous les cadres</button>
     </nav>
     <p class="intro" id="intro"></p>
 
@@ -215,7 +265,7 @@ button.discret{background:transparent;color:var(--muted);padding:8px 10px;font-s
       </div>
     </section>
 
-    <section data-groupe="donnees">
+    <section data-groupe="donnees" data-module="transports">
       <h2>Transports</h2>
       <p class="aide">Temps de marche de chez vous jusqu'à l'arrêt : il sert à calculer « Pars dans… ».</p>
       <div id="lignes"></div>
@@ -231,19 +281,19 @@ button.discret{background:transparent;color:var(--muted);padding:8px 10px;font-s
       <div id="agendas"></div>
     </section>
 
-    <section data-groupe="donnees">
+    <section data-groupe="donnees" data-module="maison">
       <h2>Maison · lumières</h2>
       <p class="aide">Jusqu'à 8 lumières. Sans choix, l'écran affiche automatiquement toutes les lumières sauf les « segments ».</p>
       <div id="lumieres"></div>
     </section>
 
-    <section data-groupe="donnees">
+    <section data-groupe="donnees" data-module="maison">
       <h2>Maison · boutons de modes</h2>
       <p class="aide">Jusqu'à 5 boutons (automatisations, scènes ou scripts de Home Assistant). Les 4 premiers apparaissent aussi sur l'accueil. Tu peux changer le nom affiché sur chaque bouton.</p>
       <div id="modes"></div>
     </section>
 
-    <section data-groupe="donnees">
+    <section data-groupe="donnees" data-module="musique">
       <h2>Musique · Spotify</h2>
       <p class="aide">Connecte ton compte Spotify pour voir <b>tes playlists</b> sur l'écran (onglet et tuile Musique). À faire une seule fois.</p>
       <p class="aide">Deux comptes possibles. Pour le 2ᵉ compte, son adresse e-mail Spotify doit d'abord être ajoutée dans l'application Spotify (onglet « User Management »).</p>
@@ -252,11 +302,60 @@ button.discret{background:transparent;color:var(--muted);padding:8px 10px;font-s
       <button type="button" id="connecterSpotify2" data-compte="flo">Connecter Spotify</button>
     </section>
 
-    <section data-groupe="donnees">
+    <section data-groupe="donnees" data-module="musique">
       <h2>Musique · favoris</h2>
       <p class="aide">Boutons de la tuile Musique quand rien ne joue (8 au plus). Chaque bouton envoie une phrase à l'Assistant Google ; <b>{enceinte}</b> est remplacé par l'enceinte choisie sur l'écran. Exemple : « Joue ma playlist Soirée sur Spotify sur {enceinte} ».</p>
       <div id="favorisMusique"></div>
       <button type="button" id="ajoutFavori">+ Ajouter un favori</button>
+    </section>
+
+    <!-- Configuration du cadre : ville, modules, agendas, Home Assistant -->
+    <section data-groupe="cadre" id="secPrincipal" data-module="principal">
+      <h2>Cadre principal</h2>
+      <p class="aide" style="margin:0">Ce cadre est configuré directement dans Cloudflare (agendas, Home Assistant, trajet). Ville : Tours Nord · tous les modules.</p>
+    </section>
+    <section data-groupe="cadre" id="secConfig" data-module="famille">
+      <h2>Ce cadre</h2>
+      <p class="aide">Nom, ville et ce que l'écran affiche. Ces réglages s'enregistrent avec le bouton en bas de cette rubrique.</p>
+      <div class="champ"><label for="cfgNom">Nom du cadre</label><input type="text" id="cfgNom" maxlength="40" placeholder="Ex. : Famille Martin"></div>
+      <div class="champ"><label for="cfgVille">Ville (pour la météo et le lever du soleil)</label><div id="cfgVille"></div></div>
+      <div class="champ"><span style="font-weight:600">Modules</span>
+        <div class="modules" id="cfgModules"></div>
+      </div>
+    </section>
+    <section data-groupe="cadre" id="secAgendasCfg" data-module="famille">
+      <h2>Agendas Google</h2>
+      <p class="aide">Jusqu'à 6 agendas. Dans Google Agenda : Paramètres de l'agenda → « Adresse secrète au format iCal » → copier ici. L'adresse reste privée : elle n'est plus affichée en entier une fois enregistrée.</p>
+      <div id="cfgAgendas"></div>
+      <button type="button" id="cfgAjoutAgenda">+ Ajouter un agenda</button>
+    </section>
+    <section data-groupe="cadre" id="secHA" data-module="famille">
+      <h2>Home Assistant</h2>
+      <p class="aide">Nécessaire pour les modules Maison et Musique, et pour la vigilance Météo-France. Adresse accessible depuis Internet + jeton d'accès longue durée (Profil → Sécurité dans Home Assistant).</p>
+      <div class="champ"><label for="haUrl">Adresse</label><input type="text" id="haUrl" placeholder="https://maison.duckdns.org:8123" autocomplete="off" spellcheck="false"></div>
+      <div class="champ"><label for="haJeton">Jeton d'accès</label><input type="password" id="haJeton" placeholder="Colle le jeton" autocomplete="new-password"><small id="haJetonInfo"></small></div>
+      <div class="champ"><label for="haAlerte">Capteur de vigilance (facultatif)</label><input type="text" id="haAlerte" placeholder="sensor.37_weather_alert" spellcheck="false"><small>Intégration Météo-France de Home Assistant : capteur « Weather alert » du département.</small></div>
+    </section>
+    <section data-groupe="cadre" id="secEnregCfg" data-module="famille">
+      <div class="rang"><button type="button" class="principal" id="cfgEnregistrer">Enregistrer la configuration</button><span id="cfgEtat" class="aide" style="margin:0"></span></div>
+    </section>
+
+    <!-- Super-admin : tous les cadres -->
+    <section data-groupe="cadres" data-module="super">
+      <h2>Tous les cadres</h2>
+      <p class="aide">Chaque cadre a sa propre adresse (à saisir dans Fully Kiosk comme page de démarrage) et son lien d'administration, à envoyer à la famille.</p>
+      <div id="listeCadres"><p class="vide">Chargement…</p></div>
+      <div class="nouveau">
+        <h2 style="font-size:18px">Nouveau cadre</h2>
+        <div class="champ"><label for="nvNom">Nom</label><input type="text" id="nvNom" maxlength="40" placeholder="Ex. : Famille Martin"></div>
+        <div class="rang" style="margin-bottom:14px">
+          <div class="champ" style="flex:1;margin:0"><label for="nvP1">Prénom 1</label><input type="text" id="nvP1" maxlength="20" placeholder="Ex. : Julie"></div>
+          <div class="champ" style="flex:1;margin:0"><label for="nvP2">Prénom 2</label><input type="text" id="nvP2" maxlength="20" placeholder="Ex. : Thomas"></div>
+        </div>
+        <div class="champ"><label>Ville</label><div id="nvVille"></div></div>
+        <div class="champ"><span style="font-weight:600">Modules</span><div class="modules" id="nvModules"></div></div>
+        <div class="rang"><button type="button" class="principal" id="nvCreer">Créer le cadre</button><span id="nvEtat" class="aide" style="margin:0"></span></div>
+      </div>
     </section>
   </div>
 </div>
@@ -277,6 +376,8 @@ const $ = id => document.getElementById(id);
 const echapper = t => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
 let CLE = '', R = null, catalogue = null, agendasConnus = [], modifie = false;
+let CADRE_ID = '';   // super-admin : cadre en cours de modification ('' = cadre principal)
+const SITE = 'https://chonchon37.github.io/ecran-salon/';
 
 function memoire(action, valeur) {
   try {
@@ -287,7 +388,7 @@ function memoire(action, valeur) {
 }
 async function appel(chemin, options) {
   const sep = chemin.includes('?') ? '&' : '?';
-  const r = await fetch(WORKER + chemin + sep + 'cle=' + encodeURIComponent(CLE), options);
+  const r = await fetch(WORKER + chemin + sep + 'cle=' + encodeURIComponent(CLE) + (CADRE_ID ? '&cadre=' + encodeURIComponent(CADRE_ID) : ''), options);
   let j = null; try { j = await r.json(); } catch (e) {}
   if (!r.ok) throw new Error((j && j.erreur) || ('Erreur ' + r.status));
   return j;
@@ -295,24 +396,31 @@ async function appel(chemin, options) {
 
 /* ---------- Connexion ---------- */
 $('formCle').addEventListener('submit', e => { e.preventDefault(); connecter($('cle').value.trim()); });
-async function connecter(cle) {
+async function connecter(cle, recharge) {
   CLE = cle; $('erreurCle').hidden = true;
   try {
     const j = await appel('/reglages');
     if (!j.admin) throw new Error('Cette clé permet d\'afficher l\'écran, mais pas de modifier les réglages.');
-    if ($('souvenir').checked) memoire('ecrire', cle);
+    if (!recharge && $('souvenir').checked) memoire('ecrire', cle);
     R = j;
+    R.cadre = R.cadre || { id: 'principal', nom: 'Écran du salon', modules: { maison: true, musique: true, transports: true, travail: true }, ha: true };
+    $('nomCadre').textContent = R.cadre.nom;
+    $('choixCadre').hidden = $('ongletCadres').hidden = !R.super;
+    if (R.super) chargerCadres();
     $('connexion').hidden = true; $('reglages').hidden = false; $('barre').hidden = false; $('deconnexion').hidden = false;
     $('avertissement').hidden = j.stockage;
     $('avertissement').textContent = 'Le stockage des réglages n\'est pas encore configuré dans Cloudflare : tu peux consulter, mais pas enregistrer.';
     SAUVE = JSON.stringify(R.reglages);
     remplir();
     let onglet = 'accueil'; try { onglet = localStorage.getItem('ecran-admin-onglet') || 'accueil'; } catch (e) {}
-    ouvrirGroupe(onglet);
+    if (!recharge) ouvrirGroupe(onglet);
     // Infos complémentaires (catalogue Home Assistant, noms des agendas) : en parallèle
-    appel('/maison/catalogue').then(c => { catalogue = c; dessinerMaison(); }).catch(err => { $('lumieres').innerHTML = $('modes').innerHTML = '<p class="vide">Home Assistant injoignable : ' + echapper(err.message) + '</p>'; });
+    catalogue = null; CFG = null; chargerConfig();
+    if (moduleOk('maison')) appel('/maison/catalogue').then(c => { if (c.absent) throw new Error(c.erreur); catalogue = c; dessinerMaison(); }).catch(err => { $('lumieres').innerHTML = $('modes').innerHTML = '<p class="vide">Home Assistant injoignable : ' + echapper(err.message) + '</p>'; });
+    agendasConnus = [];
     appel('/agenda').then(a => { agendasConnus = a.agendas || []; dessinerAgendas(); }).catch(() => dessinerAgendas());
   } catch (err) {
+    if (recharge) { alerteEtat('Échec : ' + err.message); return; }
     $('erreurCle').textContent = err.message; $('erreurCle').hidden = false;
     memoire('oublier');
   }
@@ -404,7 +512,7 @@ function dessinerDispo() {
     ? `<p class="aide" style="margin:0 0 8px">« ${echapper(moC.nom)} » a sa propre disposition : ce que tu modifies ici ne concerne que ce moment.</p><button type="button" id="dispoMomentSuppr">Reprendre la disposition par défaut pour ce moment</button>`
     : `<p class="aide" style="margin:0 0 8px">Pendant « ${echapper(moC.nom)} », l'écran garde la disposition par défaut et masque les tuiles décochées (leur place reste vide).</p><button type="button" id="dispoMomentPerso" class="principal">Choisir l'emplacement des tuiles pour ce moment</button>`;
   const mo = sel.value === '' ? null : M[+sel.value];
-  const P = placer(L.filter(t => !t.off), t => !!mo && mo.tuiles[t.id] === false);
+  const P = placer(L.filter(t => !t.off && moduleOk(t.id)), t => !!mo && mo.tuiles[t.id] === false);
   $('apercu').style.gridTemplateRows = 'repeat(' + P.rangees + ', minmax(0, 1fr))';
   $('apercu').innerHTML = P.places.map(p => `<div class="tu ${p.t.id === 'date' ? 'date' : ''} ${glisse && glisse.id === p.t.id ? (glisse.mode === 'redim' ? 'redim' : 'glisse') : ''}" data-id="${p.t.id}" style="grid-column:${p.c + 1} / span ${p.w};grid-row:${p.r + 1} / span ${p.h}">${NOMS_TUILES[p.t.id]}<small>${p.t.l} × ${demi(p.t.h)}${p.w !== p.t.l || p.h !== Math.round(p.t.h * 2) ? ' → ' + p.w + ' × ' + demi(p.h / 2) : ''}</small><button type="button" class="retirer" data-retirer="${p.t.id}" title="Retirer de l'écran" aria-label="Retirer ${NOMS_TUILES[p.t.id]} de l'écran">✕</button><div class="poignee" data-poignee="${p.t.id}" title="Tirer pour changer la taille"></div></div>`).join('');
   APERCU = P;
@@ -415,7 +523,7 @@ function dessinerDispo() {
     : 'Ce qui est affiché ici est exactement ce que montrera l\'écran ; les zones vides restent vides.';
   $('cases').style.color = P.rangees > 6 ? 'var(--warn)' : '';
   $('dispo').innerHTML = L.map((t, i) => `
-    <div class="ligne dispo-l${t.off ? ' off' : ''}">
+    <div class="ligne dispo-l${t.off ? ' off' : ''}" ${moduleOk(t.id) ? '' : 'hidden'}>
       <div class="fleches">
         <button type="button" data-d-monter="${i}" ${i === 0 ? 'disabled' : ''} aria-label="Monter ${NOMS_TUILES[t.id]}">↑</button>
         <button type="button" data-d-descendre="${i}" ${i === L.length - 1 ? 'disabled' : ''} aria-label="Descendre ${NOMS_TUILES[t.id]}">↓</button>
@@ -519,7 +627,7 @@ function dessinerMoments() {
         <button type="button" data-m-retirer="${i}" style="margin-left:auto">Retirer</button>
       </div>
       <div class="jours tuiles" role="group" aria-label="Tuiles affichées">
-        ${TUILES.map(([k, l]) => `<label><input type="checkbox" data-m-tuile="${i}" value="${k}" ${m.tuiles[k] !== false ? 'checked' : ''}>${l}</label>`).join('')}
+        ${TUILES.filter(([k]) => moduleOk(k)).map(([k, l]) => `<label><input type="checkbox" data-m-tuile="${i}" value="${k}" ${m.tuiles[k] !== false ? 'checked' : ''}>${l}</label>`).join('')}
       </div>
       <label class="interrupteur"><input type="checkbox" data-m-demain="${i}" ${m.demain ? 'checked' : ''}> Demain d'abord (agenda et météo)</label>
       <div class="rang"><span style="color:var(--muted);font-size:15px">Emplacement des tuiles : <b>${m.disposition ? 'propre à ce moment' : 'comme par défaut'}</b></span><button type="button" data-m-dispo="${i}" style="margin-left:auto">${m.disposition ? 'Modifier' : 'Choisir'} l'emplacement</button></div>
@@ -568,15 +676,16 @@ function majHeures() {
   $('infoSoleil').hidden = mode !== 'soleil';
   if (mode === 'soleil') {
     const f = m => String(Math.floor(m / 60)).padStart(2, '0') + ' h ' + String(m % 60).padStart(2, '0');
-    const s = soleil(new Date(), 47.418, 0.688);
-    $('infoSoleil').textContent = 'Aujourd\'hui à Tours : clair de ' + f(s.lever) + ' (lever) à ' + f(s.coucher) + ' (coucher), sombre le reste du temps. Les heures suivent les saisons automatiquement.';
+    const L = (R.cadre && R.cadre.lieu) || { nom: 'Tours', lat: 47.418, lon: 0.688 };
+    const s = soleil(new Date(), L.lat, L.lon);
+    $('infoSoleil').textContent = 'Aujourd\'hui à ' + L.nom + ' : clair de ' + f(s.lever) + ' (lever) à ' + f(s.coucher) + ' (coucher), sombre le reste du temps. Les heures suivent les saisons automatiquement.';
   }
 }
 
 function dessinerSlides() {
   const L = R.reglages.rotation.slides;
   $('slides').innerHTML = L.map((s, i) => `
-    <div class="ligne">
+    <div class="ligne" ${moduleOk(s.id) ? '' : 'hidden'}>
       <div class="fleches">
         <button type="button" data-monter="${i}" ${i === 0 ? 'disabled' : ''} aria-label="Monter ${NOMS_SLIDES[s.id]}">↑</button>
         <button type="button" data-descendre="${i}" ${i === L.length - 1 ? 'disabled' : ''} aria-label="Descendre ${NOMS_SLIDES[s.id]}">↓</button>
@@ -740,8 +849,9 @@ function dessinerFavoris() {
 }
 $('favorisMusique').addEventListener('input', e => { const i = e.target.dataset.fav; if (i !== undefined) { favoris()[+i][e.target.dataset.champ] = e.target.value; aChange(); } });
 $('favorisMusique').addEventListener('click', e => { const i = e.target.dataset.favRetirer; if (i !== undefined) { favoris().splice(+i, 1); dessinerFavoris(); aChange(); } });
-['connecterSpotify', 'connecterSpotify2'].forEach(id => $(id).addEventListener('click', () => { window.open(WORKER + '/spotify/connexion?cle=' + encodeURIComponent(CLE) + '&compte=' + $(id).dataset.compte, '_blank'); }));
+['connecterSpotify', 'connecterSpotify2'].forEach(id => $(id).addEventListener('click', () => { window.open(WORKER + '/spotify/connexion?cle=' + encodeURIComponent(CLE) + (CADRE_ID ? '&cadre=' + CADRE_ID : '') + '&compte=' + $(id).dataset.compte, '_blank'); }));
 function etatSpotify() {
+  if (!moduleOk('musique')) return;
   appel('/musique').then(m => {
     const P = R.reglages.agenda.personnes, noms = { moi: P.moi || 'Moi', flo: P.flo || 'Flo' }, co = {};
     (m.comptes || []).forEach(c => co[c.id] = c);
@@ -769,13 +879,18 @@ const INTROS = {
   'accueil': 'Ce que montre la page d\'accueil, et comment elle change selon le moment de la journée.',
   'pages': 'Quelles pages tournent sur l\'écran, combien de temps, et lesquelles restent fixes à certaines heures.',
   'jour-nuit': 'Thème clair ou sombre, et mise en veille la nuit.',
-  'donnees': 'Temps de marche jusqu\'aux arrêts, agendas Google et commandes Home Assistant.'
+  'donnees': 'Temps de marche jusqu\'aux arrêts, agendas, lumières et musique.',
+  'cadre': 'Nom, ville, modules, agendas Google et Home Assistant de ce cadre.',
+  'cadres': 'Créer un cadre pour une autre famille, envoyer ses adresses, renouveler ses clés.'
 };
 function ouvrirGroupe(g) {
-  if (!INTROS[g]) g = 'accueil';
-  document.querySelectorAll('section[data-groupe]').forEach(s => { s.hidden = s.dataset.groupe !== g; });
+  if (!INTROS[g] || (g === 'cadres' && !R.super)) g = 'accueil';
+  document.querySelectorAll('section[data-groupe]').forEach(s => { s.hidden = s.dataset.groupe !== g || !sectionOk(s.dataset.module); });
   document.querySelectorAll('#onglets button').forEach(b => b.setAttribute('aria-current', b.dataset.g === g ? 'true' : 'false'));
   $('intro').textContent = INTROS[g];
+  // Rubriques « cadre » : elles ont leur propre bouton ; la barre du bas ne sert qu'aux réglages d'affichage
+  document.querySelector('.resume').hidden = g === 'cadres';
+  $('barre').hidden = (g === 'cadre' || g === 'cadres') && !modifie;
   try { localStorage.setItem('ecran-admin-onglet', g); } catch (e) {}
 }
 $('onglets').addEventListener('click', e => { const g = e.target.dataset.g; if (g) { ouvrirGroupe(g); window.scrollTo({ top: $('onglets').offsetTop - 4, behavior: 'smooth' }); } });
@@ -827,8 +942,229 @@ $('enregistrer').addEventListener('click', async () => {
 });
 window.addEventListener('beforeunload', e => { if (modifie) { e.preventDefault(); e.returnValue = ''; } });
 
-/* ---------- Démarrage : reconnexion automatique si la clé est mémorisée ---------- */
-const memorisee = memoire('lire');
+/* ---------- Plusieurs cadres ---------- */
+// Ce que le cadre affiche (le principal a tout ; une famille selon ses modules et son Home Assistant)
+function moduleOk(id) {
+  const C = R && R.cadre;
+  if (!C || !C.modules) return true;
+  if (id === 'maison' || id === 'musique') return !!(C.modules[id] && C.ha);
+  if (id === 'transports' || id === 'travail') return !!C.modules[id];
+  return true;
+}
+function sectionOk(m) {
+  if (!m) return true;
+  const principal = !R.cadre || R.cadre.id === 'principal';
+  if (m === 'principal') return principal;
+  if (m === 'famille') return !principal;
+  if (m === 'super') return !!R.super;
+  return moduleOk(m);
+}
+function groupeActuel() { const b = document.querySelector('#onglets button[aria-current="true"]'); return b ? b.dataset.g : 'accueil'; }
+
+const NOMS_MODULES = {
+  maison: ['Maison', 'Lumières et boutons de modes (Home Assistant)'],
+  musique: ['Musique', 'Enceintes Google et playlists Spotify (Home Assistant)'],
+  transports: ['Transports Fil Bleu', 'Tram A et bus 2 à Tours (arrêts Monconseil / Maréchal Juin)']
+};
+function cocherModules(zone, mods) {
+  zone.innerHTML = Object.keys(NOMS_MODULES).map(k => `<label><input type="checkbox" data-mod="${k}" ${mods && mods[k] ? 'checked' : ''}><span>${NOMS_MODULES[k][0]}<small>${NOMS_MODULES[k][1]}</small></span></label>`).join('');
+}
+function lireModules(zone) { const m = {}; zone.querySelectorAll('[data-mod]').forEach(i => m[i.dataset.mod] = i.checked); return m; }
+
+// Recherche de ville (géocodage Open-Meteo, France)
+function champVille(zone, depart, quandChoisi) {
+  let lieu = depart || null;
+  zone.innerHTML = `<div class="rang" style="flex-wrap:nowrap"><input type="text" placeholder="Tape une ville puis Rechercher" style="flex:1" autocomplete="off"><button type="button">Rechercher</button></div><div class="resultats"></div><small style="color:var(--muted)"></small>`;
+  const champ = zone.querySelector('input'), res = zone.querySelector('.resultats'), info = zone.querySelector('small');
+  const montrer = () => { info.textContent = lieu ? 'Choisie : ' + lieu.nom + ' (' + lieu.lat.toFixed(3) + ', ' + lieu.lon.toFixed(3) + ')' : 'Aucune ville choisie (Tours par défaut).'; };
+  if (lieu) champ.value = lieu.nom;
+  montrer();
+  const chercher = async () => {
+    const q = champ.value.trim(); if (q.length < 2) return;
+    res.innerHTML = '<span class="aide" style="margin:0">Recherche…</span>';
+    try {
+      const r = await fetch('https://geocoding-api.open-meteo.com/v1/search?count=6&language=fr&countryCode=FR&name=' + encodeURIComponent(q));
+      const L = ((await r.json()).results || []);
+      res.innerHTML = L.length ? L.map((v, i) => `<button type="button" data-i="${i}"><b>${echapper(v.name)}</b> · ${echapper([v.postcodes && v.postcodes[0], v.admin2 || v.admin1].filter(Boolean).join(' · '))}</button>`).join('') : '<span class="aide" style="margin:0">Aucune ville trouvée.</span>';
+      res.onclick = e => {
+        const b = e.target.closest('button'); if (!b) return;
+        const v = L[+b.dataset.i];
+        lieu = { nom: v.name, lat: v.latitude, lon: v.longitude };
+        champ.value = v.name; res.innerHTML = ''; montrer(); if (quandChoisi) quandChoisi(lieu);
+      };
+    } catch (e) { res.innerHTML = '<span class="aide" style="margin:0">Recherche impossible.</span>'; }
+  };
+  zone.querySelector('button').addEventListener('click', chercher);
+  champ.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); chercher(); } });
+  return () => lieu;
+}
+
+/* ----- Configuration du cadre courant ----- */
+let CFG = null, lireVille = null;
+async function chargerConfig() {
+  if (!R.cadre || R.cadre.id === 'principal') return;
+  try { CFG = await appel('/cadre/config'); dessinerConfig(); }
+  catch (err) { $('cfgEtat').textContent = 'Lecture impossible : ' + err.message; }
+}
+function dessinerConfig() {
+  $('cfgNom').value = CFG.nom || '';
+  lireVille = champVille($('cfgVille'), CFG.lieu);
+  cocherModules($('cfgModules'), CFG.modules);
+  dessinerAgendasCfg();
+  $('haUrl').value = CFG.ha ? CFG.ha.url : '';
+  $('haJeton').value = '';
+  $('haJetonInfo').textContent = CFG.ha && CFG.ha.token ? 'Jeton enregistré (' + CFG.ha.token + '). Laisse vide pour le garder.' : 'Aucun jeton enregistré.';
+  $('haAlerte').value = CFG.ha ? CFG.ha.alerte : '';
+}
+function dessinerAgendasCfg() {
+  const A = CFG.agendas;
+  $('cfgAgendas').innerHTML = A.length ? A.map((a, i) => `<div class="agenda-l">
+    <input type="text" data-ag-nom="${i}" maxlength="30" value="${echapper(a.nom)}" placeholder="Nom (ex. Julie)">
+    <input type="text" data-ag-url="${i}" value="${echapper(a.url)}" placeholder="https://calendar.google.com/calendar/ical/…/basic.ics" spellcheck="false" autocomplete="off">
+    <button type="button" data-ag-retirer="${i}">Retirer</button></div>`).join('') : '<p class="vide">Aucun agenda.</p>';
+  $('cfgAjoutAgenda').disabled = A.length >= 6;
+}
+$('cfgAgendas').addEventListener('input', e => {
+  const d = e.target.dataset;
+  if (d.agNom !== undefined) CFG.agendas[+d.agNom].nom = e.target.value;
+  if (d.agUrl !== undefined) CFG.agendas[+d.agUrl].url = e.target.value;
+});
+$('cfgAgendas').addEventListener('click', e => { const i = e.target.dataset.agRetirer; if (i !== undefined) { CFG.agendas.splice(+i, 1); dessinerAgendasCfg(); } });
+$('cfgAjoutAgenda').addEventListener('click', () => { CFG.agendas.push({ nom: '', url: '' }); dessinerAgendasCfg(); });
+$('cfgEnregistrer').addEventListener('click', async () => {
+  const mauvais = CFG.agendas.find(a => a.url && !/^••••/.test(a.url) && !/^https:\/\//.test(a.url.trim()));
+  if (mauvais) { $('cfgEtat').textContent = 'Une adresse d\'agenda doit commencer par https://'; return; }
+  const haUrl = $('haUrl').value.trim();
+  if (haUrl && !/^https?:\/\//.test(haUrl)) { $('cfgEtat').textContent = 'L\'adresse Home Assistant doit commencer par https://'; return; }
+  const corps = { nom: $('cfgNom').value, modules: lireModules($('cfgModules')), agendas: CFG.agendas.filter(a => a.url.trim()),
+    ha: haUrl ? { url: haUrl, token: $('haJeton').value.trim(), alerte: $('haAlerte').value.trim() } : null };
+  const lieu = lireVille && lireVille(); if (lieu) corps.lieu = lieu;
+  $('cfgEnregistrer').disabled = true; $('cfgEtat').textContent = 'Enregistrement…';
+  try {
+    await appel('/cadre/config', { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(corps) });
+    if (modifie && !confirm('Des réglages ne sont pas enregistrés : les abandonner pour recharger le cadre ?')) { $('cfgEtat').textContent = 'Configuration enregistrée.'; return; }
+    modifie = false;
+    const g = groupeActuel(); await connecter(CLE, true); ouvrirGroupe(g);
+    $('cfgEtat').textContent = 'Configuration enregistrée ✓ L\'écran se met à jour d\'ici quelques minutes.';
+    if (R.super) chargerCadres();
+  } catch (err) { $('cfgEtat').textContent = 'Échec : ' + err.message; }
+  finally { $('cfgEnregistrer').disabled = false; }
+});
+
+/* ----- Super-admin : liste, création, clés ----- */
+let CADRES = [], ouverts = {};
+async function chargerCadres() {
+  try { CADRES = (await fetch(WORKER + '/cadres?cle=' + encodeURIComponent(CLE)).then(r => r.json())).cadres || []; }
+  catch (e) { $('listeCadres').innerHTML = '<p class="vide">Liste indisponible.</p>'; return; }
+  $('cadreActif').innerHTML = CADRES.map(c => `<option value="${c.principal ? '' : c.id}">${echapper(c.nom)}${c.lieu ? ' · ' + echapper(c.lieu.nom) : ''}</option>`).join('');
+  $('cadreActif').value = CADRE_ID;
+  dessinerCadres();
+}
+function depuis(t) {
+  if (!t) return ['jamais connecté', false];
+  const m = Math.round((Date.now() - t) / 60000);
+  if (m < 2) return ['en ligne', true];
+  if (m < 60) return ['vu il y a ' + m + ' min', m < 15];
+  const h = Math.round(m / 60);
+  return [h < 48 ? 'vu il y a ' + h + ' h' : 'vu le ' + new Date(t).toLocaleDateString('fr-FR'), false];
+}
+const adresseEcran = c => SITE + '?cle=' + c.cle;
+const adresseAdmin = c => SITE + 'admin.html?cle=' + c.cleAdmin;
+function dessinerCadres() {
+  $('listeCadres').innerHTML = CADRES.map(c => {
+    const [vu, on] = depuis(c.vu), mods = Object.keys(NOMS_MODULES).filter(k => c.modules && c.modules[k]);
+    const actif = (c.principal ? '' : c.id) === CADRE_ID;
+    return `<div class="cadre">
+      <div class="haut">
+        <div class="titre"><b>${echapper(c.nom)}${actif ? ' <span class="puce">en cours</span>' : ''}</b><span>${c.lieu ? echapper(c.lieu.nom) : 'Tours'} · <span class="vu${on ? ' on' : ''}"><i></i>${vu}</span></span>
+          <div class="puces">${c.principal ? '<span class="puce">Principal</span>' : ''}${(c.principal ? ['maison', 'musique', 'transports'] : mods).map(k => '<span class="puce">' + NOMS_MODULES[k][0] + '</span>').join('')}${!c.principal && c.modules && (c.modules.maison || c.modules.musique) && !c.ha ? '<span class="puce" style="color:var(--warn)">Home Assistant à configurer</span>' : ''}</div>
+        </div>
+        <div class="actions">
+          ${actif ? '' : `<button type="button" data-modifier="${c.principal ? '' : c.id}">Modifier</button>`}
+          ${c.principal ? '' : `<button type="button" data-adresses="${c.id}" aria-expanded="${!!ouverts[c.id]}">${ouverts[c.id] ? 'Masquer' : 'Adresses'}</button>`}
+        </div>
+      </div>
+      ${!c.principal && ouverts[c.id] ? `<div class="adresses">
+        <div class="adresse"><label>Adresse de l'écran · à saisir dans Fully Kiosk (Start URL)</label>
+          <div class="rang"><code>${echapper(adresseEcran(c))}</code><button type="button" data-copier="${echapper(adresseEcran(c))}">Copier</button></div></div>
+        <div class="qr"><div class="code" data-qr="${echapper(adresseEcran(c))}"></div><p>Scanne ce code avec le cadre (ou un téléphone) pour ouvrir l'adresse de l'écran sans la taper.</p></div>
+        <div class="adresse"><label>Lien d'administration · à envoyer à la famille</label>
+          <div class="rang"><code>${echapper(adresseAdmin(c))}</code><button type="button" data-copier="${echapper(adresseAdmin(c))}">Copier</button></div></div>
+        <div class="zone-danger">
+          <button type="button" class="danger" data-cles="${c.id}">Nouvelles clés</button>
+          <button type="button" class="danger" data-supprimer="${c.id}">Supprimer le cadre</button>
+        </div>
+      </div>` : ''}
+    </div>`;
+  }).join('');
+  dessinerQR();
+}
+// QR code : bibliothèque chargée seulement quand on en affiche un
+let qrPret = null;
+function dessinerQR() {
+  const zones = document.querySelectorAll('[data-qr]');
+  if (!zones.length) return;
+  qrPret = qrPret || new Promise((ok, ko) => { const s = document.createElement('script'); s.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js'; s.onload = ok; s.onerror = ko; document.head.appendChild(s); });
+  qrPret.then(() => zones.forEach(z => { if (!z.firstChild) new QRCode(z, { text: z.dataset.qr, width: 132, height: 132, correctLevel: QRCode.CorrectLevel.M }); }))
+    .catch(() => zones.forEach(z => z.parentNode.hidden = true));
+}
+$('listeCadres').addEventListener('click', async e => {
+  const b = e.target.closest('button'); if (!b) return;
+  const d = b.dataset;
+  if (d.copier !== undefined) {
+    try { await navigator.clipboard.writeText(d.copier); b.textContent = 'Copié ✓'; } catch (err) { b.textContent = 'Sélectionne le texte'; }
+    setTimeout(() => b.textContent = 'Copier', 1800); return;
+  }
+  if (d.adresses !== undefined) { ouverts[d.adresses] = !ouverts[d.adresses]; dessinerCadres(); return; }
+  if (d.modifier !== undefined) { changerCadre(d.modifier); return; }
+  const c = CADRES.find(x => x.id === (d.cles || d.supprimer));
+  if (d.cles !== undefined) {
+    if (!confirm('Créer de nouvelles clés pour « ' + c.nom + ' » ?\n\nL\'adresse actuelle de l\'écran et le lien d\'administration cesseront de fonctionner : il faudra saisir la nouvelle adresse dans le cadre.')) return;
+    await fetch(WORKER + '/cadres?cle=' + encodeURIComponent(CLE), { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ action: 'cles', id: c.id }) });
+    ouverts[c.id] = true; chargerCadres();
+  }
+  if (d.supprimer !== undefined) {
+    const n = prompt('Supprimer « ' + c.nom + ' » et tous ses réglages ? C\'est définitif.\n\nTape SUPPRIMER pour confirmer.');
+    if (n !== 'SUPPRIMER') return;
+    await fetch(WORKER + '/cadres?cle=' + encodeURIComponent(CLE), { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ action: 'supprimer', id: c.id }) });
+    if (CADRE_ID === c.id) { await changerCadre(''); ouvrirGroupe('cadres'); }
+    chargerCadres();
+  }
+});
+async function changerCadre(id) {
+  if (modifie && !confirm('Des réglages ne sont pas enregistrés. Les abandonner ?')) { $('cadreActif').value = CADRE_ID; return; }
+  modifie = false; CADRE_ID = id; $('cfgEtat').textContent = '';
+  const g = groupeActuel();
+  await connecter(CLE, true);
+  ouvrirGroupe(g === 'cadres' ? 'cadre' : g);
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+$('cadreActif').addEventListener('change', () => changerCadre($('cadreActif').value));
+let lireVilleNv = null;
+function initNouveau() { $('nvNom').value = $('nvP1').value = $('nvP2').value = ''; lireVilleNv = champVille($('nvVille'), null); cocherModules($('nvModules'), { transports: false }); }
+initNouveau();
+$('nvCreer').addEventListener('click', async () => {
+  const nom = $('nvNom').value.trim();
+  if (!nom) { $('nvEtat').textContent = 'Donne un nom au cadre.'; $('nvNom').focus(); return; }
+  const lieu = lireVilleNv();
+  if (!lieu) { $('nvEtat').textContent = 'Choisis la ville (pour la météo).'; return; }
+  $('nvCreer').disabled = true; $('nvEtat').textContent = 'Création…';
+  try {
+    const r = await fetch(WORKER + '/cadres?cle=' + encodeURIComponent(CLE), { method: 'POST', headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ action: 'creer', nom, prenom1: $('nvP1').value.trim() || 'Moi', prenom2: $('nvP2').value.trim() || 'Ma moitié', lieu, modules: lireModules($('nvModules')) }) }).then(x => x.json());
+    if (!r.ok) throw new Error(r.erreur || 'Création impossible');
+    ouverts[r.cadre.id] = true; initNouveau();
+    $('nvEtat').textContent = '« ' + r.cadre.nom + ' » créé ✓ Ses adresses sont affichées ci-dessus.';
+    await chargerCadres();
+    $('listeCadres').querySelector('[data-adresses="' + r.cadre.id + '"]').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  } catch (err) { $('nvEtat').textContent = 'Échec : ' + err.message; }
+  finally { $('nvCreer').disabled = false; }
+});
+
+/* ---------- Démarrage : lien d'administration (?cle=), sinon clé mémorisée ---------- */
+const dansLien = new URLSearchParams(location.search).get('cle');
+if (dansLien) { history.replaceState(null, '', location.pathname); memoire('ecrire', dansLien); }
+const memorisee = dansLien || memoire('lire');
 if (memorisee) { $('souvenir').checked = true; $('cle').value = memorisee; connecter(memorisee); }
 </script>
 </body>
