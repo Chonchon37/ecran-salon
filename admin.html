@@ -104,9 +104,9 @@ input[type=time]{font:inherit;color:var(--ink);background:var(--bg);border:1.5px
 .adresse .rang{gap:8px;flex-wrap:nowrap}
 .adresse code{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;background:var(--card);border-radius:8px;padding:8px 10px;font-size:13px}
 .adresse button{flex:none;padding:8px 12px;font-size:14px}
-.qr{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
-.qr .code{background:#fff;padding:8px;border-radius:10px;line-height:0}
-.qr p{margin:0;color:var(--muted);font-size:14px;flex:1;min-width:180px}
+.code-cadre{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.code-cadre strong{font:700 34px/1 var(--display);letter-spacing:.18em;background:var(--card);border-radius:12px;padding:12px 16px 12px 22px}
+.code-cadre p{margin:0;color:var(--muted);font-size:14px;flex:1;min-width:200px}
 .zone-danger{display:flex;gap:8px;flex-wrap:wrap}
 .zone-danger button{font-size:14px;padding:8px 12px}
 button.danger{background:var(--warn-soft);color:var(--warn)}
@@ -343,7 +343,7 @@ button.discret{background:transparent;color:var(--muted);padding:8px 10px;font-s
     <!-- Super-admin : tous les cadres -->
     <section data-groupe="cadres" data-module="super">
       <h2>Tous les cadres</h2>
-      <p class="aide">Chaque cadre a sa propre adresse (à saisir dans Fully Kiosk comme page de démarrage) et son lien d'administration, à envoyer à la famille.</p>
+      <p class="aide">Tous les cadres utilisent la même adresse dans Fully Kiosk : <b>chonchon37.github.io/ecran-salon</b>. Au premier démarrage, le cadre demande son <b>code à 5 caractères</b> (modifiable ensuite avec la roue crantée). Chaque famille reçoit aussi un lien d'administration pour ses propres réglages.</p>
       <div id="listeCadres"><p class="vide">Chargement…</p></div>
       <div class="nouveau">
         <h2 style="font-size:18px">Nouveau cadre</h2>
@@ -1068,7 +1068,6 @@ function depuis(t) {
   const h = Math.round(m / 60);
   return [h < 48 ? 'vu il y a ' + h + ' h' : 'vu le ' + new Date(t).toLocaleDateString('fr-FR'), false];
 }
-const adresseEcran = c => SITE + '?cle=' + c.cle;
 const adresseAdmin = c => SITE + 'admin.html?cle=' + c.cleAdmin;
 function dessinerCadres() {
   $('listeCadres').innerHTML = CADRES.map(c => {
@@ -1081,32 +1080,22 @@ function dessinerCadres() {
         </div>
         <div class="actions">
           ${actif ? '' : `<button type="button" data-modifier="${c.principal ? '' : c.id}">Modifier</button>`}
-          ${c.principal ? '' : `<button type="button" data-adresses="${c.id}" aria-expanded="${!!ouverts[c.id]}">${ouverts[c.id] ? 'Masquer' : 'Adresses'}</button>`}
+          <button type="button" data-adresses="${c.id}" aria-expanded="${!!ouverts[c.id]}">${ouverts[c.id] ? 'Masquer' : 'Code & liens'}</button>
         </div>
       </div>
-      ${!c.principal && ouverts[c.id] ? `<div class="adresses">
-        <div class="adresse"><label>Adresse de l'écran · à saisir dans Fully Kiosk (Start URL)</label>
-          <div class="rang"><code>${echapper(adresseEcran(c))}</code><button type="button" data-copier="${echapper(adresseEcran(c))}">Copier</button></div></div>
-        <div class="qr"><div class="code" data-qr="${echapper(adresseEcran(c))}"></div><p>Scanne ce code avec le cadre (ou un téléphone) pour ouvrir l'adresse de l'écran sans la taper.</p></div>
-        <div class="adresse"><label>Lien d'administration · à envoyer à la famille</label>
-          <div class="rang"><code>${echapper(adresseAdmin(c))}</code><button type="button" data-copier="${echapper(adresseAdmin(c))}">Copier</button></div></div>
+      ${ouverts[c.id] ? `<div class="adresses">
+        <div class="code-cadre"><strong>${echapper(c.cle || '—')}</strong><p>Code à saisir sur le cadre au démarrage (ou roue crantée → « Changer de cadre »).</p></div>
+        <div class="adresse"><label>Adresse dans Fully Kiosk (Start URL) · la même pour tous les cadres</label>
+          <div class="rang"><code>${SITE}</code><button type="button" data-copier="${SITE}">Copier</button></div></div>
+        ${c.principal ? '' : `<div class="adresse"><label>Lien d'administration · à envoyer à la famille</label>
+          <div class="rang"><code>${echapper(adresseAdmin(c))}</code><button type="button" data-copier="${echapper(adresseAdmin(c))}">Copier</button></div></div>`}
         <div class="zone-danger">
-          <button type="button" class="danger" data-cles="${c.id}">Nouvelles clés</button>
-          <button type="button" class="danger" data-supprimer="${c.id}">Supprimer le cadre</button>
+          <button type="button" class="danger" data-cles="${c.id}">${c.principal ? 'Nouveau code' : 'Nouveau code et nouveau lien'}</button>
+          ${c.principal ? '' : `<button type="button" class="danger" data-supprimer="${c.id}">Supprimer le cadre</button>`}
         </div>
       </div>` : ''}
     </div>`;
   }).join('');
-  dessinerQR();
-}
-// QR code : bibliothèque chargée seulement quand on en affiche un
-let qrPret = null;
-function dessinerQR() {
-  const zones = document.querySelectorAll('[data-qr]');
-  if (!zones.length) return;
-  qrPret = qrPret || new Promise((ok, ko) => { const s = document.createElement('script'); s.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js'; s.onload = ok; s.onerror = ko; document.head.appendChild(s); });
-  qrPret.then(() => zones.forEach(z => { if (!z.firstChild) new QRCode(z, { text: z.dataset.qr, width: 132, height: 132, correctLevel: QRCode.CorrectLevel.M }); }))
-    .catch(() => zones.forEach(z => z.parentNode.hidden = true));
 }
 $('listeCadres').addEventListener('click', async e => {
   const b = e.target.closest('button'); if (!b) return;
@@ -1117,9 +1106,10 @@ $('listeCadres').addEventListener('click', async e => {
   }
   if (d.adresses !== undefined) { ouverts[d.adresses] = !ouverts[d.adresses]; dessinerCadres(); return; }
   if (d.modifier !== undefined) { changerCadre(d.modifier); return; }
-  const c = CADRES.find(x => x.id === (d.cles || d.supprimer));
+  const c = CADRES.find(x => x.id === (d.cles || d.supprimer)) || (d.cles === 'principal' ? CADRES[0] : null);
   if (d.cles !== undefined) {
-    if (!confirm('Créer de nouvelles clés pour « ' + c.nom + ' » ?\n\nL\'adresse actuelle de l\'écran et le lien d\'administration cesseront de fonctionner : il faudra saisir la nouvelle adresse dans le cadre.')) return;
+    if (!confirm(c.principal ? 'Créer un nouveau code pour « ' + c.nom + ' » ?\n\nL\'ancien code ne marchera plus : il faudra saisir le nouveau sur le cadre (l\'adresse actuelle avec la clé longue continue de marcher).'
+      : 'Créer un nouveau code et un nouveau lien d\'administration pour « ' + c.nom + ' » ?\n\nL\'ancien code et l\'ancien lien ne marcheront plus : il faudra saisir le nouveau code sur le cadre.')) return;
     await fetch(WORKER + '/cadres?cle=' + encodeURIComponent(CLE), { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ action: 'cles', id: c.id }) });
     ouverts[c.id] = true; chargerCadres();
   }
@@ -1154,7 +1144,7 @@ $('nvCreer').addEventListener('click', async () => {
       body: JSON.stringify({ action: 'creer', nom, prenom1: $('nvP1').value.trim() || 'Moi', prenom2: $('nvP2').value.trim() || 'Ma moitié', lieu, modules: lireModules($('nvModules')) }) }).then(x => x.json());
     if (!r.ok) throw new Error(r.erreur || 'Création impossible');
     ouverts[r.cadre.id] = true; initNouveau();
-    $('nvEtat').textContent = '« ' + r.cadre.nom + ' » créé ✓ Ses adresses sont affichées ci-dessus.';
+    $('nvEtat').textContent = '« ' + r.cadre.nom + ' » créé ✓ Son code et son lien sont affichés ci-dessus.';
     await chargerCadres();
     $('listeCadres').querySelector('[data-adresses="' + r.cadre.id + '"]').scrollIntoView({ behavior: 'smooth', block: 'center' });
   } catch (err) { $('nvEtat').textContent = 'Échec : ' + err.message; }

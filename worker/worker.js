@@ -32,7 +32,7 @@ const FLUX_ALERTES = 'https://data.filbleu.fr/ws-tr/gtfs-rt/opendata/service-ale
 const FLUX_INCIDENTS = 'https://www.filbleu.fr/rss-incident.xml';   // l'info trafic du site filbleu.fr (travaux, déviations…)
 const NOMS_ARRETS = { 'A': 'Monconseil', '2': 'Maréchal Juin' };
 const CACHE_SECONDES = 30;   // les écrans redemandent toutes les 30 s
-const VERSION = '35';   // à changer à chaque mise à jour du code : vide les caches
+const VERSION = '36';   // à changer à chaque mise à jour du code : vide les caches
 
 // Horaires prévus, format compact : "jours" = n° de grille pour chaque jour depuis "debut",
 // chaque ligne "g=" = minutes depuis minuit, écrites en écarts successifs.
@@ -1301,6 +1301,22 @@ async function lireCadres(env) {
   CADRES_MEMO = Array.isArray(l) ? l : []; CADRES_LUS = Date.now();
   return CADRES_MEMO;
 }
+// Code à 5 caractères du cadre principal (en plus de son ancienne clé ECRAN_CLE)
+let CODE_PRINCIPAL = null, CODE_LU = 0;
+async function codePrincipal(env, regenerer) {
+  if (!regenerer && CODE_PRINCIPAL && Date.now() - CODE_LU < 30000) return CODE_PRINCIPAL;
+  let c = null;
+  if (!regenerer && env.REGLAGES) { try { c = await env.REGLAGES.get('code-principal'); } catch (e) {} }
+  if (!c && env.REGLAGES) { c = nouvelleCle(5); await env.REGLAGES.put('code-principal', c); }
+  CODE_PRINCIPAL = c; CODE_LU = Date.now();
+  return c;
+}
+// Un même code ne doit servir qu'une fois (tous cadres confondus)
+async function codeLibre(env) {
+  const pris = (await lireCadres(env)).map(c => c.cle).concat([await codePrincipal(env)]);
+  let c; do { c = nouvelleCle(5); } while (pris.indexOf(c) >= 0);
+  return c;
+}
 async function ecrireCadres(env, liste) {
   await env.REGLAGES.put('cadres', JSON.stringify(liste));
   CADRES_MEMO = liste; CADRES_LUS = Date.now();
@@ -1338,6 +1354,8 @@ async function identifier(env, cle, cadreDemande) {
   const superCle = env.ADMIN_CLE || env.ECRAN_CLE;
   if (egalite(cle, superCle)) return { role: 'super', cadre: cadreDemande || 'principal' };
   if (egalite(cle, env.ECRAN_CLE)) return { role: 'ecran', cadre: 'principal' };
+  if (cle.length === 5) cle = cle.toUpperCase();   // code saisi sur le cadre : majuscules ou minuscules
+  if (env.REGLAGES && cle.length === 5 && egalite(cle, await codePrincipal(env))) return { role: 'ecran', cadre: 'principal' };
   for (const c of await lireCadres(env)) {
     if (egalite(cle, c.cle)) return { role: 'ecran', cadre: c.id };
     if (egalite(cle, c.cleAdmin)) return { role: 'admin', cadre: c.id };
@@ -1377,7 +1395,7 @@ function appliquerConfig(c, n) {
 async function gererCadres(env, corps) {
   const L = (await lireCadres(env)).slice();
   if (corps.action === 'creer') {
-    const c = { id: nouvelleCle(8).toLowerCase(), nom: String(corps.nom || 'Nouveau cadre').trim().slice(0, 40) || 'Nouveau cadre', cle: nouvelleCle(10), cleAdmin: nouvelleCle(12), cree: Date.now(),
+    const c = { id: nouvelleCle(8).toLowerCase(), nom: String(corps.nom || 'Nouveau cadre').trim().slice(0, 40) || 'Nouveau cadre', cle: await codeLibre(env), cleAdmin: nouvelleCle(12), cree: Date.now(),
       config: { modules: { maison: false, musique: false, transports: false, travail: false }, agendas: [] } };
     appliquerConfig(c, corps);
     L.push(c); await ecrireCadres(env, L);
@@ -1390,9 +1408,10 @@ async function gererCadres(env, corps) {
     await env.REGLAGES.put('reglages:' + c.id, JSON.stringify({ reglages: nettoyerReglages(init), maj: Date.now() }));
     return { ok: true, cadre: vueCadre(c, true) };
   }
+  if (corps.id === 'principal' && corps.action === 'cles') { await codePrincipal(env, true); return { ok: true }; }
   const c = L.find(x => x.id === corps.id);
   if (!c) return { ok: false, erreur: 'Cadre introuvable' };
-  if (corps.action === 'cles') { c.cle = nouvelleCle(10); c.cleAdmin = nouvelleCle(12); await ecrireCadres(env, L); return { ok: true, cadre: vueCadre(c, true) }; }
+  if (corps.action === 'cles') { c.cle = await codeLibre(env); c.cleAdmin = nouvelleCle(12); await ecrireCadres(env, L); return { ok: true, cadre: vueCadre(c, true) }; }
   if (corps.action === 'supprimer') {
     await ecrireCadres(env, L.filter(x => x.id !== c.id));
     for (const k of ['reglages:' + c.id, 'spotify-moi:' + c.id, 'spotify-flo:' + c.id]) { try { await env.REGLAGES.delete(k); } catch (e) {} }
@@ -1400,6 +1419,13 @@ async function gererCadres(env, corps) {
     return { ok: true };
   }
   return { ok: false, erreur: 'Action inconnue' };
+}
+// Essais de code ratés par adresse IP (15 min), pour empêcher de deviner les codes
+async function lireEssais(ip) {
+  try { const r = await caches.default.match(new Request('https://cache.ecran-salon.local/essais/' + encodeURIComponent(ip))); return r ? parseInt(await r.text(), 10) || 0 : 0; } catch (e) { return 0; }
+}
+async function noterEssai(ip, n) {
+  try { await caches.default.put(new Request('https://cache.ecran-salon.local/essais/' + encodeURIComponent(ip)), new Response(String(n + 1), { headers: { 'Cache-Control': 'max-age=900' } })); } catch (e) {}
 }
 // Dernière visite de chaque écran (cache, sans écriture dans le KV)
 async function noterVisite(cadre) {
@@ -1428,8 +1454,11 @@ export default {
       // Tout le reste est privé
       const cle = url.searchParams.get('cle') || '';
       if (!env.ECRAN_CLE) return repondre({ erreur: 'ECRAN_CLE manquant dans les réglages du Worker' }, 503, entetes);
+      const ip = request.headers.get('CF-Connecting-IP') || 'local';
+      const essais = await lireEssais(ip);
+      if (essais >= 30) return repondre({ erreur: 'Trop d\'essais : réessaie dans 15 minutes' }, 429, entetes);
       const qui = await identifier(envBase, cle, url.searchParams.get('cadre'));
-      if (!qui) return repondre({ erreur: 'Clé absente ou incorrecte' }, 401, entetes);
+      if (!qui) { ctx.waitUntil(noterEssai(ip, essais)); return repondre({ erreur: 'Code ou clé incorrect' }, 401, entetes); }
       const estSuper = qui.role === 'super', estAdmin = estSuper || qui.role === 'admin';
       env = await envCadre(envBase, qui.cadre);
       if (!env) return repondre({ erreur: 'Cadre introuvable' }, 404, entetes);
@@ -1440,7 +1469,7 @@ export default {
       if (chemin === '/cadres' && request.method === 'GET') {
         if (!estSuper) return repondre({ erreur: 'Réservé à l\'administrateur principal' }, 403, entetes);
         const L = await lireCadres(envBase), liste = [];
-        liste.push({ id: 'principal', nom: envBase.NOM_CADRE || 'Écran du salon', principal: true, lieu: LIEU_PRINCIPAL, modules: { maison: true, musique: true, transports: true, travail: true }, vu: await lireVisite('principal') });
+        liste.push({ id: 'principal', nom: envBase.NOM_CADRE || 'Écran du salon', principal: true, cle: await codePrincipal(envBase), lieu: LIEU_PRINCIPAL, modules: { maison: true, musique: true, transports: true, travail: true }, vu: await lireVisite('principal') });
         for (const c of L) liste.push(Object.assign(vueCadre(c, true), { vu: await lireVisite(c.id) }));
         return repondre({ cadres: liste }, 200, entetes);
       }

@@ -140,6 +140,29 @@ body{
 .graduations{position:relative;height:18px;font-size:14px;color:var(--muted);margin:-2px 6px 0}
 .graduations span{position:absolute;top:0;-webkit-transform:translateX(-50%);transform:translateX(-50%);white-space:nowrap}
 .vi{margin-top:14px;font-size:14px;color:var(--muted);text-align:center}
+.vcadre{display:flex;align-items:center;margin-top:16px;padding-top:14px;border-top:1px solid var(--line);font-size:17px}
+.vcadre b{font-weight:700}
+.vcadre span{color:var(--muted);margin-left:8px;letter-spacing:.12em}
+.vcadre .petitbt{margin-left:auto;padding:10px 16px;border-radius:14px;background:var(--card2);font-weight:600;cursor:pointer}
+/* Connexion du cadre : code à 5 caractères */
+#connexion{position:fixed;left:0;top:0;right:0;bottom:0;z-index:110;display:none;background:var(--bg);color:var(--ink);font-family:Figtree,Roboto,Arial,sans-serif}
+#connexion.on{display:block}
+#cxCarte{position:absolute;left:50%;top:50%;width:1100px;margin-left:-550px;height:700px;margin-top:-350px;display:-webkit-box;display:flex}
+#cxGauche{width:470px;padding:30px 30px 0 10px;box-sizing:border-box}
+#cxGauche h1{font:600 46px/1.1 Fraunces,Georgia,serif;margin:0 0 18px}
+#cxGauche p{font-size:20px;line-height:1.45;color:var(--muted);margin:0 0 14px}
+#cxCases{display:-webkit-box;display:flex;margin:34px 0 18px}
+#cxCases i{width:62px;height:76px;margin-right:10px;border-radius:16px;background:var(--card);border:2.5px solid var(--line);font:700 40px/76px Figtree,Arial,sans-serif;font-style:normal;text-align:center;box-sizing:border-box}
+#cxCases i.cur{border-color:var(--accent)}
+#cxMsg{min-height:30px;font-size:19px;font-weight:600;color:var(--warn)}
+#cxMsg.ok{color:var(--accent)}
+#cxClavier{-webkit-box-flex:1;flex:1;display:-webkit-box;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;-webkit-align-content:center;align-content:center;padding-left:20px}
+#cxClavier b{width:74px;height:74px;margin:0 8px 8px 0;border-radius:18px;background:var(--card);font:700 30px/74px Figtree,Arial,sans-serif;text-align:center;cursor:pointer}
+#cxClavier b:active{background:var(--card2)}
+#cxClavier b.large{width:156px;font-size:22px}
+#cxClavier b.ok{background:var(--accent);color:var(--card)}
+#cxClavier b.off{opacity:.4}
+#cxAnnuler{margin-top:22px;display:inline-block;padding:12px 4px;font-size:18px;font-weight:600;color:var(--muted);text-decoration:underline;cursor:pointer}
 </style>
 </head>
 <body>
@@ -158,7 +181,21 @@ body{
       <div class="bt" id="btVeille"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg>Mettre en veille</div>
       <div class="bt" id="btRecharger"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg>Recharger l'écran</div>
     </div>
+    <div class="vcadre" id="voletCadre"><b id="vcNom">Ce cadre</b><span id="vcCode"></span><div class="petitbt" id="btChangerCadre">Changer de cadre</div></div>
     <div class="vi" id="voletInfo"></div>
+  </div>
+</div>
+<div id="connexion">
+  <div id="cxCarte">
+    <div id="cxGauche">
+      <h1>Connecter ce cadre</h1>
+      <p>Saisis le code à 5 caractères indiqué dans la page d'administration.</p>
+      <p>Il suffit de le faire une seule fois.</p>
+      <div id="cxCases"><i></i><i></i><i></i><i></i><i></i></div>
+      <div id="cxMsg"></div>
+      <div id="cxAnnuler">Annuler</div>
+    </div>
+    <div id="cxClavier"></div>
   </div>
 </div>
 <div id="stage">
@@ -239,7 +276,67 @@ window.addEventListener('resize', ajuster);
 ajuster();
 
 /* ---------- Clé privée de l'écran (dans l'adresse de Fully : ?cle=…) ---------- */
-var CLE = param('cle') || '';
+// Le code peut aussi venir du cookie : l'adresse est alors la même pour tous les cadres
+function lireCookie(){ var m = /(?:^|;\s*)ecran_code=([^;]*)/.exec(document.cookie); return m ? decodeURIComponent(m[1]) : ''; }
+function ecrireCookie(v){ document.cookie = 'ecran_code=' + encodeURIComponent(v) + '; max-age=' + (10 * 365 * 86400) + '; path=/; SameSite=Lax'; }
+var CLE = param('cle') || lireCookie() || '';
+
+/* ---------- Connexion : saisie du code à 5 caractères sur un clavier à l'écran ---------- */
+var CX_TOUCHES = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789', cxCode = '', cxEnCours = false;
+(function(){
+  var h = '';
+  for (var i = 0; i < CX_TOUCHES.length; i++) h += '<b data-k="' + CX_TOUCHES.charAt(i) + '">' + CX_TOUCHES.charAt(i) + '</b>';
+  h += '<b class="large" data-k="eff">⌫ Effacer</b><b class="large ok off" data-k="ok">Valider</b>';
+  document.getElementById('cxClavier').innerHTML = h;
+})();
+function cxDessiner(){
+  var c = document.getElementById('cxCases').getElementsByTagName('i');
+  for (var i = 0; i < 5; i++) { c[i].innerHTML = cxCode.charAt(i) || ''; c[i].className = i === cxCode.length ? 'cur' : ''; }
+  document.querySelector('#cxClavier [data-k=ok]').className = 'large ok' + (cxCode.length === 5 && !cxEnCours ? '' : ' off');
+}
+function afficherConnexion(annulable){
+  cxCode = ''; cxEnCours = false; cxDessiner();
+  document.getElementById('cxMsg').innerHTML = ''; document.getElementById('cxMsg').className = '';
+  document.getElementById('cxAnnuler').style.display = annulable ? '' : 'none';
+  document.getElementById('connexion').className = 'on';
+}
+function cxValider(){
+  if (cxCode.length !== 5 || cxEnCours) return;
+  cxEnCours = true; cxDessiner();
+  var msg = document.getElementById('cxMsg'), code = cxCode, x = new XMLHttpRequest();
+  msg.className = 'ok'; msg.innerHTML = 'Vérification…';
+  x.open('GET', CONFIG.WORKER + '/reglages?cle=' + code, true);
+  x.timeout = 12000;
+  x.onload = function(){
+    if (x.status === 200) {
+      var nom = ''; try { nom = JSON.parse(x.responseText).cadre.nom; } catch (e) {}
+      msg.innerHTML = 'Connecté' + (nom ? ' à « ' + nom + ' »' : '') + ' ✓';
+      ecrireCookie(code);
+      var base = location.href.split('?')[0].split('#')[0];
+      // Fully Kiosk : la page de démarrage garde aussi le code (au cas où les cookies seraient effacés)
+      try { if (typeof fully !== 'undefined' && fully.setStartUrl) fully.setStartUrl(base + '?cle=' + code); } catch (e) {}
+      setTimeout(function(){ location.replace(base + '?cle=' + code); }, 900);
+      return;
+    }
+    cxEnCours = false; msg.className = '';
+    msg.innerHTML = x.status === 429 ? 'Trop d\'essais : patiente 15 minutes.' : x.status === 401 ? 'Code inconnu. Vérifie-le dans la page admin.' : 'Pas de connexion. Réessaie.';
+    if (x.status === 401) cxCode = '';
+    cxDessiner();
+  };
+  x.onerror = x.ontimeout = function(){ cxEnCours = false; msg.className = ''; msg.innerHTML = 'Pas de connexion Internet. Réessaie.'; cxDessiner(); };
+  x.send();
+}
+document.getElementById('cxClavier').addEventListener('click', function(e){
+  var k = e.target.getAttribute('data-k'); if (!k || cxEnCours) return;
+  if (k === 'eff') cxCode = cxCode.slice(0, -1);
+  else if (k === 'ok') { cxValider(); return; }
+  else if (cxCode.length < 5) cxCode += k;
+  document.getElementById('cxMsg').innerHTML = '';
+  cxDessiner();
+  if (cxCode.length === 5) cxValider();
+});
+document.getElementById('cxAnnuler').addEventListener('click', function(){ document.getElementById('connexion').className = ''; });
+if (!CLE) afficherConnexion(false);
 
 /* ---------- Réglages de la page admin (appliqués si la clé est présente) ---------- */
 var REGLAGES = null, REGLAGES_MAJ = 0;
@@ -588,7 +685,13 @@ function majVolet(){
   if (fk) { var l = lumActuelle(), best = null, ecart = 999, L = [40, 110, 180, 255]; for (var i = 0; i < 4; i++) if (Math.abs(L[i] - l) < ecart) { ecart = Math.abs(L[i] - l); best = L[i]; } marquer('segLum', best); }
   document.getElementById('voletInfo').innerHTML = 'Les autres réglages se font dans la page admin' + (fk ? '' : ' · luminosité : activer l\'interface JavaScript de Fully');
 }
-function ouvrirVolet(){ majVolet(); volet.className = 'on'; rouage.className = 'on'; pauseJusqua = Date.now() + 10 * 60000; majPause(); programmer(); }
+function majVoletCadre(){
+  var C = REGLAGES && REGLAGES.cadre;
+  document.getElementById('vcNom').innerHTML = C && C.nom ? C.nom.replace(/</g, '&lt;') : 'Ce cadre';
+  document.getElementById('vcCode').innerHTML = CLE.length === 5 ? CLE.toUpperCase() : '';
+}
+document.getElementById('btChangerCadre').addEventListener('click', function(){ fermerVolet(); afficherConnexion(true); });
+function ouvrirVolet(){ majVoletCadre(); majVolet(); volet.className = 'on'; rouage.className = 'on'; pauseJusqua = Date.now() + 10 * 60000; majPause(); programmer(); }
 function fermerVolet(){ volet.className = ''; rouage.className = ''; pauseJusqua = Date.now() + CONFIG.PAUSE_APRES_TOUCHER * 1000; majPause(); programmer(); }
 rouage.addEventListener('click', function(){ if (volet.className) fermerVolet(); else ouvrirVolet(); });
 document.getElementById('voletFond').addEventListener('click', fermerVolet);
