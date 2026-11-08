@@ -32,7 +32,7 @@ const FLUX_ALERTES = 'https://data.filbleu.fr/ws-tr/gtfs-rt/opendata/service-ale
 const FLUX_INCIDENTS = 'https://www.filbleu.fr/rss-incident.xml';   // l'info trafic du site filbleu.fr (travaux, déviations…)
 const NOMS_ARRETS = { 'A': 'Monconseil', '2': 'Maréchal Juin' };
 const CACHE_SECONDES = 30;   // les écrans redemandent toutes les 30 s
-const VERSION = '36';   // à changer à chaque mise à jour du code : vide les caches
+const VERSION = '37';   // à changer à chaque mise à jour du code : vide les caches
 
 // Horaires prévus, format compact : "jours" = n° de grille pour chaque jour depuis "debut",
 // chaque ligne "g=" = minutes depuis minuit, écrites en écarts successifs.
@@ -1369,7 +1369,8 @@ function vueCadre(c, avecCles) {
   const v = { id: c.id, nom: c.nom, cree: c.cree, lieu: cfg.lieu || null, modules: cfg.modules || {},
     agendas: (cfg.agendas || []).map((a, i) => ({ cle: 'GOOGLE_ICS' + (i + 1), nom: a.nom || '', url: masquer(a.url) })),
     ha: cfg.ha && cfg.ha.url ? { url: cfg.ha.url, token: masquer(cfg.ha.token), alerte: cfg.ha.alerte || '' } : null };
-  if (avecCles) { v.cle = c.cle; v.cleAdmin = c.cleAdmin; }
+  v.cle = c.cle;   // code de l'écran : visible par l'admin de la famille (il en a besoin pour brancher son cadre)
+  if (avecCles) v.cleAdmin = c.cleAdmin;
   return v;
 }
 // Modification de la configuration d'un cadre (champs vides ou masqués = inchangés)

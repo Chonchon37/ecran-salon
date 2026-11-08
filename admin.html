@@ -83,7 +83,24 @@ input[type=time]{font:inherit;color:var(--ink);background:var(--bg);border:1.5px
 .dispo-l.off .nom{color:var(--muted);text-decoration:line-through}
 .dispo-l .act{margin-left:auto}
 [hidden]{display:none!important}
-/* Plusieurs cadres */
+/* Plusieurs cadres : liste (accueil du super-admin) puis fiche d'un cadre */
+.retour{display:flex;align-items:center;gap:10px;margin:0 0 14px;flex-wrap:wrap}
+.retour button.lien{background:transparent;padding:6px 0;color:var(--accent);font-weight:700}
+.retour select{margin-left:auto;font-weight:600;max-width:260px}
+.avatar{flex:none;width:52px;height:52px;border-radius:16px;display:flex;align-items:center;justify-content:center;font:700 21px var(--display);color:#fff}
+.avatar.petit{width:26px;height:26px;border-radius:8px;font-size:12px}
+.tete .avatar{margin-right:2px}
+.sous .vu{font-size:inherit}
+.grille-cadres{display:grid;gap:12px}
+.carte-cadre{display:flex;align-items:center;gap:16px;width:100%;text-align:left;background:var(--card);border-radius:18px;padding:18px 20px;font:inherit;color:var(--ink);border:2px solid transparent}
+.carte-cadre:hover{border-color:var(--line)}
+.carte-cadre .infos{flex:1;min-width:0}
+.carte-cadre .infos b{display:block;font:700 19px/1.25 var(--display)}
+.carte-cadre .infos .ligne2{color:var(--muted);font-size:14px;display:flex;gap:6px 12px;flex-wrap:wrap;align-items:center;margin-top:2px}
+.carte-cadre .code{font-weight:700;letter-spacing:.12em;color:var(--ink)}
+.carte-cadre .fleche{font-size:22px;color:var(--muted)}
+.bouton-nouveau{width:100%;padding:16px;border:2px dashed var(--line);background:transparent;border-radius:18px;color:var(--muted);font-size:16px}
+.barre .qui{display:flex;align-items:center;gap:8px;font-weight:700;font-size:14px;color:var(--ink);white-space:nowrap;max-width:40%;overflow:hidden;text-overflow:ellipsis}
 .choix-cadre{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--card);border-radius:14px;padding:10px 14px;margin:0 0 14px}
 .choix-cadre label{color:var(--muted);font-weight:600;font-size:14px}
 .choix-cadre select{flex:1;min-width:180px;font-weight:600}
@@ -123,7 +140,7 @@ button.danger{background:var(--warn-soft);color:var(--warn)}
 .agenda-l{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px}
 .agenda-l input[data-ag-nom]{width:150px}
 .agenda-l input[data-ag-url]{flex:1;min-width:220px}
-.nouveau{background:var(--bg);border-radius:14px;padding:16px;margin-top:16px}
+.nouveau{margin-top:12px}
 
 /* Résumé et rubriques */
 .resume{background:var(--card2);padding:16px 20px}
@@ -141,6 +158,8 @@ section[data-groupe]{scroll-margin-top:70px}
 .tete h1{flex:1}
 button.discret{background:transparent;color:var(--muted);padding:8px 10px;font-size:14px;text-decoration:underline;text-underline-offset:3px}
 @media (max-width:520px){
+  h1{font-size:25px}
+  .barre .qui{max-width:none}
   .barre .dedans{flex-wrap:wrap;gap:8px 10px}
   .barre .etat{flex-basis:100%}
   .barre button{flex:1}
@@ -149,8 +168,12 @@ button.discret{background:transparent;color:var(--muted);padding:8px 10px;font-s
 </head>
 <body>
 <div class="page">
-  <div class="tete"><h1>Réglages de l'écran</h1><button id="deconnexion" type="button" class="discret" hidden>Se déconnecter</button></div>
-  <p class="sous"><span id="nomCadre">Écran du salon</span> · les changements s'affichent sur le cadre en quelques minutes.</p>
+  <div class="retour" id="barreRetour" hidden>
+    <button type="button" class="lien" id="versListe">← Tous les cadres</button>
+    <select id="cadreActif" aria-label="Passer à un autre cadre"></select>
+  </div>
+  <div class="tete"><span class="avatar" id="avatarTete" hidden></span><h1 id="titre">Réglages de l'écran</h1><button id="deconnexion" type="button" class="discret" hidden>Se déconnecter</button></div>
+  <p class="sous" id="sous">Les changements s'affichent sur le cadre en quelques minutes.</p>
 
   <!-- Connexion -->
   <section id="connexion">
@@ -164,14 +187,27 @@ button.discret{background:transparent;color:var(--muted);padding:8px 10px;font-s
     <p id="erreurCle" class="bandeau alerte" style="margin:14px 0 0" hidden></p>
   </section>
 
+  <!-- Super-admin : la liste des cadres -->
+  <div id="vueCadres" hidden>
+    <div class="grille-cadres" id="listeCadres"><p class="vide">Chargement…</p></div>
+    <button type="button" class="bouton-nouveau" id="ouvrirNouveau" style="margin-top:12px">+ Nouveau cadre</button>
+    <section class="nouveau" id="nouveau" hidden>
+      <h2>Nouveau cadre</h2>
+      <p class="aide">Pour une autre famille. Tu pourras ensuite ajouter ses agendas et son Home Assistant dans sa configuration.</p>
+      <div class="champ"><label for="nvNom">Nom</label><input type="text" id="nvNom" maxlength="40" placeholder="Ex. : Famille Martin"></div>
+      <div class="rang" style="margin-bottom:14px">
+        <div class="champ" style="flex:1;margin:0"><label for="nvP1">Prénom 1</label><input type="text" id="nvP1" maxlength="20" placeholder="Ex. : Julie"></div>
+        <div class="champ" style="flex:1;margin:0"><label for="nvP2">Prénom 2</label><input type="text" id="nvP2" maxlength="20" placeholder="Ex. : Thomas"></div>
+      </div>
+      <div class="champ"><label>Ville</label><div id="nvVille"></div></div>
+      <div class="champ"><span style="font-weight:600">Modules</span><div class="modules" id="nvModules"></div></div>
+      <div class="rang"><button type="button" class="principal" id="nvCreer">Créer le cadre</button><button type="button" id="nvAnnuler">Annuler</button><span id="nvEtat" class="aide" style="margin:0"></span></div>
+    </section>
+  </div>
+
   <div id="reglages" hidden>
     <div id="avertissement" class="bandeau alerte" hidden></div>
 
-    <!-- Super-admin : quel cadre est modifié -->
-    <div class="choix-cadre" id="choixCadre" hidden>
-      <label for="cadreActif">Cadre modifié</label>
-      <select id="cadreActif"></select>
-    </div>
 
     <!-- Ce que l'écran affiche en ce moment, d'après les réglages -->
     <section class="resume" aria-live="polite">
@@ -184,8 +220,7 @@ button.discret{background:transparent;color:var(--muted);padding:8px 10px;font-s
       <button type="button" data-g="pages">Pages</button>
       <button type="button" data-g="jour-nuit">Jour & nuit</button>
       <button type="button" data-g="donnees">Données</button>
-      <button type="button" data-g="cadre">Ce cadre</button>
-      <button type="button" data-g="cadres" id="ongletCadres" hidden>Tous les cadres</button>
+      <button type="button" data-g="cadre">Configuration</button>
     </nav>
     <p class="intro" id="intro"></p>
 
@@ -310,6 +345,11 @@ button.discret{background:transparent;color:var(--muted);padding:8px 10px;font-s
     </section>
 
     <!-- Configuration du cadre : ville, modules, agendas, Home Assistant -->
+    <section data-groupe="cadre" id="secBranchement">
+      <h2>Brancher l'écran</h2>
+      <p class="aide">Dans Fully Kiosk, page de démarrage (Start URL) : l'adresse ci-dessous, la même pour tous les cadres. Au premier démarrage, l'écran demande ce code (on peut le changer ensuite avec la roue crantée).</p>
+      <div id="branchement"></div>
+    </section>
     <section data-groupe="cadre" id="secPrincipal" data-module="principal">
       <h2>Cadre principal</h2>
       <p class="aide" style="margin:0">Ce cadre est configuré directement dans Cloudflare (agendas, Home Assistant, trajet). Ville : Tours Nord · tous les modules.</p>
@@ -340,28 +380,12 @@ button.discret{background:transparent;color:var(--muted);padding:8px 10px;font-s
       <div class="rang"><button type="button" class="principal" id="cfgEnregistrer">Enregistrer la configuration</button><span id="cfgEtat" class="aide" style="margin:0"></span></div>
     </section>
 
-    <!-- Super-admin : tous les cadres -->
-    <section data-groupe="cadres" data-module="super">
-      <h2>Tous les cadres</h2>
-      <p class="aide">Tous les cadres utilisent la même adresse dans Fully Kiosk : <b>chonchon37.github.io/ecran-salon</b>. Au premier démarrage, le cadre demande son <b>code à 5 caractères</b> (modifiable ensuite avec la roue crantée). Chaque famille reçoit aussi un lien d'administration pour ses propres réglages.</p>
-      <div id="listeCadres"><p class="vide">Chargement…</p></div>
-      <div class="nouveau">
-        <h2 style="font-size:18px">Nouveau cadre</h2>
-        <div class="champ"><label for="nvNom">Nom</label><input type="text" id="nvNom" maxlength="40" placeholder="Ex. : Famille Martin"></div>
-        <div class="rang" style="margin-bottom:14px">
-          <div class="champ" style="flex:1;margin:0"><label for="nvP1">Prénom 1</label><input type="text" id="nvP1" maxlength="20" placeholder="Ex. : Julie"></div>
-          <div class="champ" style="flex:1;margin:0"><label for="nvP2">Prénom 2</label><input type="text" id="nvP2" maxlength="20" placeholder="Ex. : Thomas"></div>
-        </div>
-        <div class="champ"><label>Ville</label><div id="nvVille"></div></div>
-        <div class="champ"><span style="font-weight:600">Modules</span><div class="modules" id="nvModules"></div></div>
-        <div class="rang"><button type="button" class="principal" id="nvCreer">Créer le cadre</button><span id="nvEtat" class="aide" style="margin:0"></span></div>
-      </div>
-    </section>
   </div>
 </div>
 
 <div class="barre" id="barre" hidden>
   <div class="dedans">
+    <div class="qui" id="barreQui"></div>
     <div class="etat" id="etat">Aucune modification</div>
     <button id="annuler" type="button" disabled>Annuler</button>
     <button class="principal" id="enregistrer" type="button" disabled>Enregistrer</button>
@@ -398,16 +422,19 @@ async function appel(chemin, options) {
 $('formCle').addEventListener('submit', e => { e.preventDefault(); connecter($('cle').value.trim()); });
 async function connecter(cle, recharge) {
   CLE = cle; $('erreurCle').hidden = true;
+  if (!recharge) { const h = /^#cadre\/(\w+)/.exec(location.hash); CADRE_ID = h && h[1] !== 'principal' ? h[1] : ''; }
   try {
     const j = await appel('/reglages');
     if (!j.admin) throw new Error('Cette clé permet d\'afficher l\'écran, mais pas de modifier les réglages.');
     if (!recharge && $('souvenir').checked) memoire('ecrire', cle);
     R = j;
     R.cadre = R.cadre || { id: 'principal', nom: 'Écran du salon', modules: { maison: true, musique: true, transports: true, travail: true }, ha: true };
-    $('nomCadre').textContent = R.cadre.nom;
-    $('choixCadre').hidden = $('ongletCadres').hidden = !R.super;
-    if (R.super) chargerCadres();
-    $('connexion').hidden = true; $('reglages').hidden = false; $('barre').hidden = false; $('deconnexion').hidden = false;
+    $('connexion').hidden = true; $('deconnexion').hidden = false;
+    if (R.super && !recharge) {
+      await chargerCadres();
+      if (!/^#cadre\//.test(location.hash)) { afficherListe(); return; }
+    }
+    afficherFiche();
     $('avertissement').hidden = j.stockage;
     $('avertissement').textContent = 'Le stockage des réglages n\'est pas encore configuré dans Cloudflare : tu peux consulter, mais pas enregistrer.';
     SAUVE = JSON.stringify(R.reglages);
@@ -880,17 +907,16 @@ const INTROS = {
   'pages': 'Quelles pages tournent sur l\'écran, combien de temps, et lesquelles restent fixes à certaines heures.',
   'jour-nuit': 'Thème clair ou sombre, et mise en veille la nuit.',
   'donnees': 'Temps de marche jusqu\'aux arrêts, agendas, lumières et musique.',
-  'cadre': 'Nom, ville, modules, agendas Google et Home Assistant de ce cadre.',
-  'cadres': 'Créer un cadre pour une autre famille, envoyer ses adresses, renouveler ses clés.'
+  'cadre': 'Code de l\'écran, nom, ville, modules, agendas Google et Home Assistant.'
 };
 function ouvrirGroupe(g) {
-  if (!INTROS[g] || (g === 'cadres' && !R.super)) g = 'accueil';
+  if (!INTROS[g]) g = 'accueil';
   document.querySelectorAll('section[data-groupe]').forEach(s => { s.hidden = s.dataset.groupe !== g || !sectionOk(s.dataset.module); });
   document.querySelectorAll('#onglets button').forEach(b => b.setAttribute('aria-current', b.dataset.g === g ? 'true' : 'false'));
   $('intro').textContent = INTROS[g];
-  // Rubriques « cadre » : elles ont leur propre bouton ; la barre du bas ne sert qu'aux réglages d'affichage
-  document.querySelector('.resume').hidden = g === 'cadres';
-  $('barre').hidden = (g === 'cadre' || g === 'cadres') && !modifie;
+  // « Configuration » a son propre bouton ; la barre du bas ne sert qu'aux réglages d'affichage
+  $('barre').hidden = g === 'cadre' && !modifie;
+  if (g === 'cadre') dessinerBranchement();
   try { localStorage.setItem('ecran-admin-onglet', g); } catch (e) {}
 }
 $('onglets').addEventListener('click', e => { const g = e.target.dataset.g; if (g) { ouvrirGroupe(g); window.scrollTo({ top: $('onglets').offsetTop - 4, behavior: 'smooth' }); } });
@@ -1051,13 +1077,19 @@ $('cfgEnregistrer').addEventListener('click', async () => {
   finally { $('cfgEnregistrer').disabled = false; }
 });
 
-/* ----- Super-admin : liste, création, clés ----- */
-let CADRES = [], ouverts = {};
+/* ----- Deux vues : la liste des cadres (super-admin) et la fiche d'un cadre ----- */
+let CADRES = [];
+const COULEURS = ['#587A57', '#B5653A', '#4F7393', '#8A5A8C', '#A3812E', '#3F8580', '#9A4D55'];
+function couleurDe(id) { let h = 0; for (const ch of String(id)) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return id === 'principal' ? COULEURS[0] : COULEURS[1 + h % (COULEURS.length - 1)]; }
+function initiales(nom) { const m = String(nom).replace(/^(famille|les|la|le|écran du|écran de la|écran)\s+/i, '').split(/\s+/).filter(Boolean); return ((m[0] || '?')[0] + (m[1] ? m[1][0] : '')).toUpperCase(); }
+function avatar(c, petit) { return `<span class="avatar${petit ? ' petit' : ''}" style="background:${couleurDe(c.id)}" aria-hidden="true">${echapper(initiales(c.nom))}</span>`; }
+const idDe = c => c.principal ? 'principal' : c.id;
+const cadreCourant = () => CADRES.find(c => idDe(c) === (CADRE_ID || 'principal'));
 async function chargerCadres() {
   try { CADRES = (await fetch(WORKER + '/cadres?cle=' + encodeURIComponent(CLE)).then(r => r.json())).cadres || []; }
   catch (e) { $('listeCadres').innerHTML = '<p class="vide">Liste indisponible.</p>'; return; }
-  $('cadreActif').innerHTML = CADRES.map(c => `<option value="${c.principal ? '' : c.id}">${echapper(c.nom)}${c.lieu ? ' · ' + echapper(c.lieu.nom) : ''}</option>`).join('');
-  $('cadreActif').value = CADRE_ID;
+  $('cadreActif').innerHTML = '<option value="" disabled>Passer à…</option>' + CADRES.map(c => `<option value="${idDe(c)}">${echapper(c.nom)}</option>`).join('');
+  $('cadreActif').value = CADRE_ID || 'principal';
   dessinerCadres();
 }
 function depuis(t) {
@@ -1071,68 +1103,108 @@ function depuis(t) {
 const adresseAdmin = c => SITE + 'admin.html?cle=' + c.cleAdmin;
 function dessinerCadres() {
   $('listeCadres').innerHTML = CADRES.map(c => {
-    const [vu, on] = depuis(c.vu), mods = Object.keys(NOMS_MODULES).filter(k => c.modules && c.modules[k]);
-    const actif = (c.principal ? '' : c.id) === CADRE_ID;
-    return `<div class="cadre">
-      <div class="haut">
-        <div class="titre"><b>${echapper(c.nom)}${actif ? ' <span class="puce">en cours</span>' : ''}</b><span>${c.lieu ? echapper(c.lieu.nom) : 'Tours'} · <span class="vu${on ? ' on' : ''}"><i></i>${vu}</span></span>
-          <div class="puces">${c.principal ? '<span class="puce">Principal</span>' : ''}${(c.principal ? ['maison', 'musique', 'transports'] : mods).map(k => '<span class="puce">' + NOMS_MODULES[k][0] + '</span>').join('')}${!c.principal && c.modules && (c.modules.maison || c.modules.musique) && !c.ha ? '<span class="puce" style="color:var(--warn)">Home Assistant à configurer</span>' : ''}</div>
-        </div>
-        <div class="actions">
-          ${actif ? '' : `<button type="button" data-modifier="${c.principal ? '' : c.id}">Modifier</button>`}
-          <button type="button" data-adresses="${c.id}" aria-expanded="${!!ouverts[c.id]}">${ouverts[c.id] ? 'Masquer' : 'Code & liens'}</button>
-        </div>
-      </div>
-      ${ouverts[c.id] ? `<div class="adresses">
-        <div class="code-cadre"><strong>${echapper(c.cle || '—')}</strong><p>Code à saisir sur le cadre au démarrage (ou roue crantée → « Changer de cadre »).</p></div>
-        <div class="adresse"><label>Adresse dans Fully Kiosk (Start URL) · la même pour tous les cadres</label>
-          <div class="rang"><code>${SITE}</code><button type="button" data-copier="${SITE}">Copier</button></div></div>
-        ${c.principal ? '' : `<div class="adresse"><label>Lien d'administration · à envoyer à la famille</label>
-          <div class="rang"><code>${echapper(adresseAdmin(c))}</code><button type="button" data-copier="${echapper(adresseAdmin(c))}">Copier</button></div></div>`}
-        <div class="zone-danger">
-          <button type="button" class="danger" data-cles="${c.id}">${c.principal ? 'Nouveau code' : 'Nouveau code et nouveau lien'}</button>
-          ${c.principal ? '' : `<button type="button" class="danger" data-supprimer="${c.id}">Supprimer le cadre</button>`}
-        </div>
-      </div>` : ''}
-    </div>`;
+    const [vu, on] = depuis(c.vu), mods = c.principal ? ['maison', 'musique', 'transports'] : Object.keys(NOMS_MODULES).filter(k => c.modules && c.modules[k]);
+    const alerte = !c.principal && c.modules && (c.modules.maison || c.modules.musique) && !c.ha;
+    return `<button type="button" class="carte-cadre" data-ouvrir="${idDe(c)}">
+      ${avatar(c)}
+      <span class="infos"><b>${echapper(c.nom)}</b>
+        <span class="ligne2"><span>${c.lieu ? echapper(c.lieu.nom) : 'Tours'}</span><span class="vu${on ? ' on' : ''}"><i></i>${vu}</span>${c.cle ? '<span>code <span class="code">' + echapper(c.cle) + '</span></span>' : ''}</span>
+        <span class="puces">${mods.map(k => '<span class="puce">' + NOMS_MODULES[k][0] + '</span>').join('')}${alerte ? '<span class="puce" style="color:var(--warn)">Home Assistant à configurer</span>' : ''}</span>
+      </span>
+      <span class="fleche" aria-hidden="true">›</span>
+    </button>`;
   }).join('');
 }
-$('listeCadres').addEventListener('click', async e => {
+$('listeCadres').addEventListener('click', e => { const b = e.target.closest('[data-ouvrir]'); if (b) aller('#cadre/' + b.dataset.ouvrir); });
+
+// Navigation (le bouton « retour » du téléphone revient à la liste) : #cadre/<id> = fiche, rien = liste
+function aller(h) { if (h !== location.hash) history.pushState(null, '', h || location.pathname); return route(); }
+window.addEventListener('popstate', route);
+async function route() {
+  if (!R || !R.super) return;
+  const m = /^#cadre\/(\w+)/.exec(location.hash), cible = m ? m[1] : null;
+  const courant = $('reglages').hidden ? null : (CADRE_ID || 'principal');
+  if (cible === courant) return;
+  if (modifie && !confirm('Des réglages ne sont pas enregistrés. Les abandonner ?')) { history.pushState(null, '', courant ? '#cadre/' + courant : location.pathname); return; }
+  modifie = false;
+  if (cible) await ouvrirCadre(cible); else afficherListe();
+}
+
+function afficherListe() {
+  $('vueCadres').hidden = false; $('reglages').hidden = true; $('barre').hidden = true; $('barreRetour').hidden = true;
+  $('avatarTete').hidden = true; $('titre').textContent = 'Mes cadres';
+  $('sous').textContent = 'Choisis un cadre pour modifier ce qu\'il affiche. ' + CADRES.length + ' cadre' + (CADRES.length > 1 ? 's' : '') + '.';
+  document.title = 'Mes cadres';
+  chargerCadres();
+  window.scrollTo({ top: 0 });
+}
+function afficherFiche() {
+  const C = R.cadre, L = cadreCourant();
+  $('vueCadres').hidden = true; $('reglages').hidden = false; $('barre').hidden = false;
+  $('barreRetour').hidden = !R.super;
+  $('avatarTete').outerHTML = avatar(C).replace('class="avatar"', 'class="avatar" id="avatarTete"');
+  $('titre').textContent = C.nom;
+  const [vu, on] = depuis(L && L.vu);
+  $('sous').innerHTML = echapper(C.lieu ? C.lieu.nom : 'Tours') + (L ? ' · <span class="vu' + (on ? ' on' : '') + '"><i></i>' + vu + '</span>' : '') + ' · les changements arrivent sur l\'écran en quelques minutes.';
+  $('barreQui').innerHTML = R.super ? avatar(C, true) + echapper(C.nom) : '';
+  document.title = 'Réglages · ' + C.nom;
+  if (R.super) $('cadreActif').value = CADRE_ID || 'principal';
+}
+async function ouvrirCadre(id) {
+  $('cfgEtat').textContent = '';
+  CADRE_ID = id === 'principal' ? '' : id;
+  const g = $('reglages').hidden ? 'accueil' : groupeActuel();
+  await connecter(CLE, true);
+  afficherFiche(); ouvrirGroupe(g);
+  window.scrollTo({ top: 0 });
+}
+$('versListe').addEventListener('click', () => aller(''));
+$('cadreActif').addEventListener('change', () => aller('#cadre/' + $('cadreActif').value));
+
+/* ----- « Brancher l'écran » : code, adresse, lien admin, nouveau code, suppression ----- */
+function dessinerBranchement() {
+  const L = R.super ? cadreCourant() : null, code = (CFG && CFG.cle) || (L && L.cle) || '';
+  const principal = R.cadre.id === 'principal';
+  $('branchement').innerHTML = `<div class="adresses" style="margin-top:0">
+    <div class="code-cadre"><strong>${echapper(code || '—')}</strong><p>Code de cet écran.</p></div>
+    <div class="adresse"><label>Adresse dans Fully Kiosk</label>
+      <div class="rang"><code>${SITE}</code><button type="button" data-copier="${SITE}">Copier</button></div></div>
+    ${L && !principal ? `<div class="adresse"><label>Lien d'administration · à envoyer à la famille</label>
+      <div class="rang"><code>${echapper(adresseAdmin(L))}</code><button type="button" data-copier="${echapper(adresseAdmin(L))}">Copier</button></div></div>` : ''}
+    ${R.super && L ? `<div class="zone-danger">
+      <button type="button" class="danger" data-cles="1">${principal ? 'Nouveau code' : 'Nouveau code et nouveau lien'}</button>
+      ${principal ? '' : '<button type="button" class="danger" data-supprimer="1">Supprimer ce cadre</button>'}
+    </div>` : ''}
+  </div>`;
+}
+$('branchement').addEventListener('click', async e => {
   const b = e.target.closest('button'); if (!b) return;
-  const d = b.dataset;
+  const d = b.dataset, L = cadreCourant();
   if (d.copier !== undefined) {
     try { await navigator.clipboard.writeText(d.copier); b.textContent = 'Copié ✓'; } catch (err) { b.textContent = 'Sélectionne le texte'; }
     setTimeout(() => b.textContent = 'Copier', 1800); return;
   }
-  if (d.adresses !== undefined) { ouverts[d.adresses] = !ouverts[d.adresses]; dessinerCadres(); return; }
-  if (d.modifier !== undefined) { changerCadre(d.modifier); return; }
-  const c = CADRES.find(x => x.id === (d.cles || d.supprimer)) || (d.cles === 'principal' ? CADRES[0] : null);
+  if (!L) return;
+  const poster = corps => fetch(WORKER + '/cadres?cle=' + encodeURIComponent(CLE), { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(corps) });
   if (d.cles !== undefined) {
-    if (!confirm(c.principal ? 'Créer un nouveau code pour « ' + c.nom + ' » ?\n\nL\'ancien code ne marchera plus : il faudra saisir le nouveau sur le cadre (l\'adresse actuelle avec la clé longue continue de marcher).'
-      : 'Créer un nouveau code et un nouveau lien d\'administration pour « ' + c.nom + ' » ?\n\nL\'ancien code et l\'ancien lien ne marcheront plus : il faudra saisir le nouveau code sur le cadre.')) return;
-    await fetch(WORKER + '/cadres?cle=' + encodeURIComponent(CLE), { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ action: 'cles', id: c.id }) });
-    ouverts[c.id] = true; chargerCadres();
+    if (!confirm(L.principal ? 'Créer un nouveau code pour « ' + L.nom + ' » ?\n\nL\'ancien code ne marchera plus : il faudra saisir le nouveau sur le cadre (l\'adresse actuelle avec la clé longue continue de marcher).'
+      : 'Créer un nouveau code et un nouveau lien d\'administration pour « ' + L.nom + ' » ?\n\nL\'ancien code et l\'ancien lien ne marcheront plus : il faudra saisir le nouveau code sur le cadre.')) return;
+    await poster({ action: 'cles', id: idDe(L) });
+    await chargerCadres(); CFG = null; await chargerConfig(); dessinerBranchement();
   }
   if (d.supprimer !== undefined) {
-    const n = prompt('Supprimer « ' + c.nom + ' » et tous ses réglages ? C\'est définitif.\n\nTape SUPPRIMER pour confirmer.');
-    if (n !== 'SUPPRIMER') return;
-    await fetch(WORKER + '/cadres?cle=' + encodeURIComponent(CLE), { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ action: 'supprimer', id: c.id }) });
-    if (CADRE_ID === c.id) { await changerCadre(''); ouvrirGroupe('cadres'); }
-    chargerCadres();
+    if (prompt('Supprimer « ' + L.nom + ' » et tous ses réglages ? C\'est définitif.\n\nTape SUPPRIMER pour confirmer.') !== 'SUPPRIMER') return;
+    await poster({ action: 'supprimer', id: L.id });
+    modifie = false; CADRE_ID = ''; history.replaceState(null, '', location.pathname); afficherListe();
   }
 });
-async function changerCadre(id) {
-  if (modifie && !confirm('Des réglages ne sont pas enregistrés. Les abandonner ?')) { $('cadreActif').value = CADRE_ID; return; }
-  modifie = false; CADRE_ID = id; $('cfgEtat').textContent = '';
-  const g = groupeActuel();
-  await connecter(CLE, true);
-  ouvrirGroupe(g === 'cadres' ? 'cadre' : g);
-  window.scrollTo({ top: 0, behavior: 'smooth' });
-}
-$('cadreActif').addEventListener('change', () => changerCadre($('cadreActif').value));
+
+/* ----- Nouveau cadre ----- */
 let lireVilleNv = null;
-function initNouveau() { $('nvNom').value = $('nvP1').value = $('nvP2').value = ''; lireVilleNv = champVille($('nvVille'), null); cocherModules($('nvModules'), { transports: false }); }
+function initNouveau() { $('nvNom').value = $('nvP1').value = $('nvP2').value = ''; $('nvEtat').textContent = ''; lireVilleNv = champVille($('nvVille'), null); cocherModules($('nvModules'), { transports: false }); }
 initNouveau();
+$('ouvrirNouveau').addEventListener('click', () => { $('nouveau').hidden = false; $('ouvrirNouveau').hidden = true; $('nvNom').focus(); });
+$('nvAnnuler').addEventListener('click', () => { $('nouveau').hidden = true; $('ouvrirNouveau').hidden = false; initNouveau(); });
 $('nvCreer').addEventListener('click', async () => {
   const nom = $('nvNom').value.trim();
   if (!nom) { $('nvEtat').textContent = 'Donne un nom au cadre.'; $('nvNom').focus(); return; }
@@ -1143,14 +1215,14 @@ $('nvCreer').addEventListener('click', async () => {
     const r = await fetch(WORKER + '/cadres?cle=' + encodeURIComponent(CLE), { method: 'POST', headers: { 'Content-Type': 'text/plain' },
       body: JSON.stringify({ action: 'creer', nom, prenom1: $('nvP1').value.trim() || 'Moi', prenom2: $('nvP2').value.trim() || 'Ma moitié', lieu, modules: lireModules($('nvModules')) }) }).then(x => x.json());
     if (!r.ok) throw new Error(r.erreur || 'Création impossible');
-    ouverts[r.cadre.id] = true; initNouveau();
-    $('nvEtat').textContent = '« ' + r.cadre.nom + ' » créé ✓ Son code et son lien sont affichés ci-dessus.';
+    $('nouveau').hidden = true; $('ouvrirNouveau').hidden = false; initNouveau();
     await chargerCadres();
-    $('listeCadres').querySelector('[data-adresses="' + r.cadre.id + '"]').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    // on ouvre directement sa configuration : code de l'écran, agendas, Home Assistant
+    await aller('#cadre/' + r.cadre.id); ouvrirGroupe('cadre');
+    $('cfgEtat').textContent = '« ' + r.cadre.nom + ' » créé ✓ Ajoute ses agendas et son Home Assistant ci-dessus.';
   } catch (err) { $('nvEtat').textContent = 'Échec : ' + err.message; }
   finally { $('nvCreer').disabled = false; }
 });
-
 /* ---------- Démarrage : lien d'administration (?cle=), sinon clé mémorisée ---------- */
 const dansLien = new URLSearchParams(location.search).get('cle');
 if (dansLien) { history.replaceState(null, '', location.pathname); memoire('ecrire', dansLien); }
