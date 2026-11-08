@@ -32,7 +32,7 @@ const FLUX_ALERTES = 'https://data.filbleu.fr/ws-tr/gtfs-rt/opendata/service-ale
 const FLUX_INCIDENTS = 'https://www.filbleu.fr/rss-incident.xml';   // l'info trafic du site filbleu.fr (travaux, déviations…)
 const NOMS_ARRETS = { 'A': 'Monconseil', '2': 'Maréchal Juin' };
 const CACHE_SECONDES = 30;   // les écrans redemandent toutes les 30 s
-const VERSION = '30';   // à changer à chaque mise à jour du code : vide les caches
+const VERSION = '31';   // à changer à chaque mise à jour du code : vide les caches
 
 // Horaires prévus, format compact : "jours" = n° de grille pour chaque jour depuis "debut",
 // chaque ligne "g=" = minutes depuis minuit, écrites en écarts successifs.
@@ -735,7 +735,7 @@ const LUMIERES_MASQUEES = /segment/i;
 /* =====================================================================
    RÉGLAGES (modifiables depuis la page admin, stockés dans Cloudflare KV)
    ===================================================================== */
-const SLIDES_CONNUES = { accueil: 'Accueil', meteo: 'Météo', transports: 'Transports', agenda: 'Agenda', maison: 'Maison', anniversaires: 'Anniversaires', travail: 'Travail' };
+const SLIDES_CONNUES = { accueil: 'Accueil', meteo: 'Météo', transports: 'Transports', agenda: 'Agenda', maison: 'Maison', anniversaires: 'Anniversaires', travail: 'Travail', musique: 'Musique' };
 const REGLAGES_DEFAUT = {
   rotation: {
     pause: 90,
@@ -743,7 +743,8 @@ const REGLAGES_DEFAUT = {
       { id: 'accueil', actif: true, duree: 40 }, { id: 'meteo', actif: true, duree: 30 },
       { id: 'transports', actif: true, duree: 30 }, { id: 'agenda', actif: true, duree: 30 },
       { id: 'maison', actif: true, duree: 30 }, { id: 'anniversaires', actif: true, duree: 30 },
-      { id: 'travail', actif: false, onglet: true, duree: 30 }
+      { id: 'travail', actif: false, onglet: true, duree: 30 },
+      { id: 'musique', actif: false, onglet: true, duree: 30 }
     ],
     // Écran fixe selon l'heure (jours : 0 = dimanche … 6 = samedi)
     plages: [{ debut: '07:00', fin: '09:00', jours: [1, 2, 3, 4, 5], page: 'transports' }]

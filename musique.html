@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1280">
+<title>Musique</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700&family=Figtree:wght@400;500;600;700&family=Fraunces:opsz,wght,SOFT,WONK@9..144,500..700,0..100,0..1&display=swap">
+<style>
+:root{
+  --bg:#E3E8DD; --card:#FAFBF8; --card2:#D9E0D1; --ink:#0F1712; --muted:#414D45; --line:#B7C1AF; --accent:#587A57; --on-ink:#FAFBF8; --ok:#4C8758;
+}
+html.nuit{ --bg:#0B1016; --card:#18212A; --card2:#26323E; --ink:#F4F7F3; --muted:#AEBAB4; --line:#3A4856; --accent:#92B28E; --on-ink:#0B1016; --ok:#7FC08A; }
+
+html,body{margin:0;width:1280px;height:728px;overflow:hidden;background:var(--bg)}
+body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased;-webkit-user-select:none;user-select:none}
+.h{font-family:Fraunces,"Bricolage Grotesque",Figtree,Arial,sans-serif}
+.wrap{box-sizing:border-box;width:1280px;height:728px;padding:24px 36px;display:flex;flex-direction:column}
+.label{font-size:15px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);display:flex;align-items:center}
+.demo{margin-left:10px;font-size:12px;letter-spacing:.06em;padding:3px 9px;background:var(--card2);color:var(--muted)}
+.main{flex:1;display:flex;margin-top:16px;min-height:0}
+.card{background:var(--card);box-sizing:border-box;padding:26px 30px}
+/* Lecture en cours */
+.hero{flex:1.55;margin-right:16px;display:flex;align-items:stretch;min-width:0}
+.pochette{width:360px;height:360px;flex:none;border-radius:26px 20px 28px 22px / 22px 26px 20px 26px;background:var(--card2);overflow:hidden;display:flex;align-items:center;justify-content:center;color:var(--muted);align-self:center}
+.pochette img{width:100%;height:100%;object-fit:cover;display:block}
+.pochette svg{width:40%;height:40%}
+.infos{flex:1;min-width:0;margin-left:30px;display:flex;flex-direction:column;justify-content:center}
+.src{font-size:16px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.src i{display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--ok);margin-right:9px;vertical-align:.06em}
+.src i.pause{background:var(--muted)}
+.titre{font-size:44px;font-weight:600;line-height:1.08;margin-top:12px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical}
+.artiste{font-size:24px;color:var(--muted);margin-top:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.prog{margin-top:22px}
+.barre{height:7px;border-radius:7px;background:var(--card2);overflow:hidden}
+.barre i{display:block;height:100%;background:var(--accent);border-radius:7px}
+.temps{display:flex;justify-content:space-between;font-size:15px;color:var(--muted);margin-top:6px}
+.ctl{display:flex;align-items:center;margin-top:22px}
+.bt{width:70px;height:70px;border-radius:50%;background:var(--card2);color:var(--ink);display:flex;align-items:center;justify-content:center;cursor:pointer;margin-right:16px;flex:none}
+.bt svg{width:30px;height:30px}
+.bt.pp{width:88px;height:88px;background:var(--accent);color:var(--on-ink)}
+.bt.pp svg{width:36px;height:36px}
+.bt:active{-webkit-transform:scale(.94);transform:scale(.94)}
+.vol{display:flex;align-items:center;margin-top:24px}
+.vol svg{width:26px;height:26px;color:var(--muted);flex:none}
+.vol b{font-size:18px;font-weight:700;width:52px;text-align:right;color:var(--muted);flex:none}
+input[type=range]{-webkit-appearance:none;appearance:none;flex:1;height:44px;background:transparent;margin:0 14px;cursor:pointer}
+input[type=range]::-webkit-slider-runnable-track{height:10px;border-radius:5px;background:var(--card2)}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:32px;height:32px;border-radius:50%;margin-top:-11px;background:var(--accent);border:4px solid var(--card);box-shadow:0 3px 10px -3px rgba(0,0,0,.5)}
+.vide{flex:1;display:flex;flex-direction:column;justify-content:center}
+.vide .titre{font-size:40px}
+.vide p{font-size:20px;color:var(--muted);margin:12px 0 0;line-height:1.4}
+/* Colonne de droite : enceintes et favoris */
+.cote{flex:1;display:flex;flex-direction:column;min-width:0}
+.ens{flex:1;min-height:0;overflow:hidden}
+.en{display:flex;align-items:center;padding:12px 14px;margin:0 -14px;border-radius:18px;cursor:pointer}
+.en.on{background:var(--card2)}
+.en-i{width:44px;height:44px;border-radius:50%;background:var(--card2);display:flex;align-items:center;justify-content:center;flex:none;color:var(--muted)}
+.en.on .en-i{background:var(--card)}
+.en-i svg{width:22px;height:22px}
+.en.joue .en-i{background:var(--accent);color:var(--on-ink)}
+.en-t{flex:1;min-width:0;margin-left:14px}
+.en-n{font-size:21px;font-weight:700}
+.en-s{font-size:16px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
+.en-v{font-size:15px;font-weight:700;color:var(--muted);margin-left:10px}
+.favs{margin-top:16px}
+.fav{display:flex;flex-wrap:wrap;margin:8px -5px 0}
+.fav span{font-size:18px;font-weight:600;padding:14px 18px;border-radius:18px 14px 18px 14px;background:var(--card2);margin:5px;cursor:pointer;display:flex;align-items:center;white-space:nowrap}
+.fav span svg{width:18px;height:18px;margin-right:9px;color:var(--accent)}
+.fav span.envoye{opacity:.5}
+.note{font-size:14px;color:var(--muted);margin-top:8px}
+/* =====================================================================
+   THÈME ORGANIQUE (jour sable / nuit braise) — commun à toutes les pages
+   ===================================================================== */
+:root{
+  --bg:#EFE8DA; --card:#FBF7EF; --card2:#ECE4D3; --ink:#2A2620; --muted:#6B6253; --line:#D9CFBC;
+  --accent:#4C6A40; --on-ink:#FBF7EF; --p2:#7A4E80; --p2-soft:#EFE6EE; --nous:#3F72A8; --fete:#8F5617; --fete-soft:#F3E0C4;
+  --ok:#3F6E35; --warn:#9A4520; --warn-soft:#F2DCCB; --rain:#4F7FA3; --rain-soft:#DCE6EA;
+  --sun:#D6952C; --moon:#A39FB8; --cloud:#BDB6A8; --cool:#7FA9BE; --warm:#D9973A; --nightband:#E2DCCF;
+  --go-bg:#E3EAD8; --go-ink:#2A2620; --go-acc:#3F6E35; --hurry-bg:#F2DCCB; --hurry-ink:#8A3E18; --none-bg:#ECE4D3; --none-ink:#6B6253;
+  --glow:#EFC777; --glow-ink:#5A3E08;
+  --ombre:0 8px 18px -12px rgba(90,70,40,.38);
+}
+html.nuit{
+  --bg:#16100D; --card:#2B2019; --card2:#3B2E25; --ink:#F6EDE4; --muted:#C2AE9E; --line:#433429;
+  --accent:#E0A86A; --on-ink:#16100D; --p2:#D8A1B8; --p2-soft:#3A2430; --nous:#8FB4DA; --fete:#F0B860; --fete-soft:#3E2C12;
+  --ok:#A9C77A; --warn:#F08A5A; --warn-soft:#3E2216; --rain:#9EC1D6; --rain-soft:#22303A;
+  --sun:#EDB257; --moon:#E3D3A8; --cloud:#6A5A4E; --cool:#86AFC4; --warm:#E2A04A; --nightband:#2A201A;
+  --go-bg:#2F2E20; --go-ink:#F6EDE4; --go-acc:#A9C77A; --hurry-bg:#3E2216; --hurry-ink:#F3A274; --none-bg:#3B2E25; --none-ink:#C2AE9E;
+  --glow:#E8B15A; --glow-ink:#2A1C04;
+  --ombre:inset 0 1px 0 rgba(255,236,214,.08);
+}
+body{background:var(--bg) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 728' preserveAspectRatio='none'%3E %3Cpath fill='%23C9D8BC' fill-opacity='0.6' d='M-60 -40C120 -70 330 10 360 150C392 300 250 330 170 420C90 510 -10 520 -80 470Z'/%3E %3Cpath fill='%23EBC9AE' fill-opacity='0.6' d='M1340 330C1250 300 1120 360 1060 470C995 590 1060 700 1150 760L1360 790Z'/%3E %3Cpath fill='%23EED9A6' fill-opacity='0.6' d='M610 -60C700 -20 860 -40 930 40C1000 120 920 200 800 190C690 180 640 240 560 200C470 150 520 -90 610 -60Z'/%3E %3Cpath fill='%23C9D8BC' fill-opacity='0.6' d='M380 760C420 650 560 600 660 640C760 680 780 740 760 800Z'/%3E %3C/svg%3E") no-repeat;background-size:1280px 728px}
+html.nuit body{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1280 728' preserveAspectRatio='none'%3E %3Cpath fill='%234A2416' d='M-60 -40C120 -70 330 10 360 150C392 300 250 330 170 420C90 510 -10 520 -80 470Z'/%3E %3Cpath fill='%233B2E14' d='M1340 330C1250 300 1120 360 1060 470C995 590 1060 700 1150 760L1360 790Z'/%3E %3Cpath fill='%232E1E14' d='M610 -60C700 -20 860 -40 930 40C1000 120 920 200 800 190C690 180 640 240 560 200C470 150 520 -90 610 -60Z'/%3E %3Cpath fill='%234A2416' d='M380 760C420 650 560 600 660 640C760 680 780 740 760 800Z'/%3E %3C/svg%3E")}
+body,body *{font-variation-settings:"SOFT" 100,"WONK" 0}
+.card,.tile,.scene,.day,.hero,.pn-item{box-shadow:var(--ombre)}
+.card{border-radius:30px 24px 32px 26px / 26px 30px 24px 30px}
+.card + .card{border-radius:24px 30px 26px 32px / 30px 24px 30px 26px}
+.tile{border-radius:26px 20px 28px 22px / 22px 26px 20px 26px}
+.chip,.tag,.ln-status,.demo{border-radius:999px}
+.scene{border-radius:28px 22px 30px 24px / 24px 28px 22px 28px}
+.hero{border-radius:30px 24px 32px 26px / 26px 30px 24px 30px}
+.day{border-radius:22px 18px 24px 18px / 18px 22px 18px 22px}
+.day.loin{background:rgba(251,247,239,.55);border-color:transparent}
+html.nuit .day.loin{background:rgba(43,32,25,.6)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="label">Musique<span class="demo" id="demo">exemple</span></div>
+  <div class="main">
+    <div class="card hero" id="hero"></div>
+    <div class="cote">
+      <div class="card ens"><div class="label">Enceintes</div><div id="ens" style="margin-top:8px"></div></div>
+      <div class="card favs"><div class="label">Lancer sur <span id="cible" style="margin-left:6px;color:var(--ink)"></span></div><div class="fav" id="fav"></div><div class="note" id="note"></div></div>
+    </div>
+  </div>
+</div>
+<script>
+var CONFIG = { WORKER: 'https://ecran-salon.nico-michon37.workers.dev' };
+function param(n){ var m = new RegExp('[?&]' + n + '=([^&#]*)').exec(location.search); return m ? decodeURIComponent(m[1]) : null; }
+function themeAuto(){ var h = new Date().getHours(); return (h >= 19 || h < 7) ? 'nuit' : 'jour'; }
+function appliquerTheme(t){ if (!t || t === 'auto') t = themeAuto(); document.documentElement.className = t === 'nuit' ? 'nuit' : ''; }
+appliquerTheme(param('theme'));
+function signalerToucher(){ if (window.parent !== window) { try { window.parent.postMessage({ type: 'interaction' }, '*'); } catch (err) {} } }
+document.addEventListener('touchstart', signalerToucher, true);
+document.addEventListener('mousedown', signalerToucher, true);
+function $(id){ return document.getElementById(id); }
+function echapper(t){ return String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+function pad(n){ return (n < 10 ? '0' : '') + n; }
+var CLE = param('cle');
+function enDemo(){ return !CLE; }
+var SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">';
+var IC = {
+  note: '<path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/>',
+  lecture: '<path d="M7 4.5v15l12.5-7.5z" fill="currentColor" stroke="none"/>',
+  pause: '<rect x="6" y="4.5" width="4" height="15" rx="1.2" fill="currentColor" stroke="none"/><rect x="14" y="4.5" width="4" height="15" rx="1.2" fill="currentColor" stroke="none"/>',
+  suivant: '<path d="M5 5l10 7-10 7z" fill="currentColor" stroke="none"/><path d="M19 5v14"/>',
+  precedent: '<path d="M19 5L9 12l10 7z" fill="currentColor" stroke="none"/><path d="M5 5v14"/>',
+  enceinte: '<rect x="6" y="2.5" width="12" height="19" rx="3"/><circle cx="12" cy="14.5" r="3.2"/><circle cx="12" cy="7" r="1"/>',
+  volume: '<path d="M11 5L6 9H3v6h3l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/>'
+};
+function ic(n){ return SVG + IC[n] + '</svg>'; }
+var DEMO = { lecteurs: [
+  { id: 'media_player.enceinte', nom: 'Enceinte', etat: 'playing', titre: 'Midnight City', artiste: 'M83', app: 'Spotify', volume: 35, image: null, duree: 243, position: 80, majPos: 0 },
+  { id: 'media_player.bureau', nom: 'Bureau', etat: 'off', titre: '', volume: null }, { id: 'media_player.maison', nom: 'Maison', etat: 'off', titre: '', volume: null },
+  { id: 'media_player.salle_d_eau', nom: "Salle d'eau", etat: 'paused', titre: 'Inside Out', artiste: 'Odesza', app: 'Spotify', volume: 20 }
+], favoris: ['Titres likés', 'Daily Mix', 'Découvertes', 'FIP'] };
+var donnees = null, choisi = null, regleVolume = false, visible = false;
+function D(){ return enDemo() ? DEMO : donnees; }
+function actif(){
+  var M = D(); if (!M || !M.lecteurs.length) return null;
+  var L = M.lecteurs, i;
+  if (choisi) for (i = 0; i < L.length; i++) if (L[i].id === choisi) return L[i];
+  for (i = 0; i < L.length; i++) if (L[i].etat === 'playing') return L[i];
+  for (i = 0; i < L.length; i++) if (L[i].etat === 'paused' && L[i].titre) return L[i];
+  return L[0];
+}
+function mmss(s){ s = Math.max(0, Math.round(s)); return Math.floor(s / 60) + ':' + pad(s % 60); }
+function position(A){ var p = A.position || 0; if (A.etat === 'playing' && A.majPos) p += (Date.now() - A.majPos) / 1000; return A.duree ? Math.min(p, A.duree) : p; }
+function dessiner(){
+  var M = D();
+  $('demo').style.display = enDemo() ? '' : 'none';
+  if (!M) { $('hero').innerHTML = '<div class="vide"><div class="titre h">Chargement…</div></div>'; return; }
+  if (!M.lecteurs.length) { $('hero').innerHTML = '<div class="vide"><div class="titre h">Aucune enceinte</div><p>Home Assistant ne voit aucune enceinte Google en ce moment.</p></div>'; return; }
+  var A = actif(), joue = A.titre && (A.etat === 'playing' || A.etat === 'paused'), html;
+  if (joue) {
+    var img = A.image && !enDemo() ? '<img src="' + CONFIG.WORKER + '/musique/pochette?cle=' + encodeURIComponent(CLE) + '&id=' + encodeURIComponent(A.id) + '&v=' + encodeURIComponent(A.image) + '" alt="">' : ic('note');
+    var p = position(A), pc = A.duree ? p / A.duree * 100 : 0;
+    html = '<div class="pochette">' + img + '</div><div class="infos">' +
+      '<div class="src"><i class="' + (A.etat === 'playing' ? '' : 'pause') + '"></i>' + echapper(A.nom) + (A.app ? ' · ' + echapper(A.app) : '') + '</div>' +
+      '<div class="titre h">' + echapper(A.titre) + '</div>' + (A.artiste ? '<div class="artiste">' + echapper(A.artiste) + '</div>' : '') +
+      (A.duree ? '<div class="prog"><div class="barre"><i id="barre" style="width:' + pc.toFixed(1) + '%"></i></div><div class="temps"><span id="pos">' + mmss(p) + '</span><span>' + mmss(A.duree) + '</span></div></div>' : '') +
+      '<div class="ctl"><div class="bt" data-a="precedent">' + ic('precedent') + '</div><div class="bt pp" data-a="lecture">' + ic(A.etat === 'playing' ? 'pause' : 'lecture') + '</div><div class="bt" data-a="suivant">' + ic('suivant') + '</div></div>' +
+      (A.volume !== null && A.volume !== undefined ? '<div class="vol">' + ic('volume') + '<input type="range" id="vol" min="0" max="100" step="1" value="' + A.volume + '"><b id="volv">' + A.volume + '</b></div>' : '') + '</div>';
+  } else {
+    html = '<div class="pochette">' + ic('note') + '</div><div class="infos vide"><div class="src">' + echapper(A.nom) + '</div><div class="titre h">Rien en cours</div>' +
+      '<p>Choisis un favori à droite pour lancer la musique sur cette enceinte, ou lance-la depuis Spotify.</p>' +
+      (A.volume !== null && A.volume !== undefined ? '<div class="vol">' + ic('volume') + '<input type="range" id="vol" min="0" max="100" step="1" value="' + A.volume + '"><b id="volv">' + A.volume + '</b></div>' : '') + '</div>';
+  }
+  if (!regleVolume) $('hero').innerHTML = html;
+  // enceintes
+  var e = '';
+  for (var i = 0; i < M.lecteurs.length && i < 6; i++) {
+    var L = M.lecteurs[i], j = L.titre && (L.etat === 'playing' || L.etat === 'paused');
+    e += '<div class="en' + (L.id === A.id ? ' on' : '') + (L.etat === 'playing' ? ' joue' : '') + '" data-l="' + L.id + '"><div class="en-i">' + ic(L.etat === 'playing' ? 'note' : 'enceinte') + '</div>' +
+      '<div class="en-t"><div class="en-n">' + echapper(L.nom) + '</div><div class="en-s">' + (j ? (L.etat === 'paused' ? 'En pause · ' : '') + echapper(L.titre) + (L.artiste ? ' — ' + echapper(L.artiste) : '') : (L.etat === 'off' ? 'Éteinte' : 'Disponible')) + '</div></div>' +
+      (L.volume !== null && L.volume !== undefined ? '<div class="en-v">' + L.volume + ' %</div>' : '') + '</div>';
+  }
+  $('ens').innerHTML = e;
+  $('cible').innerHTML = echapper(A.nom);
+  var f = '';
+  for (var k = 0; k < M.favoris.length; k++) f += '<span data-f="' + k + '">' + ic('lecture') + echapper(M.favoris[k]) + '</span>';
+  $('fav').innerHTML = f || '<div class="note">Ajoute des favoris dans la page admin.</div>';
+  $('note').innerHTML = M.favoris.length ? 'Lancé par l\'Assistant Google · modifiable dans la page admin' : '';
+}
+function charger(){
+  if (enDemo()) { dessiner(); return; }
+  var xhr = new XMLHttpRequest();
+  xhr.open('GET', CONFIG.WORKER + '/musique?cle=' + encodeURIComponent(CLE) + '&t=' + Date.now(), true);
+  xhr.timeout = 10000;
+  xhr.onload = function(){ var j = null; try { j = JSON.parse(xhr.responseText); } catch (err) {} if (xhr.status === 200 && j && j.lecteurs) { donnees = j; dessiner(); } };
+  xhr.send();
+}
+function envoyer(corps){
+  if (enDemo()) return;
+  var xhr = new XMLHttpRequest();
+  xhr.open('POST', CONFIG.WORKER + '/musique/action?cle=' + encodeURIComponent(CLE), true);
+  xhr.setRequestHeader('Content-Type', 'text/plain');
+  xhr.onload = function(){ setTimeout(charger, 1000); setTimeout(charger, 3500); };
+  xhr.send(JSON.stringify(corps));
+}
+document.addEventListener('click', function(e){
+  var el = e.target;
+  while (el && el.getAttribute && el.getAttribute('data-a') === null && el.getAttribute('data-l') === null && el.getAttribute('data-f') === null) el = el.parentNode;
+  if (!el || !el.getAttribute) return;
+  var A = actif(); if (!A) return;
+  if (el.getAttribute('data-l') !== null) { choisi = el.getAttribute('data-l'); dessiner(); return; }
+  if (el.getAttribute('data-f') !== null) { el.className = 'envoye'; envoyer({ action: 'lancer', id: A.id, favori: parseInt(el.getAttribute('data-f'), 10) }); setTimeout(charger, 6000); setTimeout(charger, 12000); return; }
+  var a = el.getAttribute('data-a');
+  if (a === 'lecture') A.etat = A.etat === 'playing' ? 'paused' : 'playing';
+  envoyer({ action: a, id: A.id }); dessiner();
+});
+// Volume : suit le doigt, envoyé au lâcher
+document.addEventListener('input', function(e){ if (e.target.id === 'vol') { regleVolume = true; $('volv').innerHTML = e.target.value; } });
+document.addEventListener('change', function(e){
+  if (e.target.id !== 'vol') return;
+  var A = actif(); regleVolume = false;
+  if (A) { A.volume = parseInt(e.target.value, 10); envoyer({ action: 'volume', id: A.id, valeur: A.volume }); }
+});
+// Progression du morceau, chaque seconde
+setInterval(function(){
+  var A = actif(); if (!A || !A.duree || !$('barre')) return;
+  var p = position(A); $('barre').style.width = (p / A.duree * 100).toFixed(1) + '%'; $('pos').innerHTML = mmss(p);
+}, 1000);
+window.addEventListener('message', function(e){
+  if (!e.data) return;
+  if (e.data.type === 'theme') appliquerTheme(e.data.value);
+  if (e.data.type === 'actif') { var v = e.data.value === 'musique'; if (v && !visible) charger(); visible = v; }
+});
+// Toutes les 5 s quand la page est à l'écran, sinon toutes les minutes
+var tour = 0;
+setInterval(function(){ tour++; if (visible || tour % 12 === 0) charger(); }, 5000);
+charger();
+</script>
+</body>
+</html>

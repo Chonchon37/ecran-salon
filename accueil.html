@@ -136,6 +136,12 @@ body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;fon
 .jours-p{border-top:2px solid var(--line);margin-top:12px;padding-top:8px}
 
 /* ---------- Tuile Musique (enceintes Google, Spotify…) ---------- */
+.mu-etroit .mu{margin-top:14px;flex:none;align-items:center}
+.mu-etroit .mu-img{margin-right:16px;border-radius:14px}
+.mu-etroit .mu-t{font-size:22px;-webkit-line-clamp:2;margin-top:0}
+.mu-etroit .mu-a{font-size:17px;margin-top:5px}
+.mu-etroit .mu-ctl{justify-content:space-between;margin-top:auto;padding:0 6px}
+.mu-etroit .mu-ctl b{margin-right:0}
 #t-musique{background:var(--t-musique,var(--card))}
 .mu{display:flex;flex:1;min-height:0;align-items:center}
 .mu-img{flex:none;border-radius:16px;background:var(--card2);overflow:hidden;margin-right:18px;display:flex;align-items:center;justify-content:center;color:var(--muted)}
@@ -1283,7 +1289,8 @@ function tuileMusique(T, now, l, h){
   if (!M) { T.innerHTML = '<div class="mu-src">Musique</div><div class="vide">Chargement…</div>'; return; }
   if (!M.lecteurs.length) { T.innerHTML = '<div class="mu-src">Musique</div><div class="vide">Aucune enceinte trouvée dans Home Assistant</div>'; return; }
   var A = lecteurActif(M), joue = A && A.titre && (A.etat === 'playing' || A.etat === 'paused'), demi = h < 1, html = '', i;
-  if (demi) T.className += ' mu-demi';
+  T.className += ' lien' + (demi ? ' mu-demi' : '') + (l < 2 && !demi ? ' mu-etroit' : '');
+  T.setAttribute('data-page', 'musique');   // toucher la tuile (hors boutons) ouvre l'onglet Musique
   // Les enceintes, à toucher pour choisir celle qu'on pilote (point vert : en lecture)
   var ens = '<div class="mu-ens">';
   for (i = 0; i < M.lecteurs.length; i++) {
@@ -1295,13 +1302,16 @@ function tuileMusique(T, now, l, h){
     var pos = A.position || 0;
     if (A.etat === 'playing' && A.majPos) pos += (now.getTime() - A.majPos) / 1000;
     var pc = A.duree ? Math.max(0, Math.min(100, pos / A.duree * 100)) : 0;
-    var taille = demi ? Math.max(44, T.clientHeight - 36) : Math.min(Math.round(T.clientWidth * 0.36), T.clientHeight - (h >= 1.5 ? 190 : 130));
+    var taille = demi ? Math.max(44, T.clientHeight - 36) : (l < 2 ? Math.min(Math.round(T.clientWidth * 0.3), T.clientHeight - 140) : Math.min(Math.round(T.clientWidth * 0.36), T.clientHeight - (h >= 1.5 ? 190 : 130)));
     taille = Math.max(56, taille);
     var img = A.image ? '<img src="' + CONFIG.WORKER + '/musique/pochette?cle=' + encodeURIComponent(CLE) + '&id=' + encodeURIComponent(A.id) + '&v=' + encodeURIComponent(A.image) + '" alt="">' : muIcone('note');
+    var etroit = l < 2 && !demi;
+    if (etroit) html += '<div class="mu-src"><i class="' + (A.etat === 'playing' ? '' : 'pause') + '"></i>' + echapper(A.nom) + (A.app ? ' · ' + echapper(A.app) : '') + '</div>';
     html += '<div class="mu"><div class="mu-img" style="width:' + taille + 'px;height:' + taille + 'px">' + img + '</div><div class="mu-txt">' +
-      (demi ? '' : '<div class="mu-src"><i class="' + (A.etat === 'playing' ? '' : 'pause') + '"></i>' + echapper(A.nom) + (A.app ? ' · ' + echapper(A.app) : '') + '</div>') +
+      (demi || etroit ? '' : '<div class="mu-src"><i class="' + (A.etat === 'playing' ? '' : 'pause') + '"></i>' + echapper(A.nom) + (A.app ? ' · ' + echapper(A.app) : '') + '</div>') +
       '<div class="mu-t h">' + echapper(A.titre) + '</div>' + (A.artiste ? '<div class="mu-a">' + echapper(A.artiste) + '</div>' : '') +
-      (demi || !A.duree ? '' : '<div class="mu-bar"><i style="width:' + pc.toFixed(1) + '%"></i></div>') + '</div></div>';
+      (demi || etroit || !A.duree ? '' : '<div class="mu-bar"><i style="width:' + pc.toFixed(1) + '%"></i></div>') + '</div></div>' +
+'';
     html += '<div class="mu-ctl">' + (demi ? '' : '<b data-mu="precedent">' + muIcone('precedent') + '</b>') +
       '<b class="pp" data-mu="lecture">' + muIcone(A.etat === 'playing' ? 'pause' : 'lecture') + '</b><b data-mu="suivant">' + muIcone('suivant') + '</b>' +
       (demi || l < 2 || A.volume === null ? '' : '<span class="mu-vol"><b data-mu="vol-">−</b><em>' + A.volume + '</em><b data-mu="vol+">+</b></span>') + '</div>';
@@ -1438,7 +1448,8 @@ setInterval(function(){
 document.addEventListener('click', function(e){
   var el = e.target;
   while (el && el !== document.body) {
-    if (el.getAttribute && (el.getAttribute('data-scene') !== null || el.getAttribute('data-lum') !== null)) return;
+    if (el.getAttribute && (el.getAttribute('data-scene') !== null || el.getAttribute('data-lum') !== null ||
+      el.getAttribute('data-mu') !== null || el.getAttribute('data-mu-l') !== null || el.getAttribute('data-mu-f') !== null)) return;
     if (el.getAttribute && el.getAttribute('data-page')) {
       if (window.parent !== window) { try { window.parent.postMessage({ type: 'aller', page: el.getAttribute('data-page') }, '*'); } catch (err) {} }
       return;
