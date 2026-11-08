@@ -136,7 +136,7 @@ body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;fon
 .jours-p{border-top:2px solid var(--line);margin-top:12px;padding-top:8px}
 
 /* ---------- Tuile Musique (enceintes Google, Spotify…) ---------- */
-.mu-etroit .mu{margin-top:14px;flex:none;align-items:center}
+.mu-etroit .mu{margin-top:4px;flex:none;align-items:center}
 .mu-etroit .mu-img{margin-right:16px;border-radius:14px}
 .mu-etroit .mu-t{font-size:22px;-webkit-line-clamp:2;margin-top:0}
 .mu-etroit .mu-a{font-size:17px;margin-top:5px}
@@ -1314,13 +1314,11 @@ function tuileMusique(T, now, l, h){
     var pos = A.position || 0;
     if (A.etat === 'playing' && A.majPos) pos += (now.getTime() - A.majPos) / 1000;
     var pc = A.duree ? Math.max(0, Math.min(100, pos / A.duree * 100)) : 0;
-    var taille = demi ? Math.max(44, T.clientHeight - 36) : (l < 2 ? Math.min(Math.round(T.clientWidth * 0.3), T.clientHeight - 140) : Math.min(Math.round(T.clientWidth * 0.36), T.clientHeight - (h >= 1.5 ? 190 : 130)));
+    var taille = demi ? Math.max(44, T.clientHeight - 36) : (l < 2 ? Math.min(Math.round(T.clientWidth * 0.3), T.clientHeight - 110) : Math.min(Math.round(T.clientWidth * 0.36), T.clientHeight - (h >= 1.5 ? 190 : 130)));
     taille = Math.max(56, taille);
     var img = A.image ? '<img src="' + CONFIG.WORKER + '/musique/pochette?cle=' + encodeURIComponent(CLE) + '&id=' + encodeURIComponent(A.id) + '&v=' + encodeURIComponent(A.image) + '" alt="">' : muIcone('note');
     var etroit = l < 2 && !demi;
-    if (etroit) html += '<div class="mu-src"><i class="' + (A.etat === 'playing' ? '' : 'pause') + '"></i>' + echapper(A.nom) + (A.app ? ' · ' + echapper(A.app) : '') + '</div>';
     html += '<div class="mu"><div class="mu-img" style="width:' + taille + 'px;height:' + taille + 'px">' + img + '</div><div class="mu-txt">' +
-      (demi || etroit ? '' : '<div class="mu-src"><i class="' + (A.etat === 'playing' ? '' : 'pause') + '"></i>' + echapper(A.nom) + (A.app ? ' · ' + echapper(A.app) : '') + '</div>') +
       '<div class="mu-t h">' + echapper(A.titre) + '</div>' + (A.artiste ? '<div class="mu-a">' + echapper(A.artiste) + '</div>' : '') +
       (demi || etroit || !A.duree ? '' : '<div class="mu-bar"><i style="width:' + pc.toFixed(1) + '%"></i></div>') + '</div></div>' +
 '';
