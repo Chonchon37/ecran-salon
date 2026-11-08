@@ -51,7 +51,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:32px;heigh
 .vide p{font-size:20px;color:var(--muted);margin:12px 0 0;line-height:1.4}
 /* Colonne de droite : enceintes et favoris */
 .cote{flex:1;display:flex;flex-direction:column;min-width:0}
-.ens{flex:1;min-height:0;overflow:hidden}
+.ens{flex:none}
 .en{display:flex;align-items:center;padding:12px 14px;margin:0 -14px;border-radius:18px;cursor:pointer}
 .en.on{background:var(--card2)}
 .en-i{width:44px;height:44px;border-radius:50%;background:var(--card2);display:flex;align-items:center;justify-content:center;flex:none;color:var(--muted)}
@@ -65,7 +65,14 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:32px;heigh
 .sous{font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:12px 0 2px}
 .en:not(.princ) .en-n{font-size:19px}
 .en-v{font-size:15px;font-weight:700;color:var(--muted);margin-left:10px}
-.favs{margin-top:16px}
+.favs{margin-top:16px;flex:1;min-height:0;display:flex;flex-direction:column}
+.pls{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;display:flex;flex-wrap:wrap;align-content:flex-start;margin:10px -6px 0}
+.pl{width:50%;box-sizing:border-box;padding:6px;cursor:pointer}
+.pl div{display:flex;align-items:center;background:var(--card2);border-radius:16px 12px 16px 12px;padding:8px;height:64px;box-sizing:border-box}
+.pl img,.pl i{width:48px;height:48px;border-radius:10px;flex:none;object-fit:cover;background:var(--card);display:flex;align-items:center;justify-content:center;color:var(--accent)}
+.pl i svg{width:22px;height:22px}
+.pl span{font-size:17px;font-weight:600;margin-left:12px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;line-height:1.2}
+.pl.envoye div{opacity:.5}
 .fav{display:flex;flex-wrap:wrap;margin:8px -5px 0}
 .fav span{font-size:18px;font-weight:600;padding:14px 18px;border-radius:18px 14px 18px 14px;background:var(--card2);margin:5px;cursor:pointer;display:flex;align-items:center;white-space:nowrap}
 .fav span svg{width:18px;height:18px;margin-right:9px;color:var(--accent)}
@@ -114,7 +121,7 @@ html.nuit .day.loin{background:rgba(43,32,25,.6)}
     <div class="card hero" id="hero"></div>
     <div class="cote">
       <div class="card ens"><div class="label">Enceintes</div><div id="ens" style="margin-top:8px"></div></div>
-      <div class="card favs"><div class="label">Lancer sur <span id="cible" style="margin-left:6px;color:var(--ink)"></span></div><div class="fav" id="fav"></div><div class="note" id="note"></div></div>
+      <div class="card favs"><div class="label"><span id="titreListes">Lancer</span>&nbsp;sur <span id="cible" style="margin-left:6px;color:var(--ink)"></span></div><div class="fav" id="fav"></div><div class="pls" id="pls"></div><div class="note" id="note"></div></div>
     </div>
   </div>
 </div>
@@ -140,6 +147,7 @@ var IC = {
   suivant: '<path d="M5 5l10 7-10 7z" fill="currentColor" stroke="none"/><path d="M19 5v14"/>',
   precedent: '<path d="M19 5L9 12l10 7z" fill="currentColor" stroke="none"/><path d="M5 5v14"/>',
   enceinte: '<rect x="6" y="2.5" width="12" height="19" rx="3"/><circle cx="12" cy="14.5" r="3.2"/><circle cx="12" cy="7" r="1"/>',
+  coeur: '<path d="M12 20s-7-4.5-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.5-7 10-7 10z" fill="currentColor" stroke="none"/>',
   volume: '<path d="M11 5L6 9H3v6h3l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/>'
 };
 function ic(n){ return SVG + IC[n] + '</svg>'; }
@@ -147,7 +155,8 @@ var DEMO = { lecteurs: [
   { id: 'media_player.enceinte', nom: 'Enceinte', etat: 'playing', titre: 'Midnight City', artiste: 'M83', app: 'Spotify', volume: 35, image: null, duree: 243, position: 80, majPos: 0 },
   { id: 'media_player.bureau', nom: 'Bureau', etat: 'off', titre: '', volume: null }, { id: 'media_player.maison', nom: 'Maison', etat: 'off', titre: '', volume: null },
   { id: 'media_player.salle_d_eau', nom: "Salle d'eau", etat: 'paused', titre: 'Inside Out', artiste: 'Odesza', app: 'Spotify', volume: 20 }
-], favoris: ['Titres likés', 'Daily Mix', 'Découvertes', 'FIP'] };
+], favoris: ['Titres likés', 'Daily Mix', 'Découvertes', 'FIP'], spotify: true,
+  playlists: [{ nom: 'Titres likés' }, { nom: 'Soirée chill' }, { nom: 'Running' }, { nom: 'Rap FR' }, { nom: 'Apéro terrasse' }, { nom: 'Dimanche matin' }, { nom: 'Années 2000' }] };
 var donnees = null, choisi = null, regleVolume = false, visible = false;
 function D(){ return enDemo() ? DEMO : donnees; }
 // Enceinte principale : « Maison » (toutes les enceintes) ; les autres sont secondaires
@@ -189,7 +198,7 @@ function dessiner(){
       (A.volume !== null && A.volume !== undefined ? '<div class="vol">' + ic('volume') + '<input type="range" id="vol" min="0" max="100" step="1" value="' + A.volume + '"><b id="volv">' + A.volume + '</b></div>' : '') + '</div>';
   } else {
     html = '<div class="pochette">' + ic('note') + '</div><div class="infos vide"><div class="src">' + echapper(A.nom) + '</div><div class="titre h">Rien en cours</div>' +
-      '<p>Choisis un favori à droite pour lancer la musique sur cette enceinte, ou lance-la depuis Spotify.</p>' +
+      '<p>Choisis une playlist à droite pour la lancer sur cette enceinte, ou lance la musique depuis Spotify.</p>' +
       (A.volume !== null && A.volume !== undefined ? '<div class="vol">' + ic('volume') + '<input type="range" id="vol" min="0" max="100" step="1" value="' + A.volume + '"><b id="volv">' + A.volume + '</b></div>' : '') + '</div>';
   }
   if (!regleVolume) $('hero').innerHTML = html;
@@ -204,10 +213,23 @@ function dessiner(){
   }
   $('ens').innerHTML = e;
   $('cible').innerHTML = echapper(A.nom);
-  var f = '';
-  for (var k = 0; k < M.favoris.length; k++) f += '<span data-f="' + k + '">' + ic('lecture') + echapper(M.favoris[k]) + '</span>';
-  $('fav').innerHTML = f || '<div class="note">Ajoute des favoris dans la page admin.</div>';
-  $('note').innerHTML = M.favoris.length ? 'Lancé par l\'Assistant Google · modifiable dans la page admin' : '';
+  var f = '', pl = '';
+  if (M.spotify && M.playlists && M.playlists.length) {
+    // Mes playlists Spotify (pochette + nom), à faire défiler
+    for (var q = 0; q < M.playlists.length; q++) {
+      var P = M.playlists[q];
+      pl += '<div class="pl" data-p="' + q + '"><div>' + (P.image ? '<img src="' + echapper(P.image) + '" alt="">' : '<i>' + ic(q === 0 ? 'coeur' : 'note') + '</i>') + '<span>' + echapper(P.nom) + '</span></div></div>';
+    }
+    $('titreListes').innerHTML = 'Mes playlists';
+    $('note').innerHTML = '';
+  } else {
+    for (var k = 0; k < M.favoris.length; k++) f += '<span data-f="' + k + '">' + ic('lecture') + echapper(M.favoris[k]) + '</span>';
+    $('titreListes').innerHTML = 'Lancer';
+    $('note').innerHTML = M.spotifyConfigure ? 'Spotify n\'est pas encore connecté : page admin, section Musique' : (M.favoris.length ? 'Lancé par l\'Assistant Google · modifiable dans la page admin' : '');
+  }
+  var defil = $('pls').scrollTop;
+  $('fav').innerHTML = f; $('pls').innerHTML = pl; $('pls').scrollTop = defil;
+  $('fav').style.display = f ? '' : 'none'; $('pls').style.display = pl ? '' : 'none';
 }
 function charger(){
   if (enDemo()) { dessiner(); return; }
@@ -227,10 +249,11 @@ function envoyer(corps){
 }
 document.addEventListener('click', function(e){
   var el = e.target;
-  while (el && el.getAttribute && el.getAttribute('data-a') === null && el.getAttribute('data-l') === null && el.getAttribute('data-f') === null) el = el.parentNode;
+  while (el && el.getAttribute && el.getAttribute('data-a') === null && el.getAttribute('data-l') === null && el.getAttribute('data-f') === null && el.getAttribute('data-p') === null) el = el.parentNode;
   if (!el || !el.getAttribute) return;
   var A = actif(); if (!A) return;
   if (el.getAttribute('data-l') !== null) { choisi = el.getAttribute('data-l'); dessiner(); return; }
+  if (el.getAttribute('data-p') !== null) { el.className = 'pl envoye'; envoyer({ action: 'playlist', id: A.id, index: parseInt(el.getAttribute('data-p'), 10) }); setTimeout(charger, 5000); setTimeout(charger, 10000); return; }
   if (el.getAttribute('data-f') !== null) { el.className = 'envoye'; envoyer({ action: 'lancer', id: A.id, favori: parseInt(el.getAttribute('data-f'), 10) }); setTimeout(charger, 6000); setTimeout(charger, 12000); return; }
   var a = el.getAttribute('data-a');
   if (a === 'lecture') A.etat = A.etat === 'playing' ? 'paused' : 'playing';

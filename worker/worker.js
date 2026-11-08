@@ -32,7 +32,7 @@ const FLUX_ALERTES = 'https://data.filbleu.fr/ws-tr/gtfs-rt/opendata/service-ale
 const FLUX_INCIDENTS = 'https://www.filbleu.fr/rss-incident.xml';   // l'info trafic du site filbleu.fr (travaux, déviations…)
 const NOMS_ARRETS = { 'A': 'Monconseil', '2': 'Maréchal Juin' };
 const CACHE_SECONDES = 30;   // les écrans redemandent toutes les 30 s
-const VERSION = '31';   // à changer à chaque mise à jour du code : vide les caches
+const VERSION = '32';   // à changer à chaque mise à jour du code : vide les caches
 
 // Horaires prévus, format compact : "jours" = n° de grille pour chaque jour depuis "debut",
 // chaque ligne "g=" = minutes depuis minuit, écrites en écarts successifs.
@@ -1085,7 +1085,9 @@ async function construireMusique(env) {
       image: v, duree: x.duree || 0, position: x.position || 0, majPos: x.majPos ? Math.round(x.majPos * 1000) : 0 };
   });
   lecteurs.sort((a, b) => a.nom.localeCompare(b.nom, 'fr'));
-  const res = { maj: Date.now(), lecteurs, favoris: R.reglages.musique.favoris.map(f => f.nom) };
+  const pl = await playlistsSpotify(env).catch(() => null);
+  const res = { maj: Date.now(), lecteurs, favoris: R.reglages.musique.favoris.map(f => f.nom), spotify: !!pl, spotifyConfigure: !!env.SPOTIFY_ID,
+    playlists: pl ? pl.map(p => ({ nom: p.nom, image: p.image })) : [] };
   MUSIQUE_MEMO = { t: Date.now(), res };
   return res;
 }
@@ -1095,6 +1097,90 @@ async function pochetteMusique(env, id) {
   if (!chemin) return new Response('', { status: 404 });
   const r = await fetch(/^https?:/.test(chemin) ? chemin : haUrl(env, chemin), { headers: { Authorization: 'Bearer ' + env.HA_TOKEN } });
   return new Response(r.body, { status: r.status, headers: { 'Content-Type': r.headers.get('Content-Type') || 'image/jpeg', 'Cache-Control': 'public, max-age=86400', 'Access-Control-Allow-Origin': '*' } });
+}
+/* ---------- Spotify : mes playlists (connexion OAuth faite une fois, jeton gardé dans le KV) ---------- */
+// Secrets du Worker : SPOTIFY_ID et SPOTIFY_SECRET (application créée sur developer.spotify.com)
+const SPOTIFY_RETOUR = 'https://ecran-salon.nico-michon37.workers.dev/spotify/retour';
+const SPOTIFY_DROITS = 'playlist-read-private playlist-read-collaborative user-read-playback-state user-modify-playback-state user-library-read';
+let SPOTIFY_JETON = null, SPOTIFY_LISTES = null;
+async function jetonSpotify(env) {
+  if (!env.SPOTIFY_ID || !env.SPOTIFY_SECRET || !env.REGLAGES) return null;
+  if (SPOTIFY_JETON && SPOTIFY_JETON.exp > Date.now() + 60000) return SPOTIFY_JETON.acces;
+  const k = await env.REGLAGES.get('spotify', 'json').catch(() => null);
+  if (!k || !k.refresh) return null;
+  if (k.acces && k.exp > Date.now() + 60000) { SPOTIFY_JETON = k; return k.acces; }
+  const r = await fetch('https://accounts.spotify.com/api/token', {
+    method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded', Authorization: 'Basic ' + btoa(env.SPOTIFY_ID + ':' + env.SPOTIFY_SECRET) },
+    body: 'grant_type=refresh_token&refresh_token=' + encodeURIComponent(k.refresh)
+  });
+  if (!r.ok) return null;
+  const j = await r.json();
+  const n = { refresh: j.refresh_token || k.refresh, acces: j.access_token, exp: Date.now() + (j.expires_in || 3600) * 1000 };
+  await env.REGLAGES.put('spotify', JSON.stringify(n));
+  SPOTIFY_JETON = n;
+  return n.acces;
+}
+async function spotify(env, chemin, options) {
+  const j = await jetonSpotify(env);
+  if (!j) return null;
+  return fetch('https://api.spotify.com/v1' + chemin, Object.assign({}, options || {}, { headers: Object.assign({ Authorization: 'Bearer ' + j }, (options && options.headers) || {}) }));
+}
+// Mes playlists (gardées 30 min) : nom, petite pochette, adresse Spotify
+async function playlistsSpotify(env) {
+  if (SPOTIFY_LISTES && Date.now() - SPOTIFY_LISTES.t < 1800000) return SPOTIFY_LISTES.l;
+  const r = await spotify(env, '/me/playlists?limit=50');
+  if (!r || !r.ok) return null;
+  const j = await r.json(), l = [{ nom: 'Titres likés', image: null, uri: 'aimes' }];
+  for (const p of j.items || []) {
+    if (!p || !p.uri) continue;
+    const im = p.images && p.images.length ? (p.images[p.images.length - 1].url || p.images[0].url) : null;
+    l.push({ nom: String(p.name || 'Playlist').slice(0, 40), image: im, uri: p.uri });
+  }
+  SPOTIFY_LISTES = { t: Date.now(), l };
+  return l;
+}
+async function connexionSpotify(env, url) {
+  if (!env.SPOTIFY_ID) return new Response('SPOTIFY_ID manquant dans les réglages du Worker', { status: 503 });
+  const etat = crypto.randomUUID();
+  await env.REGLAGES.put('spotify-etat', etat, { expirationTtl: 900 });
+  const q = new URLSearchParams({ client_id: env.SPOTIFY_ID, response_type: 'code', redirect_uri: SPOTIFY_RETOUR, scope: SPOTIFY_DROITS, state: etat });
+  return Response.redirect('https://accounts.spotify.com/authorize?' + q.toString(), 302);
+}
+async function retourSpotify(env, url) {
+  const page = (titre, texte) => new Response('<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width"><body style="font-family:system-ui;padding:40px;background:#16100D;color:#F6EDE4"><h1>' + titre + '</h1><p>' + texte + '</p></body>', { headers: { 'Content-Type': 'text/html; charset=utf-8' } });
+  const attendu = await env.REGLAGES.get('spotify-etat');
+  if (!attendu || url.searchParams.get('state') !== attendu) return page('Lien expiré', 'Recommence la connexion depuis la page admin.');
+  if (url.searchParams.get('error')) return page('Connexion refusée', 'Spotify a répondu : ' + String(url.searchParams.get('error')).replace(/[<>]/g, ''));
+  const r = await fetch('https://accounts.spotify.com/api/token', {
+    method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded', Authorization: 'Basic ' + btoa(env.SPOTIFY_ID + ':' + env.SPOTIFY_SECRET) },
+    body: 'grant_type=authorization_code&code=' + encodeURIComponent(url.searchParams.get('code') || '') + '&redirect_uri=' + encodeURIComponent(SPOTIFY_RETOUR)
+  });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok || !j.refresh_token) return page('Échec', 'Spotify n\'a pas donné de jeton (' + String(j.error_description || j.error || r.status).replace(/[<>]/g, '') + ').');
+  await env.REGLAGES.put('spotify', JSON.stringify({ refresh: j.refresh_token, acces: j.access_token, exp: Date.now() + (j.expires_in || 3600) * 1000 }));
+  await env.REGLAGES.delete('spotify-etat');
+  SPOTIFY_JETON = null; SPOTIFY_LISTES = null;
+  return page('Spotify est connecté ✓', 'Tes playlists vont apparaître sur l\'écran. Tu peux fermer cette page.');
+}
+// Lancer une playlist : directement par Spotify si l'enceinte est visible, sinon par l'Assistant Google
+async function lancerPlaylist(env, lecteurId, nomEnceinte, p) {
+  const ctx = p.uri === 'aimes' ? null : p.uri;
+  const rd = await spotify(env, '/me/player/devices');
+  if (rd && rd.ok) {
+    const d = await rd.json(), cible = (d.devices || []).find(x => String(x.name).toLowerCase() === nomEnceinte.toLowerCase());
+    if (cible) {
+      let corps;
+      if (ctx) corps = { context_uri: ctx };
+      else { const t = await spotify(env, '/me/tracks?limit=50'); const tj = t && t.ok ? await t.json() : { items: [] }; corps = { uris: (tj.items || []).map(x => x.track && x.track.uri).filter(Boolean) }; }
+      const r = await spotify(env, '/me/player/play?device_id=' + encodeURIComponent(cible.id), { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(corps) });
+      if (r && (r.ok || r.status === 204)) return { ok: true, par: 'spotify' };
+    }
+  }
+  const commande = p.uri === 'aimes' ? 'Joue mes titres likés sur Spotify sur ' + nomEnceinte : 'Joue la playlist ' + p.nom + ' sur Spotify sur ' + nomEnceinte;
+  const r = await fetch(haUrl(env, '/api/services/google_assistant_sdk/send_text_command'), {
+    method: 'POST', headers: { Authorization: 'Bearer ' + env.HA_TOKEN, 'Content-Type': 'application/json' }, body: JSON.stringify({ command: commande })
+  });
+  return { ok: r.ok, par: 'assistant', commande };
 }
 async function actionMusique(env, c) {
   const id = String(c.id || '');
@@ -1108,6 +1194,12 @@ async function actionMusique(env, c) {
   if (c.action === 'precedent') return appel('media_player/media_previous_track');
   if (c.action === 'stop') return appel('media_player/media_stop');
   if (c.action === 'volume') return appel('media_player/volume_set', { volume_level: Math.min(1, Math.max(0, Number(c.valeur) / 100)) });
+  if (c.action === 'playlist') {
+    const L = await playlistsSpotify(env), p = L && L[parseInt(c.index, 10)];
+    if (!p) return { ok: false, erreur: 'Playlist inconnue' };
+    const e = await fetch(haUrl(env, '/api/states/' + id), { headers: { Authorization: 'Bearer ' + env.HA_TOKEN } }).then(r => r.ok ? r.json() : null).catch(() => null);
+    return lancerPlaylist(env, id, (e && e.attributes && e.attributes.friendly_name) || id.replace('media_player.', ''), p);
+  }
   if (c.action === 'lancer') {
     const R = await lireReglages(env), f = R.reglages.musique.favoris[parseInt(c.favori, 10)];
     if (!f) return { ok: false, erreur: 'Favori inconnu' };
@@ -1173,6 +1265,7 @@ export default {
     const url = new URL(request.url), chemin = url.pathname.replace(/\/+$/, '') || '/';
     if (request.method === 'OPTIONS') return new Response(null, { headers: entetes });
     try {
+      if (chemin === '/spotify/retour') return await retourSpotify(env, url);
       if (chemin === '/transports') return await avecCache('transports', CACHE_SECONDES, construire, entetes, ctx);
 
       // Tout le reste est privé
@@ -1185,6 +1278,7 @@ export default {
       if (chemin === '/trajet') return repondre(await construireTrajet(url.searchParams.get('lieu') || '', url.searchParams.get('adresse') || '', url.searchParams.get('arrivee') || '', env).catch(e => ({ trouve: false, erreur: String(e.message || e) })), 200, entetes);
       if (chemin === '/agenda') return await avecCache('agenda', 600, () => construireAgenda(env), entetes, ctx);
       if (chemin === '/maison') return repondre(await construireMaison(env), 200, entetes);
+      if (chemin === '/spotify/connexion') return estAdmin ? await connexionSpotify(env, url) : repondre({ erreur: 'Clé admin requise' }, 403, entetes);
       if (chemin === '/musique') return repondre(await construireMusique(env), 200, entetes);
       if (chemin === '/musique/pochette') return await pochetteMusique(env, url.searchParams.get('id') || '');
       if (chemin === '/musique/action' && request.method === 'POST') {

@@ -1331,7 +1331,8 @@ function tuileMusique(T, now, l, h){
   } else {
     // Rien en cours : choisir l'enceinte, puis un favori (lancé par l'Assistant Google)
     html += '<div class="mu-src">Musique · rien en cours</div>' + (demi ? '' : ens) + '<div class="mu-fav">';
-    for (i = 0; i < M.favoris.length; i++) html += '<span data-mu-f="' + i + '">' + muIcone('lecture') + echapper(M.favoris[i]) + '</span>';
+    if (M.spotify && M.playlists && M.playlists.length) { for (i = 0; i < M.playlists.length && i < 8; i++) html += '<span data-mu-p="' + i + '">' + muIcone('lecture') + echapper(M.playlists[i].nom) + '</span>'; }
+    else for (i = 0; i < M.favoris.length; i++) html += '<span data-mu-f="' + i + '">' + muIcone('lecture') + echapper(M.favoris[i]) + '</span>';
     html += '</div>';
   }
   T.innerHTML = html;
@@ -1347,11 +1348,12 @@ function envoyerMusique(corps){
 }
 document.addEventListener('click', function(e){
   var el = e.target;
-  while (el && el.getAttribute && el.getAttribute('data-mu') === null && el.getAttribute('data-mu-l') === null && el.getAttribute('data-mu-f') === null) el = el.parentNode;
+  while (el && el.getAttribute && el.getAttribute('data-mu') === null && el.getAttribute('data-mu-l') === null && el.getAttribute('data-mu-f') === null && el.getAttribute('data-mu-p') === null) el = el.parentNode;
   if (!el || !el.getAttribute) return;
   var M = donneesMusique(), A = lecteurActif(M);
   if (!A) return;
   if (el.getAttribute('data-mu-l') !== null) { lecteurChoisi = el.getAttribute('data-mu-l'); afficher(); return; }
+  if (el.getAttribute('data-mu-p') !== null) { el.style.opacity = '.5'; envoyerMusique({ action: 'playlist', id: A.id, index: parseInt(el.getAttribute('data-mu-p'), 10) }); setTimeout(chargerMusique, 6000); return; }
   if (el.getAttribute('data-mu-f') !== null) {
     el.style.opacity = '.5';
     envoyerMusique({ action: 'lancer', id: A.id, favori: parseInt(el.getAttribute('data-mu-f'), 10) });
@@ -1461,7 +1463,7 @@ document.addEventListener('click', function(e){
   var el = e.target;
   while (el && el !== document.body) {
     if (el.getAttribute && (el.getAttribute('data-scene') !== null || el.getAttribute('data-lum') !== null ||
-      el.getAttribute('data-mu') !== null || el.getAttribute('data-mu-l') !== null || el.getAttribute('data-mu-f') !== null)) return;
+      el.getAttribute('data-mu') !== null || el.getAttribute('data-mu-l') !== null || el.getAttribute('data-mu-f') !== null || el.getAttribute('data-mu-p') !== null)) return;
     if (el.getAttribute && el.getAttribute('data-page')) {
       if (window.parent !== window) { try { window.parent.postMessage({ type: 'aller', page: el.getAttribute('data-page') }, '*'); } catch (err) {} }
       return;
