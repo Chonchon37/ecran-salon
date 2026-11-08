@@ -270,8 +270,16 @@ function charger(){
   var xhr = new XMLHttpRequest();
   xhr.open('GET', CONFIG.WORKER + '/musique?cle=' + encodeURIComponent(CLE) + '&t=' + Date.now(), true);
   xhr.timeout = 10000;
-  xhr.onload = function(){ var j = null; try { j = JSON.parse(xhr.responseText); } catch (err) {} if (xhr.status === 200 && j && j.lecteurs) { donnees = j; dessiner(); } };
+  xhr.onload = function(){ var j = null; try { j = JSON.parse(xhr.responseText); } catch (err) {} if (xhr.status === 200 && j && j.lecteurs) { donnees = j; dessiner(); signalerMaison(); } };
   xhr.send();
+}
+// Prévient l'écran quand « Maison » joue : il garde alors l'onglet Musique affiché
+var maisonJoue = null;
+function signalerMaison(){
+  var L = donnees ? donnees.lecteurs : [], joue = false;
+  for (var i = 0; i < L.length; i++) if (L[i].id === PRINCIPALE && L[i].etat === 'playing' && L[i].titre) joue = true;
+  if (joue !== maisonJoue && window.parent !== window) { try { window.parent.postMessage({ type: 'musiqueMaison', value: joue }, '*'); } catch (err) {} }
+  maisonJoue = joue;
 }
 function envoyer(corps){
   if (enDemo()) return;
@@ -316,9 +324,9 @@ window.addEventListener('message', function(e){
   if (e.data.type === 'theme') appliquerTheme(e.data.value);
   if (e.data.type === 'actif') { var v = e.data.value === 'musique'; if (v && !visible) charger(); visible = v; }
 });
-// Toutes les 5 s quand la page est à l'écran, sinon toutes les minutes
+// Toutes les 5 s quand la page est à l'écran, sinon toutes les 15 s (pour repérer vite une musique lancée sur Maison)
 var tour = 0;
-setInterval(function(){ tour++; if (visible || tour % 12 === 0) charger(); }, 5000);
+setInterval(function(){ tour++; if (visible || tour % 3 === 0) charger(); }, 5000);
 charger();
 </script>
 </body>

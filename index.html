@@ -394,6 +394,8 @@ function suivanteEnRotation(){
   for (var n = 1; n <= S.length; n++) { var k = (actuel + n) % S.length; if (!S[k].horsRotation) return k; }
   return actuel;
 }
+var musiqueMaison = false;
+function indexSlide(id){ for (var i = 0; S && i < S.length; i++) if (S[i].id === id) return i; return -1; }
 function programmer(){
   clearTimeout(minuteur);
   if (fige) { lancerBarre(0); var z = document.getElementById('fixe'); z.className = 'on'; document.getElementById('fixeTexte').innerHTML = 'Page fixée'; etatFixe = 'fige'; return; }
@@ -406,6 +408,14 @@ function programmer(){
   var P = plageActive();
   majFixe(P);
   etatFixe = P ? P.index + '|' + P.fin : '';
+  // Musique en lecture sur « Maison » : l'onglet Musique reste affiché, sans rotation ni retour à l'accueil
+  var iMu = indexSlide('musique');
+  if (musiqueMaison && iMu >= 0) {
+    lancerBarre(0);
+    if (actuel !== iMu) { afficher(iMu); return; }
+    minuteur = setTimeout(programmer, 30000);
+    return;
+  }
   if (P) {                                   // écran fixe : pas de rotation, on revérifie toutes les 30 s
     lancerBarre(0);
     if (actuel !== P.index) { afficher(P.index); return; }
@@ -438,6 +448,15 @@ zonePause.addEventListener('click', function(){ pauseJusqua = 0; majPause(); pro
 window.addEventListener('message', function(e){
   if (!e.data) return;
   if (e.data.type === 'interaction') mettreEnPause();
+  if (e.data.type === 'musiqueMaison') {               // la page Musique signale que « Maison » joue (ou s'est arrêtée)
+    var avant = musiqueMaison;
+    musiqueMaison = !!e.data.value;
+    if (musiqueMaison !== avant) {
+      if (!musiqueMaison && S[actuel] && S[actuel].id === 'musique') { pauseJusqua = 0; majPause(); afficher(0); }   // fin de la musique : retour à l'accueil
+      else if (pauseJusqua <= Date.now()) programmer();
+      majVeille();
+    }
+  }
   if (e.data.type === 'aller') {                       // une carte de l'accueil demande sa page détaillée
     for (var k = 0; k < S.length; k++) if (S[k].id === e.data.page) {
       pauseJusqua = Date.now() + CONFIG.PAUSE_APRES_TOUCHER * 1000; majPause();
@@ -509,7 +528,7 @@ function luminosite(niveau){
 function majVeille(){
   // veille : bouton, plage de nuit, ou (à toute heure) après un temps sans toucher l'écran
   var delai = parseInt(param('inactif'), 10), inactif = delai > 0 && !(volet && volet.className) && Date.now() - dernierToucher > delai * 60000;
-  var doit = veilleForcee || inactif || (heureDeVeille() && Date.now() > reveilJusqua);
+  var doit = veilleForcee || (!musiqueMaison && (inactif || (heureDeVeille() && Date.now() > reveilJusqua)));   // pas de veille pendant que Maison joue
   if (doit === enVeille) return;
   enVeille = doit;
   var mots = styleVeille() === 'mots';
