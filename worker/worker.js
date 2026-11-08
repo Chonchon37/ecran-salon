@@ -32,7 +32,7 @@ const FLUX_ALERTES = 'https://data.filbleu.fr/ws-tr/gtfs-rt/opendata/service-ale
 const FLUX_INCIDENTS = 'https://www.filbleu.fr/rss-incident.xml';   // l'info trafic du site filbleu.fr (travaux, déviations…)
 const NOMS_ARRETS = { 'A': 'Monconseil', '2': 'Maréchal Juin' };
 const CACHE_SECONDES = 30;   // les écrans redemandent toutes les 30 s
-const VERSION = '33';   // à changer à chaque mise à jour du code : vide les caches
+const VERSION = '34';   // à changer à chaque mise à jour du code : vide les caches
 
 // Horaires prévus, format compact : "jours" = n° de grille pour chaque jour depuis "debut",
 // chaque ligne "g=" = minutes depuis minuit, écrites en écarts successifs.
@@ -1070,6 +1070,7 @@ const TPL_MUSIQUE = "{% set ns = namespace(o=[]) %}{% for s in states.media_play
   "'duree': a.get('media_duration'), 'position': a.get('media_position'), " +
   "'majPos': (as_timestamp(a.get('media_position_updated_at')) if a.get('media_position_updated_at') else none)}] %}{% endif %}{% endfor %}{{ ns.o | tojson }}";
 let MUSIQUE_MEMO = null;
+const PRINCIPALE_MUSIQUE = 'media_player.maison';
 const IMAGES_MUSIQUE = {};   // entité → adresse de la pochette chez Home Assistant (jamais envoyée à l'écran : elle contient un jeton)
 async function construireMusique(env) {
   if (MUSIQUE_MEMO && Date.now() - MUSIQUE_MEMO.t < 4000) return MUSIQUE_MEMO.res;
@@ -1204,7 +1205,20 @@ async function actionMusique(env, c) {
   if (c.action === 'suivant') return appel('media_player/media_next_track');
   if (c.action === 'precedent') return appel('media_player/media_previous_track');
   if (c.action === 'stop') return appel('media_player/media_stop');
-  if (c.action === 'volume') return appel('media_player/volume_set', { volume_level: Math.min(1, Math.max(0, Number(c.valeur) / 100)) });
+  if (c.action === 'volume') {
+    const niveau = Math.min(1, Math.max(0, Number(c.valeur) / 100));
+    // « Maison » est l'enceinte maître : son volume s'applique aussi à toutes les autres enceintes
+    if (id === PRINCIPALE_MUSIQUE) {
+      const M = await construireMusique(env).catch(() => null);
+      const ids = M ? M.lecteurs.map(x => x.id) : [];
+      if (ids.indexOf(id) < 0) ids.push(id);
+      MUSIQUE_MEMO = null;
+      return fetch(haUrl(env, '/api/services/media_player/volume_set'), {
+        method: 'POST', headers: { Authorization: 'Bearer ' + env.HA_TOKEN, 'Content-Type': 'application/json' }, body: JSON.stringify({ entity_id: ids, volume_level: niveau })
+      }).then(r => ({ ok: r.ok, statut: r.status, enceintes: ids.length }));
+    }
+    return appel('media_player/volume_set', { volume_level: niveau });
+  }
   if (c.action === 'playlist') {
     const compte = COMPTES_SPOTIFY.indexOf(c.compte) >= 0 ? c.compte : 'moi';
     const L = await playlistsSpotify(env, compte), p = L && L[parseInt(c.index, 10)];

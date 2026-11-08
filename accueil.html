@@ -1363,6 +1363,7 @@ document.addEventListener('click', function(e){
   var a = el.getAttribute('data-mu');
   if (a === 'vol-' || a === 'vol+') {
     A.volume = Math.max(0, Math.min(100, (A.volume || 0) + (a === 'vol+' ? 5 : -5)));
+    if (A.id === PRINCIPALE) for (var v = 0; v < M.lecteurs.length; v++) M.lecteurs[v].volume = A.volume;   // Maison = enceinte maître
     envoyerMusique({ action: 'volume', id: A.id, valeur: A.volume });
   } else {
     if (a === 'lecture') A.etat = A.etat === 'playing' ? 'paused' : 'playing';

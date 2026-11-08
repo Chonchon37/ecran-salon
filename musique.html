@@ -299,7 +299,12 @@ document.addEventListener('input', function(e){ if (e.target.id === 'vol') { reg
 document.addEventListener('change', function(e){
   if (e.target.id !== 'vol') return;
   var A = actif(); regleVolume = false;
-  if (A) { A.volume = parseInt(e.target.value, 10); envoyer({ action: 'volume', id: A.id, valeur: A.volume }); }
+  if (A) {
+    A.volume = parseInt(e.target.value, 10);
+    // Maison est l'enceinte maître : les autres prennent le même volume
+    if (A.id === PRINCIPALE) { var L = D().lecteurs; for (var i = 0; i < L.length; i++) L[i].volume = A.volume; }
+    envoyer({ action: 'volume', id: A.id, valeur: A.volume }); dessiner();
+  }
 });
 // Progression du morceau, chaque seconde
 setInterval(function(){
