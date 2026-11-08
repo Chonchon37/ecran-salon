@@ -1353,7 +1353,7 @@ document.addEventListener('click', function(e){
   var M = donneesMusique(), A = lecteurActif(M);
   if (!A) return;
   if (el.getAttribute('data-mu-l') !== null) { lecteurChoisi = el.getAttribute('data-mu-l'); afficher(); return; }
-  if (el.getAttribute('data-mu-p') !== null) { el.style.opacity = '.5'; envoyerMusique({ action: 'playlist', id: A.id, index: parseInt(el.getAttribute('data-mu-p'), 10) }); setTimeout(chargerMusique, 6000); return; }
+  if (el.getAttribute('data-mu-p') !== null) { el.style.opacity = '.5'; envoyerMusique({ action: 'playlist', id: A.id, compte: M.comptes && M.comptes.length ? M.comptes[0].id : 'moi', index: parseInt(el.getAttribute('data-mu-p'), 10) }); setTimeout(chargerMusique, 6000); return; }
   if (el.getAttribute('data-mu-f') !== null) {
     el.style.opacity = '.5';
     envoyerMusique({ action: 'lancer', id: A.id, favori: parseInt(el.getAttribute('data-mu-f'), 10) });

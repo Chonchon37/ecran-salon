@@ -246,8 +246,10 @@ button.discret{background:transparent;color:var(--muted);padding:8px 10px;font-s
     <section data-groupe="donnees">
       <h2>Musique · Spotify</h2>
       <p class="aide">Connecte ton compte Spotify pour voir <b>tes playlists</b> sur l'écran (onglet et tuile Musique). À faire une seule fois.</p>
+      <p class="aide">Deux comptes possibles. Pour le 2ᵉ compte, son adresse e-mail Spotify doit d'abord être ajoutée dans l'application Spotify (onglet « User Management »).</p>
       <p id="etatSpotify" class="aide">…</p>
-      <button type="button" id="connecterSpotify">Connecter Spotify</button>
+      <button type="button" id="connecterSpotify" data-compte="moi">Connecter Spotify</button>
+      <button type="button" id="connecterSpotify2" data-compte="flo">Connecter Spotify</button>
     </section>
 
     <section data-groupe="donnees">
@@ -738,13 +740,16 @@ function dessinerFavoris() {
 }
 $('favorisMusique').addEventListener('input', e => { const i = e.target.dataset.fav; if (i !== undefined) { favoris()[+i][e.target.dataset.champ] = e.target.value; aChange(); } });
 $('favorisMusique').addEventListener('click', e => { const i = e.target.dataset.favRetirer; if (i !== undefined) { favoris().splice(+i, 1); dessinerFavoris(); aChange(); } });
-$('connecterSpotify').addEventListener('click', () => { window.open(WORKER + '/spotify/connexion?cle=' + encodeURIComponent(CLE), '_blank'); });
+['connecterSpotify', 'connecterSpotify2'].forEach(id => $(id).addEventListener('click', () => { window.open(WORKER + '/spotify/connexion?cle=' + encodeURIComponent(CLE) + '&compte=' + $(id).dataset.compte, '_blank'); }));
 function etatSpotify() {
   appel('/musique').then(m => {
-    $('etatSpotify').innerHTML = m.spotify ? '✅ Spotify est connecté : ' + (m.playlists.length - 1) + ' playlists trouvées.' :
-      (m.spotifyConfigure ? 'Spotify n\'est pas encore connecté.' : '⚠️ Il manque les secrets SPOTIFY_ID et SPOTIFY_SECRET dans le Worker.');
-    $('connecterSpotify').textContent = m.spotify ? 'Reconnecter Spotify' : 'Connecter Spotify';
-    $('connecterSpotify').disabled = !m.spotifyConfigure;
+    const P = R.reglages.agenda.personnes, noms = { moi: P.moi || 'Moi', flo: P.flo || 'Flo' }, co = {};
+    (m.comptes || []).forEach(c => co[c.id] = c);
+    $('etatSpotify').innerHTML = !m.spotifyConfigure ? '⚠️ Il manque les secrets SPOTIFY_ID et SPOTIFY_SECRET dans le Worker.' :
+      ['moi', 'flo'].map(k => (co[k] ? '✅ ' : '○ ') + noms[k] + ' : ' + (co[k] ? (co[k].playlists.length - 1) + ' playlists' : 'pas connecté')).join('<br>');
+    $('connecterSpotify').textContent = (co.moi ? 'Reconnecter' : 'Connecter') + ' le Spotify de ' + noms.moi;
+    $('connecterSpotify2').textContent = (co.flo ? 'Reconnecter' : 'Connecter') + ' le Spotify de ' + noms.flo;
+    $('connecterSpotify').disabled = $('connecterSpotify2').disabled = !m.spotifyConfigure;
   }).catch(err => { $('etatSpotify').textContent = 'État inconnu : ' + err.message; });
 }
 $('ajoutFavori').addEventListener('click', () => { favoris().push({ nom: '', commande: 'Joue … sur Spotify sur {enceinte}' }); dessinerFavoris(); aChange(); });

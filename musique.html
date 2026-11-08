@@ -73,6 +73,9 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:32px;heigh
 .pl i svg{width:22px;height:22px}
 .pl span{font-size:17px;font-weight:600;margin-left:12px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;line-height:1.2}
 .pl.envoye div{opacity:.5}
+.cpt{width:100%;display:flex;padding:0 6px 6px;box-sizing:border-box}
+.cpt b{font-size:17px;font-weight:700;padding:9px 18px;border-radius:999px;background:var(--card2);color:var(--muted);margin-right:8px;cursor:pointer}
+.cpt b.on{background:var(--ink);color:var(--card)}
 .fav{display:flex;flex-wrap:wrap;margin:8px -5px 0}
 .fav span{font-size:18px;font-weight:600;padding:14px 18px;border-radius:18px 14px 18px 14px;background:var(--card2);margin:5px;cursor:pointer;display:flex;align-items:center;white-space:nowrap}
 .fav span svg{width:18px;height:18px;margin-right:9px;color:var(--accent)}
@@ -156,8 +159,9 @@ var DEMO = { lecteurs: [
   { id: 'media_player.bureau', nom: 'Bureau', etat: 'off', titre: '', volume: null }, { id: 'media_player.maison', nom: 'Maison', etat: 'off', titre: '', volume: null },
   { id: 'media_player.salle_d_eau', nom: "Salle d'eau", etat: 'paused', titre: 'Inside Out', artiste: 'Odesza', app: 'Spotify', volume: 20 }
 ], favoris: ['Titres likés', 'Daily Mix', 'Découvertes', 'FIP'], spotify: true,
-  playlists: [{ nom: 'Titres likés' }, { nom: 'Soirée chill' }, { nom: 'Running' }, { nom: 'Rap FR' }, { nom: 'Apéro terrasse' }, { nom: 'Dimanche matin' }, { nom: 'Années 2000' }] };
-var donnees = null, choisi = null, regleVolume = false, visible = false;
+  comptes: [{ id: 'moi', nom: 'Nico', playlists: [{ nom: 'Titres likés' }, { nom: 'Soirée chill' }, { nom: 'Running' }, { nom: 'Rap FR' }, { nom: 'Apéro terrasse' }] },
+    { id: 'flo', nom: 'Flo', playlists: [{ nom: 'Titres likés' }, { nom: 'Dimanche matin' }, { nom: 'Années 2000' }] }] };
+var donnees = null, choisi = null, compteChoisi = null, regleVolume = false, visible = false;
 function D(){ return enDemo() ? DEMO : donnees; }
 // Enceinte principale : « Maison » (toutes les enceintes) ; les autres sont secondaires
 var PRINCIPALE = 'media_player.maison';
@@ -178,6 +182,11 @@ function actif(){
   if (P && P.etat === 'paused' && P.titre) return P;
   for (i = 0; i < L.length; i++) if (L[i].etat === 'paused' && L[i].titre) return L[i];
   return P || L[0];
+}
+function compteActif(M){
+  if (!M || !M.comptes || !M.comptes.length) return null;
+  for (var i = 0; i < M.comptes.length; i++) if (M.comptes[i].id === compteChoisi) return M.comptes[i];
+  return M.comptes[0];
 }
 function mmss(s){ s = Math.max(0, Math.round(s)); return Math.floor(s / 60) + ':' + pad(s % 60); }
 function position(A){ var p = A.position || 0; if (A.etat === 'playing' && A.majPos) p += (Date.now() - A.majPos) / 1000; return A.duree ? Math.min(p, A.duree) : p; }
@@ -214,13 +223,19 @@ function dessiner(){
   $('ens').innerHTML = e;
   $('cible').innerHTML = echapper(A.nom);
   var f = '', pl = '';
-  if (M.spotify && M.playlists && M.playlists.length) {
-    // Mes playlists Spotify (pochette + nom), à faire défiler
-    for (var q = 0; q < M.playlists.length; q++) {
-      var P = M.playlists[q];
+  var C = compteActif(M);
+  if (C && C.playlists.length) {
+    // Comptes Spotify (s'il y en a deux : pastilles pour passer de l'un à l'autre), puis les playlists à faire défiler
+    if (M.comptes.length > 1) {
+      pl += '<div class="cpt">';
+      for (var c = 0; c < M.comptes.length; c++) pl += '<b class="' + (M.comptes[c].id === C.id ? 'on' : '') + '" data-c="' + M.comptes[c].id + '">' + echapper(M.comptes[c].nom) + '</b>';
+      pl += '</div>';
+    }
+    for (var q = 0; q < C.playlists.length; q++) {
+      var P = C.playlists[q];
       pl += '<div class="pl" data-p="' + q + '"><div>' + (P.image ? '<img src="' + echapper(P.image) + '" alt="">' : '<i>' + ic(q === 0 ? 'coeur' : 'note') + '</i>') + '<span>' + echapper(P.nom) + '</span></div></div>';
     }
-    $('titreListes').innerHTML = 'Mes playlists';
+    $('titreListes').innerHTML = M.comptes.length > 1 ? 'Playlists' : 'Mes playlists';
     $('note').innerHTML = '';
   } else {
     for (var k = 0; k < M.favoris.length; k++) f += '<span data-f="' + k + '">' + ic('lecture') + echapper(M.favoris[k]) + '</span>';
@@ -249,11 +264,12 @@ function envoyer(corps){
 }
 document.addEventListener('click', function(e){
   var el = e.target;
-  while (el && el.getAttribute && el.getAttribute('data-a') === null && el.getAttribute('data-l') === null && el.getAttribute('data-f') === null && el.getAttribute('data-p') === null) el = el.parentNode;
+  while (el && el.getAttribute && el.getAttribute('data-a') === null && el.getAttribute('data-l') === null && el.getAttribute('data-f') === null && el.getAttribute('data-p') === null && el.getAttribute('data-c') === null) el = el.parentNode;
   if (!el || !el.getAttribute) return;
   var A = actif(); if (!A) return;
   if (el.getAttribute('data-l') !== null) { choisi = el.getAttribute('data-l'); dessiner(); return; }
-  if (el.getAttribute('data-p') !== null) { el.className = 'pl envoye'; envoyer({ action: 'playlist', id: A.id, index: parseInt(el.getAttribute('data-p'), 10) }); setTimeout(charger, 5000); setTimeout(charger, 10000); return; }
+  if (el.getAttribute('data-c') !== null) { compteChoisi = el.getAttribute('data-c'); $('pls').scrollTop = 0; dessiner(); return; }
+  if (el.getAttribute('data-p') !== null) { el.className = 'pl envoye'; envoyer({ action: 'playlist', id: A.id, compte: compteActif(D()).id, index: parseInt(el.getAttribute('data-p'), 10) }); setTimeout(charger, 5000); setTimeout(charger, 10000); return; }
   if (el.getAttribute('data-f') !== null) { el.className = 'envoye'; envoyer({ action: 'lancer', id: A.id, favori: parseInt(el.getAttribute('data-f'), 10) }); setTimeout(charger, 6000); setTimeout(charger, 12000); return; }
   var a = el.getAttribute('data-a');
   if (a === 'lecture') A.etat = A.etat === 'playing' ? 'paused' : 'playing';

@@ -32,7 +32,7 @@ const FLUX_ALERTES = 'https://data.filbleu.fr/ws-tr/gtfs-rt/opendata/service-ale
 const FLUX_INCIDENTS = 'https://www.filbleu.fr/rss-incident.xml';   // l'info trafic du site filbleu.fr (travaux, déviations…)
 const NOMS_ARRETS = { 'A': 'Monconseil', '2': 'Maréchal Juin' };
 const CACHE_SECONDES = 30;   // les écrans redemandent toutes les 30 s
-const VERSION = '32';   // à changer à chaque mise à jour du code : vide les caches
+const VERSION = '33';   // à changer à chaque mise à jour du code : vide les caches
 
 // Horaires prévus, format compact : "jours" = n° de grille pour chaque jour depuis "debut",
 // chaque ligne "g=" = minutes depuis minuit, écrites en écarts successifs.
@@ -1085,9 +1085,14 @@ async function construireMusique(env) {
       image: v, duree: x.duree || 0, position: x.position || 0, majPos: x.majPos ? Math.round(x.majPos * 1000) : 0 };
   });
   lecteurs.sort((a, b) => a.nom.localeCompare(b.nom, 'fr'));
-  const pl = await playlistsSpotify(env).catch(() => null);
-  const res = { maj: Date.now(), lecteurs, favoris: R.reglages.musique.favoris.map(f => f.nom), spotify: !!pl, spotifyConfigure: !!env.SPOTIFY_ID,
-    playlists: pl ? pl.map(p => ({ nom: p.nom, image: p.image })) : [] };
+  // Comptes Spotify connectés (prénoms de l'agenda), chacun avec ses playlists
+  const comptes = [];
+  for (const c of COMPTES_SPOTIFY) {
+    const pl = await playlistsSpotify(env, c).catch(() => null);
+    if (pl) comptes.push({ id: c, nom: R.reglages.agenda.personnes[c] || c, playlists: pl.map(p => ({ nom: p.nom, image: p.image })) });
+  }
+  const res = { maj: Date.now(), lecteurs, favoris: R.reglages.musique.favoris.map(f => f.nom), spotify: comptes.length > 0, spotifyConfigure: !!env.SPOTIFY_ID,
+    comptes, playlists: comptes.length ? comptes[0].playlists : [] };
   MUSIQUE_MEMO = { t: Date.now(), res };
   return res;
 }
@@ -1102,13 +1107,16 @@ async function pochetteMusique(env, id) {
 // Secrets du Worker : SPOTIFY_ID et SPOTIFY_SECRET (application créée sur developer.spotify.com)
 const SPOTIFY_RETOUR = 'https://ecran-salon.nico-michon37.workers.dev/spotify/retour';
 const SPOTIFY_DROITS = 'playlist-read-private playlist-read-collaborative user-read-playback-state user-modify-playback-state user-library-read';
-let SPOTIFY_JETON = null, SPOTIFY_LISTES = null;
-async function jetonSpotify(env) {
+// Deux comptes possibles : « moi » et « flo » (prénoms réglés dans l'admin) ; un jeton par compte
+const COMPTES_SPOTIFY = ['moi', 'flo'];
+const SPOTIFY_JETON = {}, SPOTIFY_LISTES = {};
+async function jetonSpotify(env, compte) {
   if (!env.SPOTIFY_ID || !env.SPOTIFY_SECRET || !env.REGLAGES) return null;
-  if (SPOTIFY_JETON && SPOTIFY_JETON.exp > Date.now() + 60000) return SPOTIFY_JETON.acces;
-  const k = await env.REGLAGES.get('spotify', 'json').catch(() => null);
+  const m = SPOTIFY_JETON[compte];
+  if (m && m.exp > Date.now() + 60000) return m.acces;
+  const k = await env.REGLAGES.get('spotify-' + compte, 'json').catch(() => null);
   if (!k || !k.refresh) return null;
-  if (k.acces && k.exp > Date.now() + 60000) { SPOTIFY_JETON = k; return k.acces; }
+  if (k.acces && k.exp > Date.now() + 60000) { SPOTIFY_JETON[compte] = k; return k.acces; }
   const r = await fetch('https://accounts.spotify.com/api/token', {
     method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded', Authorization: 'Basic ' + btoa(env.SPOTIFY_ID + ':' + env.SPOTIFY_SECRET) },
     body: 'grant_type=refresh_token&refresh_token=' + encodeURIComponent(k.refresh)
@@ -1116,19 +1124,20 @@ async function jetonSpotify(env) {
   if (!r.ok) return null;
   const j = await r.json();
   const n = { refresh: j.refresh_token || k.refresh, acces: j.access_token, exp: Date.now() + (j.expires_in || 3600) * 1000 };
-  await env.REGLAGES.put('spotify', JSON.stringify(n));
-  SPOTIFY_JETON = n;
+  await env.REGLAGES.put('spotify-' + compte, JSON.stringify(n));
+  SPOTIFY_JETON[compte] = n;
   return n.acces;
 }
-async function spotify(env, chemin, options) {
-  const j = await jetonSpotify(env);
+async function spotify(env, compte, chemin, options) {
+  const j = await jetonSpotify(env, compte);
   if (!j) return null;
   return fetch('https://api.spotify.com/v1' + chemin, Object.assign({}, options || {}, { headers: Object.assign({ Authorization: 'Bearer ' + j }, (options && options.headers) || {}) }));
 }
 // Mes playlists (gardées 30 min) : nom, petite pochette, adresse Spotify
-async function playlistsSpotify(env) {
-  if (SPOTIFY_LISTES && Date.now() - SPOTIFY_LISTES.t < 1800000) return SPOTIFY_LISTES.l;
-  const r = await spotify(env, '/me/playlists?limit=50');
+async function playlistsSpotify(env, compte) {
+  const m = SPOTIFY_LISTES[compte];
+  if (m && Date.now() - m.t < 1800000) return m.l;
+  const r = await spotify(env, compte, '/me/playlists?limit=50');
   if (!r || !r.ok) return null;
   const j = await r.json(), l = [{ nom: 'Titres likés', image: null, uri: 'aimes' }];
   for (const p of j.items || []) {
@@ -1136,12 +1145,13 @@ async function playlistsSpotify(env) {
     const im = p.images && p.images.length ? (p.images[p.images.length - 1].url || p.images[0].url) : null;
     l.push({ nom: String(p.name || 'Playlist').slice(0, 40), image: im, uri: p.uri });
   }
-  SPOTIFY_LISTES = { t: Date.now(), l };
+  SPOTIFY_LISTES[compte] = { t: Date.now(), l };
   return l;
 }
 async function connexionSpotify(env, url) {
   if (!env.SPOTIFY_ID) return new Response('SPOTIFY_ID manquant dans les réglages du Worker', { status: 503 });
-  const etat = crypto.randomUUID();
+  const compte = COMPTES_SPOTIFY.indexOf(url.searchParams.get('compte')) >= 0 ? url.searchParams.get('compte') : 'moi';
+  const etat = compte + '.' + crypto.randomUUID();
   await env.REGLAGES.put('spotify-etat', etat, { expirationTtl: 900 });
   const q = new URLSearchParams({ client_id: env.SPOTIFY_ID, response_type: 'code', redirect_uri: SPOTIFY_RETOUR, scope: SPOTIFY_DROITS, state: etat });
   return Response.redirect('https://accounts.spotify.com/authorize?' + q.toString(), 302);
@@ -1157,22 +1167,23 @@ async function retourSpotify(env, url) {
   });
   const j = await r.json().catch(() => ({}));
   if (!r.ok || !j.refresh_token) return page('Échec', 'Spotify n\'a pas donné de jeton (' + String(j.error_description || j.error || r.status).replace(/[<>]/g, '') + ').');
-  await env.REGLAGES.put('spotify', JSON.stringify({ refresh: j.refresh_token, acces: j.access_token, exp: Date.now() + (j.expires_in || 3600) * 1000 }));
+  const compte = attendu.split('.')[0];
+  await env.REGLAGES.put('spotify-' + compte, JSON.stringify({ refresh: j.refresh_token, acces: j.access_token, exp: Date.now() + (j.expires_in || 3600) * 1000 }));
   await env.REGLAGES.delete('spotify-etat');
-  SPOTIFY_JETON = null; SPOTIFY_LISTES = null;
+  delete SPOTIFY_JETON[compte]; delete SPOTIFY_LISTES[compte];
   return page('Spotify est connecté ✓', 'Tes playlists vont apparaître sur l\'écran. Tu peux fermer cette page.');
 }
 // Lancer une playlist : directement par Spotify si l'enceinte est visible, sinon par l'Assistant Google
-async function lancerPlaylist(env, lecteurId, nomEnceinte, p) {
+async function lancerPlaylist(env, compte, lecteurId, nomEnceinte, p) {
   const ctx = p.uri === 'aimes' ? null : p.uri;
-  const rd = await spotify(env, '/me/player/devices');
+  const rd = await spotify(env, compte, '/me/player/devices');
   if (rd && rd.ok) {
     const d = await rd.json(), cible = (d.devices || []).find(x => String(x.name).toLowerCase() === nomEnceinte.toLowerCase());
     if (cible) {
       let corps;
       if (ctx) corps = { context_uri: ctx };
-      else { const t = await spotify(env, '/me/tracks?limit=50'); const tj = t && t.ok ? await t.json() : { items: [] }; corps = { uris: (tj.items || []).map(x => x.track && x.track.uri).filter(Boolean) }; }
-      const r = await spotify(env, '/me/player/play?device_id=' + encodeURIComponent(cible.id), { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(corps) });
+      else { const t = await spotify(env, compte, '/me/tracks?limit=50'); const tj = t && t.ok ? await t.json() : { items: [] }; corps = { uris: (tj.items || []).map(x => x.track && x.track.uri).filter(Boolean) }; }
+      const r = await spotify(env, compte, '/me/player/play?device_id=' + encodeURIComponent(cible.id), { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(corps) });
       if (r && (r.ok || r.status === 204)) return { ok: true, par: 'spotify' };
     }
   }
@@ -1195,10 +1206,11 @@ async function actionMusique(env, c) {
   if (c.action === 'stop') return appel('media_player/media_stop');
   if (c.action === 'volume') return appel('media_player/volume_set', { volume_level: Math.min(1, Math.max(0, Number(c.valeur) / 100)) });
   if (c.action === 'playlist') {
-    const L = await playlistsSpotify(env), p = L && L[parseInt(c.index, 10)];
+    const compte = COMPTES_SPOTIFY.indexOf(c.compte) >= 0 ? c.compte : 'moi';
+    const L = await playlistsSpotify(env, compte), p = L && L[parseInt(c.index, 10)];
     if (!p) return { ok: false, erreur: 'Playlist inconnue' };
     const e = await fetch(haUrl(env, '/api/states/' + id), { headers: { Authorization: 'Bearer ' + env.HA_TOKEN } }).then(r => r.ok ? r.json() : null).catch(() => null);
-    return lancerPlaylist(env, id, (e && e.attributes && e.attributes.friendly_name) || id.replace('media_player.', ''), p);
+    return lancerPlaylist(env, compte, id, (e && e.attributes && e.attributes.friendly_name) || id.replace('media_player.', ''), p);
   }
   if (c.action === 'lancer') {
     const R = await lireReglages(env), f = R.reglages.musique.favoris[parseInt(c.favori, 10)];
