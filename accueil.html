@@ -1272,13 +1272,25 @@ var MU_SVG = {
 };
 function muIcone(n){ return SVG + MU_SVG[n] + '</svg>'; }
 function donneesMusique(){ return prive() ? musique : MU_DEMO; }
+// Enceinte principale : « Maison » (toutes les enceintes) ; les autres sont secondaires
+var PRINCIPALE = 'media_player.maison';
+function ordonner(M){
+  if (!M || M.ordonne) return;
+  M.lecteurs.sort(function(a, b){ return (a.id === PRINCIPALE ? 0 : 1) - (b.id === PRINCIPALE ? 0 : 1) || (a.nom < b.nom ? -1 : a.nom > b.nom ? 1 : 0); });
+  M.ordonne = true;
+}
 function lecteurActif(M){
   if (!M || !M.lecteurs.length) return null;
-  var L = M.lecteurs, i;
+  ordonner(M);
+  var L = M.lecteurs, i, P = null;
+  for (i = 0; i < L.length; i++) if (L[i].id === PRINCIPALE) P = L[i];
   if (lecteurChoisi) for (i = 0; i < L.length; i++) if (L[i].id === lecteurChoisi) return L[i];
+  // ce qui joue d'abord (la principale en priorité), sinon la principale
+  if (P && P.etat === 'playing' && P.titre) return P;
   for (i = 0; i < L.length; i++) if (L[i].etat === 'playing') return L[i];
+  if (P && P.etat === 'paused' && P.titre) return P;
   for (i = 0; i < L.length; i++) if (L[i].etat === 'paused' && L[i].titre) return L[i];
-  return L[0];
+  return P || L[0];
 }
 function chargerMusique(){
   if (!prive()) return;

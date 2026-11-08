@@ -61,6 +61,9 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:32px;heigh
 .en-t{flex:1;min-width:0;margin-left:14px}
 .en-n{font-size:21px;font-weight:700}
 .en-s{font-size:16px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
+.en-n em{font-style:normal;font-size:13px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);margin-left:10px;vertical-align:.12em}
+.sous{font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:12px 0 2px}
+.en:not(.princ) .en-n{font-size:19px}
 .en-v{font-size:15px;font-weight:700;color:var(--muted);margin-left:10px}
 .favs{margin-top:16px}
 .fav{display:flex;flex-wrap:wrap;margin:8px -5px 0}
@@ -147,13 +150,25 @@ var DEMO = { lecteurs: [
 ], favoris: ['Titres likés', 'Daily Mix', 'Découvertes', 'FIP'] };
 var donnees = null, choisi = null, regleVolume = false, visible = false;
 function D(){ return enDemo() ? DEMO : donnees; }
+// Enceinte principale : « Maison » (toutes les enceintes) ; les autres sont secondaires
+var PRINCIPALE = 'media_player.maison';
+function ordonner(M){
+  if (!M || M.ordonne) return;
+  M.lecteurs.sort(function(a, b){ return (a.id === PRINCIPALE ? 0 : 1) - (b.id === PRINCIPALE ? 0 : 1) || (a.nom < b.nom ? -1 : a.nom > b.nom ? 1 : 0); });
+  M.ordonne = true;
+}
 function actif(){
   var M = D(); if (!M || !M.lecteurs.length) return null;
-  var L = M.lecteurs, i;
+  ordonner(M);
+  var L = M.lecteurs, i, P = null;
+  for (i = 0; i < L.length; i++) if (L[i].id === PRINCIPALE) P = L[i];
   if (choisi) for (i = 0; i < L.length; i++) if (L[i].id === choisi) return L[i];
+  // ce qui joue d'abord (la principale en priorité), sinon la principale
+  if (P && P.etat === 'playing' && P.titre) return P;
   for (i = 0; i < L.length; i++) if (L[i].etat === 'playing') return L[i];
+  if (P && P.etat === 'paused' && P.titre) return P;
   for (i = 0; i < L.length; i++) if (L[i].etat === 'paused' && L[i].titre) return L[i];
-  return L[0];
+  return P || L[0];
 }
 function mmss(s){ s = Math.max(0, Math.round(s)); return Math.floor(s / 60) + ':' + pad(s % 60); }
 function position(A){ var p = A.position || 0; if (A.etat === 'playing' && A.majPos) p += (Date.now() - A.majPos) / 1000; return A.duree ? Math.min(p, A.duree) : p; }
@@ -182,8 +197,9 @@ function dessiner(){
   var e = '';
   for (var i = 0; i < M.lecteurs.length && i < 6; i++) {
     var L = M.lecteurs[i], j = L.titre && (L.etat === 'playing' || L.etat === 'paused');
-    e += '<div class="en' + (L.id === A.id ? ' on' : '') + (L.etat === 'playing' ? ' joue' : '') + '" data-l="' + L.id + '"><div class="en-i">' + ic(L.etat === 'playing' ? 'note' : 'enceinte') + '</div>' +
-      '<div class="en-t"><div class="en-n">' + echapper(L.nom) + '</div><div class="en-s">' + (j ? (L.etat === 'paused' ? 'En pause · ' : '') + echapper(L.titre) + (L.artiste ? ' — ' + echapper(L.artiste) : '') : (L.etat === 'off' ? 'Éteinte' : 'Disponible')) + '</div></div>' +
+    if (i === 1 && M.lecteurs[0].id === PRINCIPALE) e += '<div class="sous">Autres enceintes</div>';
+    e += '<div class="en' + (L.id === PRINCIPALE ? ' princ' : '') + (L.id === A.id ? ' on' : '') + (L.etat === 'playing' ? ' joue' : '') + '" data-l="' + L.id + '"><div class="en-i">' + ic(L.etat === 'playing' ? 'note' : 'enceinte') + '</div>' +
+      '<div class="en-t"><div class="en-n">' + echapper(L.nom) + (L.id === PRINCIPALE ? '<em>principale</em>' : '') + '</div><div class="en-s">' + (j ? (L.etat === 'paused' ? 'En pause · ' : '') + echapper(L.titre) + (L.artiste ? ' — ' + echapper(L.artiste) : '') : (L.etat === 'off' ? 'Éteinte' : 'Disponible')) + '</div></div>' +
       (L.volume !== null && L.volume !== undefined ? '<div class="en-v">' + L.volume + ' %</div>' : '') + '</div>';
   }
   $('ens').innerHTML = e;
