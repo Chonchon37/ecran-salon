@@ -163,7 +163,7 @@ body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;fon
 .mu-vol{margin-left:auto;display:flex;align-items:center}
 .mu-vol b{width:44px;height:44px;margin:0;font-size:24px;font-weight:600}
 .mu-vol em{font-style:normal;font-size:18px;font-weight:700;width:58px;text-align:center;color:var(--muted)}
-.mu-ens{display:flex;flex-wrap:wrap;margin:10px -4px 0}
+.mu-ens{display:flex;flex-wrap:wrap;margin:0 -4px 0}
 .mu-ens span{font-size:16px;font-weight:600;padding:8px 14px;border-radius:999px;background:var(--card2);color:var(--muted);margin:4px;cursor:pointer;white-space:nowrap}
 .mu-ens span.on{background:var(--ink);color:var(--card)}
 .mu-ens span.joue:before{content:"";display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--ok);margin-right:7px;vertical-align:.1em}
@@ -1328,7 +1328,7 @@ function tuileMusique(T, now, l, h){
     if (!demi && h >= 1.5 && M.lecteurs.length > 1) html += ens;
   } else {
     // Rien en cours : choisir l'enceinte, puis un favori (lancé par l'Assistant Google)
-    html += '<div class="mu-src">Musique · rien en cours</div>' + (demi ? '' : ens) + '<div class="mu-fav">';
+    html += (demi ? '' : ens) + '<div class="mu-fav">';
     if (M.spotify && M.playlists && M.playlists.length) { for (i = 0; i < M.playlists.length && i < 8; i++) html += '<span data-mu-p="' + i + '">' + muIcone('lecture') + echapper(M.playlists[i].nom) + '</span>'; }
     else for (i = 0; i < M.favoris.length; i++) html += '<span data-mu-f="' + i + '">' + muIcone('lecture') + echapper(M.favoris[i]) + '</span>';
     html += '</div>';
