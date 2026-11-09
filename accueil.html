@@ -219,6 +219,9 @@ body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;fon
 .tr-demi .tr-live{vertical-align:3px}
 @-webkit-keyframes tr-clignote{0%,100%{opacity:1}50%{opacity:.35}}
 @keyframes tr-clignote{0%,100%{opacity:1}50%{opacity:.35}}
+.tl-dir{font-size:16px;line-height:1.2;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:190px;margin:0 0 2px auto}
+.tl-dn{font-weight:600;color:var(--ink)}
+span.tl-dir{display:inline-block;max-width:100%;vertical-align:bottom}
 .tl-m b{font-family:Fraunces,"Bricolage Grotesque",Figtree,Arial,sans-serif;font-size:46px;font-weight:600;line-height:1;letter-spacing:-.02em}
 .tl-n{font-size:16px;color:var(--ok);font-weight:700;white-space:nowrap}
 .tl-n.vite{color:var(--warn)}
@@ -969,13 +972,13 @@ function tuileTransports(T, now, l, h){
       // Plus rien dans les 2 h : on annonce le premier passage suivant (souvent demain matin)
       var pro = transportsReels && transportsReels.lignes[L.id] ? transportsReels.lignes[L.id].prochain : null, txt = L.horaires === false ? 'Horaires disponibles demain' : 'Plus de passage';
       if (pro) { var dp = new Date(pro), demainP = dp.getDate() !== now.getDate(); txt = (L.type === 'tram' ? 'Premier tram ' : 'Premier bus ') + (demainP ? 'demain ' : '') + 'à ' + hhmm(pro); }
-      html += '<div class="tl">' + badge + '<div class="tl-txt">' + (avecNoms ? '<div class="tl-s"><span class="vers">vers </span>' + L.direction + '</div>' : '') + '<div class="tl-d" style="white-space:normal">' + (avecNoms ? L.arret + ' · ' : '') + txt + '</div></div></div>';
+      html += '<div class="tl">' + badge + '<div class="tl-txt">' + (avecNoms ? '<div class="tl-s"><span class="vers">vers </span>' + L.direction + '</div>' : '') + '<div class="tl-d" style="white-space:normal">' + (avecNoms ? L.arret + ' · ' : '<span class="tl-dir">vers <span class="tl-dn">' + L.direction + '</span></span><br>') + txt + '</div></div></div>';
       continue;
     }
     var marge = P[0].min - L.marche, suite = '';
     if (avecSuite && P.length > 1) suite = '<div class="tl-puis">puis ' + P.slice(1, 3).map(function(x){ return hhmm(x.t); }).join(' · ') + '</div>';
     html += '<div class="tl">' + badge + noms +
-      '<div class="tl-m">' + (P[0].tempsReel ? '<span class="tr-live" title="Temps réel">' + ICONE_LIVE + '</span>' : '') + '<b>' + hhmm(P[0].t) + '</b><div class="tl-n' + (marge <= 1 ? ' vite' : '') + '">' + (marge <= 1 ? 'pars maintenant' : 'pars dans ' + marge + ' min') + '</div>' + suite + '</div></div>';
+      '<div class="tl-m">' + (avecNoms ? '' : '<div class="tl-dir">vers <span class="tl-dn">' + L.direction + '</span></div>') + (P[0].tempsReel ? '<span class="tr-live" title="Temps réel">' + ICONE_LIVE + '</span>' : '') + '<b>' + hhmm(P[0].t) + '</b><div class="tl-n' + (marge <= 1 ? ' vite' : '') + '">' + (marge <= 1 ? 'pars maintenant' : 'pars dans ' + marge + ' min') + '</div>' + suite + '</div></div>';
   }
   T.innerHTML = html;
   var lignesTr = T.querySelectorAll('.tl'), reste = [];
