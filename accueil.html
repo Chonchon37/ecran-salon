@@ -213,6 +213,11 @@ body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;fon
 .tl-d{font-size:16px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .tl-m{margin-left:12px;text-align:right;flex:none}
 .l1 .tl-m{margin-left:auto}
+.tr-live{display:inline-block;width:24px;height:24px;margin-right:6px;vertical-align:5px;color:var(--ok);-webkit-animation:tr-clignote 1.8s ease-in-out infinite;animation:tr-clignote 1.8s ease-in-out infinite}
+.tr-live svg{width:24px;height:24px;display:block}
+.tr-demi .tr-live{vertical-align:3px}
+@-webkit-keyframes tr-clignote{0%,100%{opacity:1}50%{opacity:.35}}
+@keyframes tr-clignote{0%,100%{opacity:1}50%{opacity:.35}}
 .tl-m b{font-family:Fraunces,"Bricolage Grotesque",Figtree,Arial,sans-serif;font-size:46px;font-weight:600;line-height:1;letter-spacing:-.02em}
 .tl-n{font-size:16px;color:var(--ok);font-weight:700;white-space:nowrap}
 .tl-n.vite{color:var(--warn)}
@@ -494,6 +499,8 @@ function lignesDepuis(config){
   }
   return res;
 }
+// « En direct » : un point et deux ondes (passage suivi en temps réel)
+var ICONE_LIVE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="12" cy="12" r="2.6" fill="currentColor" stroke="none"/><path d="M7.8 7.8a6 6 0 0 0 0 8.4M16.2 7.8a6 6 0 0 1 0 8.4M4.6 4.6a10.5 10.5 0 0 0 0 14.8M19.4 4.6a10.5 10.5 0 0 1 0 14.8"/></svg>';
 function styleBadge(L){ return L.couleur ? ' style="background:#' + L.couleur + '"' : ''; }
 var LIGNES = [
   { id: 'A', ligne: 'A', type: 'tram', arret: 'Monconseil', direction: 'Jean Monnet', marche: 7, passages: [3.6, 11.2, 19.4, 27.0] },
@@ -920,11 +927,11 @@ function passagesLigne(L){
   var res = [];
   if (transportsReels) {
     var PR = transportsReels.lignes[L.id] ? transportsReels.lignes[L.id].passages : [];
-    for (var q = 0; q < PR.length; q++) { var mq = Math.floor((PR[q].t - Date.now()) / 60000); if (mq >= L.marche) res.push({ min: mq, t: PR[q].t }); }
+    for (var q = 0; q < PR.length; q++) { var mq = Math.floor((PR[q].t - Date.now()) / 60000); if (mq >= L.marche) res.push({ min: mq, t: PR[q].t, tempsReel: PR[q].tempsReel }); }
   } else {
     for (var p = 0; p < L.passages.length; p++) {
       var tt = t0 + L.passages[p] * 60000, m = Math.floor((tt - Date.now()) / 60000);
-      if (m >= L.marche) res.push({ min: m, t: tt });
+      if (m >= L.marche) res.push({ min: m, t: tt, tempsReel: p < 2 });
     }
     if (!res.length) { t0 = Date.now(); return passagesLigne(L); }
   }
@@ -954,7 +961,7 @@ function tuileTransports(T, now, l, h){
     var marge = P[0].min - L.marche, suite = '';
     if (avecSuite && P.length > 1) suite = '<div class="tl-puis">puis ' + P.slice(1, 3).map(function(x){ return hhmm(x.t); }).join(' · ') + '</div>';
     html += '<div class="tl">' + badge + noms +
-      '<div class="tl-m"><b>' + hhmm(P[0].t) + '</b><div class="tl-n' + (marge <= 1 ? ' vite' : '') + '">' + (marge <= 1 ? 'pars maintenant' : 'pars dans ' + marge + ' min') + '</div>' + suite + '</div></div>';
+      '<div class="tl-m">' + (P[0].tempsReel ? '<span class="tr-live" title="Temps réel">' + ICONE_LIVE + '</span>' : '') + '<b>' + hhmm(P[0].t) + '</b><div class="tl-n' + (marge <= 1 ? ' vite' : '') + '">' + (marge <= 1 ? 'pars maintenant' : 'pars dans ' + marge + ' min') + '</div>' + suite + '</div></div>';
   }
   T.innerHTML = html;
   var lignesTr = T.querySelectorAll('.tl'), reste = [];

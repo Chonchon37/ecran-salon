@@ -124,6 +124,13 @@ body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;fon
 .fr-walk{position:absolute;left:0;top:38px;height:8px;border-radius:4px 0 0 4px;background:repeating-linear-gradient(135deg,var(--warn) 0 6px,transparent 6px 11px);opacity:.8}
 .fr-dot{position:absolute;top:30px;width:24px;height:24px;margin-left:-12px;border-radius:50%;box-sizing:border-box;border:4px solid;background:var(--card)}
 .fr-dot.passe{opacity:.35}
+/* Temps réel : le rond « scintille » (halo qui s'élargit + léger battement) */
+@-webkit-keyframes scintille{0%{box-shadow:0 0 0 0 currentColor;opacity:1}55%{opacity:.55}70%{box-shadow:0 0 0 11px rgba(0,0,0,0)}100%{box-shadow:0 0 0 0 rgba(0,0,0,0);opacity:1}}
+@keyframes scintille{0%{box-shadow:0 0 0 0 currentColor;opacity:1}55%{opacity:.55}70%{box-shadow:0 0 0 11px rgba(0,0,0,0)}100%{box-shadow:0 0 0 0 rgba(0,0,0,0);opacity:1}}
+.fr-dot.live,.dep i.live,.leg i.live{-webkit-animation:scintille 1.8s ease-out infinite;animation:scintille 1.8s ease-out infinite}
+.fr-dot.live.passe{-webkit-animation:none;animation:none}
+.dep i.live{color:var(--ok)}
+.leg i.live{color:var(--muted)}
 .fr-lab{position:absolute;top:60px;white-space:nowrap;font-size:18px;font-weight:600;color:var(--muted);-webkit-transform:translateX(-50%);transform:translateX(-50%)}
 .fr-lab.cible{color:var(--ink);font-weight:700}
 .fr-bout{position:absolute;right:0;top:0;font-size:15px;color:var(--muted)}
@@ -331,7 +338,7 @@ function carte(cfg, D){
   for (var f = 0; f < P.length; f++) {
     var mf = (P[f].heure - Date.now()) / 60000;
     if (mf < 0 || mf > 60) continue;
-    html += '<div class="fr-dot' + (mf < cfg.marche ? ' passe' : '') + '" style="left:' + (mf / 60 * 100).toFixed(1) + '%;border-color:' + coul + (P[f].tempsReel ? ';background:' + coul : '') + '"></div>';
+    html += '<div class="fr-dot' + (mf < cfg.marche ? ' passe' : '') + (P[f].tempsReel ? ' live' : '') + '" style="left:' + (mf / 60 * 100).toFixed(1) + '%;color:' + coul + ';border-color:' + coul + (P[f].tempsReel ? ';background:' + coul : '') + '"></div>';
   }
   // Sous chaque passage attrapable : son heure (en gras pour celui à prendre), sans chevauchement
   var dernierePos = -100;
@@ -349,7 +356,7 @@ function carte(cfg, D){
   html += '<div class="ensuite"><span class="ens-l">Ensuite</span>';
   if (!suivants.length) html += '<span class="ens-vide">rien d\'annoncé</span>';
   for (var k = 0; k < suivants.length; k++) {
-    html += '<div class="dep"><i' + (suivants[k].tempsReel ? '' : ' class="p"') + '></i>' + hm(suivants[k].heure) + '<small>(+' + minutesAvant(suivants[k].heure) + ' min)</small></div>';
+    html += '<div class="dep"><i class="' + (suivants[k].tempsReel ? 'live' : 'p') + '"></i>' + hm(suivants[k].heure) + '<small>(+' + minutesAvant(suivants[k].heure) + ' min)</small></div>';
   }
   html += '</div></div>';
   return html;
@@ -368,7 +375,7 @@ function majTexte(){
   var s = Math.round((Date.now() - derniereMaj) / 1000), z = $('upd');
   if (s > 180) { z.className = 'upd vieux'; z.innerHTML = 'Pas de mise à jour depuis ' + Math.floor(s / 60) + ' min : vérifie la connexion'; return; }
   z.className = 'upd';
-  z.innerHTML = '<span class="leg"><i></i>temps réel <i class="p"></i>horaire prévu</span>' + (tempsReelOk ? '' : 'Temps réel indisponible · ') + (s < 15 ? 'À jour' : 'Mis à jour il y a ' + (s < 60 ? s + ' s' : Math.floor(s / 60) + ' min'));
+  z.innerHTML = '<span class="leg"><i class="live"></i>temps réel <i class="p"></i>horaire prévu</span>' + (tempsReelOk ? '' : 'Temps réel indisponible · ') + (s < 15 ? 'À jour' : 'Mis à jour il y a ' + (s < 60 ? s + ' s' : Math.floor(s / 60) + ' min'));
 }
 var dernieresDonnees = null, derniereMaj = 0;
 function charger(){
