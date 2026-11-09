@@ -45,6 +45,7 @@ body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;fon
 .ln-l1{display:flex;align-items:center}
 .ln-stop{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;margin-right:12px}
 .ln-stop{font-size:32px;font-weight:600;line-height:1.1}
+.ln-stop .vers{font-size:20px;font-weight:500;color:var(--muted)}
 .ln-sub{font-size:20px;color:var(--muted);margin-top:4px;display:flex;align-items:center;white-space:nowrap}
 .ln-sub svg{width:20px;height:20px;margin:0 4px 0 2px;flex:none}
 .ln-sub .sep{margin:0 8px}
@@ -300,8 +301,8 @@ function carte(cfg, D){
   var P = (D ? D.passages : []).filter(function(p){ return p.heure > Date.now() - 30000; });
   var html = '<div class="card line' + (ALIGNER ? ' serre' : '') + '"><div class="ln-head">' +
     '<div class="badge ' + cfg.type + '"' + styleBadge(cfg) + '>' + cfg.ligne + '</div>' +
-    '<div class="ln-txt"><div class="ln-l1"><div class="ln-stop h">' + cfg.arret + '</div>' + etatTrafic(D, P, cfg) + '</div>' +
-    '<div class="ln-sub">vers ' + cfg.direction + '<span class="sep">·</span>' + PIETON + cfg.marche + ' min à pied</div></div></div>';
+    '<div class="ln-txt"><div class="ln-l1"><div class="ln-stop h"><span class="vers">vers </span>' + cfg.direction + '</div>' + etatTrafic(D, P, cfg) + '</div>' +
+    '<div class="ln-sub">' + cfg.arret + '<span class="sep">·</span>' + PIETON + cfg.marche + ' min à pied</div></div></div>';
 
   // Premier passage qu'on peut encore attraper à pied
   var cible = -1;

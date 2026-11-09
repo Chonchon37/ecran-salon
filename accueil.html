@@ -209,6 +209,7 @@ body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;fon
 .badge.bus{background:var(--bus);border-radius:11px}
 .tl-txt{flex:1;min-width:0}
 .tl-s{font-size:21px;font-weight:600;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tl-s .vers{font-size:15px;font-weight:500;color:var(--muted)}
 .tl-d{font-size:16px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .tl-m{margin-left:12px;text-align:right;flex:none}
 .l1 .tl-m{margin-left:auto}
@@ -942,12 +943,12 @@ function tuileTransports(T, now, l, h){
     var L = LIGNES[k];
     if (L.actif === false) continue;
     var P = passagesLigne(L), badge = '<div class="badge ' + L.type + '"' + styleBadge(L) + '>' + L.ligne + '</div>';
-    var noms = avecNoms ? '<div class="tl-txt"><div class="tl-s">' + L.arret + '</div><div class="tl-d">vers ' + L.direction + '</div></div>' : '';
+    var noms = avecNoms ? '<div class="tl-txt"><div class="tl-s"><span class="vers">vers </span>' + L.direction + '</div><div class="tl-d">' + L.arret + '</div></div>' : '';
     if (!P.length) {
       // Plus rien dans les 2 h : on annonce le premier passage suivant (souvent demain matin)
       var pro = transportsReels && transportsReels.lignes[L.id] ? transportsReels.lignes[L.id].prochain : null, txt = L.horaires === false ? 'Horaires disponibles demain' : 'Plus de passage';
       if (pro) { var dp = new Date(pro), demainP = dp.getDate() !== now.getDate(); txt = (L.type === 'tram' ? 'Premier tram ' : 'Premier bus ') + (demainP ? 'demain ' : '') + 'à ' + hhmm(pro); }
-      html += '<div class="tl">' + badge + '<div class="tl-txt">' + (avecNoms ? '<div class="tl-s">' + L.arret + '</div>' : '') + '<div class="tl-d" style="white-space:normal">' + (avecNoms ? 'vers ' + L.direction + ' · ' : '') + txt + '</div></div></div>';
+      html += '<div class="tl">' + badge + '<div class="tl-txt">' + (avecNoms ? '<div class="tl-s"><span class="vers">vers </span>' + L.direction + '</div>' : '') + '<div class="tl-d" style="white-space:normal">' + (avecNoms ? L.arret + ' · ' : '') + txt + '</div></div></div>';
       continue;
     }
     var marge = P[0].min - L.marche, suite = '';
