@@ -33,7 +33,7 @@ const FLUX_TR = 'https://data.filbleu.fr/ws-tr/gtfs-rt/opendata/trip-updates';
 const FLUX_ALERTES = 'https://data.filbleu.fr/ws-tr/gtfs-rt/opendata/service-alerts';
 const FLUX_INCIDENTS = 'https://www.filbleu.fr/rss-incident.xml';   // l'info trafic du site filbleu.fr (travaux, déviations…)
 const CACHE_SECONDES = 30;   // les écrans redemandent toutes les 30 s
-const VERSION = '48';   // à changer à chaque mise à jour du code : vide les caches
+const VERSION = '49';   // à changer à chaque mise à jour du code : vide les caches
 
 // Horaires prévus, format compact : "jours" = n° de grille pour chaque jour depuis "debut",
 // chaque ligne "g=" = minutes depuis minuit, écrites en écarts successifs.
@@ -1132,7 +1132,7 @@ async function construireMusique(env) {
 }
 async function pochetteMusique(env, id) {
   let chemin = E(env).IMAGES_MUSIQUE[id];
-  if (/^sonos:/.test(id)) {   // pochette Sonos : adresse publique du service de musique
+  if (/^(sonos|spotify):/.test(id)) {   // pochette Sonos ou Spotify : adresse publique du service de musique
     if (!chemin) return new Response('', { status: 404 });
     const r = await fetch(chemin);
     return new Response(r.body, { status: r.status, headers: { 'Content-Type': r.headers.get('Content-Type') || 'image/jpeg', 'Cache-Control': 'public, max-age=86400', 'Access-Control-Allow-Origin': '*' } });
@@ -1276,6 +1276,86 @@ async function deconnexionSonos(env) {
   return { ok: true };
 }
 const avecSonos = env => !!(env.CADRE_INFO && env.CADRE_INFO.sonos);
+// Source de la musique d'un cadre : Sonos, sinon Home Assistant (enceintes Google), sinon Spotify seul (Spotify Connect)
+const sourceMusique = env => avecSonos(env) ? 'sonos' : env.HA_URL ? 'ha' : (env.CADRE_INFO && env.CADRE_INFO.spotify && env.SPOTIFY_ID) ? 'spotify' : '';
+
+/* ---------- Spotify seul : les appareils Spotify Connect du compte (enceintes, téléphone, ordinateur…) ---------- */
+async function compteSpotifyActif(env) {
+  for (const c of COMPTES_SPOTIFY) if (await jetonSpotify(env, c)) return c;
+  return null;
+}
+async function construireSpotify(env) {
+  if (E(env).MUSIQUE_MEMO && Date.now() - E(env).MUSIQUE_MEMO.t < 4000) return E(env).MUSIQUE_MEMO.res;
+  const R = await lireReglages(env), c = await compteSpotifyActif(env);
+  if (!c) throw new Error('Spotify n\'est plus connecté');
+  const [rd, rp] = await Promise.all([spotify(env, c, '/me/player/devices'), spotify(env, c, '/me/player')]);
+  const d = rd && rd.ok ? await rd.json() : { devices: [] }, p = rp && rp.status === 200 ? await rp.json() : null;
+  const lecteurs = (d.devices || []).filter(x => x.id && !x.is_restricted).map(x => {
+    const id = 'spotify:' + x.id, actifIci = p && p.device && p.device.id === x.id, it = actifIci && p.item || {};
+    let image = null;
+    const img = it.album && it.album.images && it.album.images.length ? it.album.images[0].url : null;
+    if (img) { E(env).IMAGES_MUSIQUE[id] = img; image = String(it.name || '').length + '-' + (it.name || ''); }
+    return { id, nom: x.name, etat: actifIci ? (p.is_playing ? 'playing' : 'paused') : 'idle', titre: it.name || '', artiste: (it.artists || []).map(a => a.name).join(', '),
+      app: 'Spotify', volume: typeof x.volume_percent === 'number' ? x.volume_percent : null, image, duree: it.duration_ms ? it.duration_ms / 1000 : 0,
+      position: actifIci && p.progress_ms ? p.progress_ms / 1000 : 0, majPos: Date.now() };
+  });
+  lecteurs.sort((a, b) => a.nom.localeCompare(b.nom, 'fr'));
+  const comptes = [];
+  for (const k of COMPTES_SPOTIFY) {
+    const pl = await playlistsSpotify(env, k).catch(() => null);
+    if (pl) comptes.push({ id: k, nom: R.reglages.agenda.personnes[k] || k, playlists: pl.map(x => ({ nom: x.nom, image: x.image })) });
+  }
+  const res = { maj: Date.now(), source: 'spotify', lecteurs, favoris: [], spotify: true, spotifyConfigure: true, comptes, playlists: comptes.length ? comptes[0].playlists : [] };
+  E(env).MUSIQUE_MEMO = { t: Date.now(), res };
+  return res;
+}
+async function actionSpotify(env, c) {
+  const id = String(c.id || '');
+  if (!/^spotify:[\w-]+$/.test(id)) return { ok: false, erreur: 'Appareil inconnu' };
+  const dev = encodeURIComponent(id.slice(8)), k = await compteSpotifyActif(env);
+  if (!k) return { ok: false, erreur: 'Spotify n\'est plus connecté' };
+  E(env).MUSIQUE_MEMO = null;
+  const appel = async (methode, chemin, corps) => {
+    const r = await spotify(env, k, chemin, { method: methode, headers: { 'Content-Type': 'application/json' }, body: corps ? JSON.stringify(corps) : undefined });
+    return { ok: !!r && (r.ok || r.status === 204), statut: r ? r.status : 0 };
+  };
+  if (c.action === 'lecture') {
+    const rp = await spotify(env, k, '/me/player'), p = rp && rp.status === 200 ? await rp.json() : null;
+    return p && p.is_playing && p.device && p.device.id === id.slice(8) ? appel('PUT', '/me/player/pause') : appel('PUT', '/me/player/play?device_id=' + dev);
+  }
+  if (c.action === 'suivant') return appel('POST', '/me/player/next?device_id=' + dev);
+  if (c.action === 'precedent') return appel('POST', '/me/player/previous?device_id=' + dev);
+  if (c.action === 'stop') return appel('PUT', '/me/player/pause?device_id=' + dev);
+  if (c.action === 'volume') return appel('PUT', '/me/player/volume?device_id=' + dev + '&volume_percent=' + Math.min(100, Math.max(0, Math.round(Number(c.valeur) || 0))));
+  if (c.action === 'playlist') {
+    const compte = COMPTES_SPOTIFY.indexOf(c.compte) >= 0 ? c.compte : k;
+    const L = await playlistsSpotify(env, compte), pl = L && L[parseInt(c.index, 10)];
+    if (!pl) return { ok: false, erreur: 'Playlist inconnue' };
+    let corps;
+    if (pl.uri !== 'aimes') corps = { context_uri: pl.uri };
+    else { const t = await spotify(env, compte, '/me/tracks?limit=50'); const tj = t && t.ok ? await t.json() : { items: [] }; corps = { uris: (tj.items || []).map(x => x.track && x.track.uri).filter(Boolean) }; }
+    return appel('PUT', '/me/player/play?device_id=' + dev, corps);
+  }
+  return { ok: false, erreur: 'Action inconnue' };
+}
+
+/* ---------- Connexion depuis le cadre : QR code → lien court (15 min) vers Sonos ou Spotify ---------- */
+async function lienConnexion(envBase, cadre) {
+  const t = nouvelleCle(16);
+  await envBase.REGLAGES.put('lien:' + t, cadre, { expirationTtl: 900 });
+  const base = 'https://ecran-salon.nico-michon37.workers.dev/m/' + t + '/';
+  return { sonos: envBase.SONOS_ID ? base + 'sonos' : null, spotify: envBase.SPOTIFY_ID ? base + 'spotify' : null, expire: Date.now() + 900000 };
+}
+async function suivreLien(envBase, url) {
+  const m = /^\/m\/([A-Z0-9]{16})\/(sonos|spotify)$/.exec(url.pathname);
+  const page = (titre, texte) => new Response('<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width"><body style="font-family:system-ui;padding:40px;background:#16100D;color:#F6EDE4"><h1>' + titre + '</h1><p>' + texte + '</p></body>', { status: 400, headers: { 'Content-Type': 'text/html; charset=utf-8' } });
+  if (!m) return page('Lien invalide', 'Scanne de nouveau le code affiché sur le cadre.');
+  const cadre = await envBase.REGLAGES.get('lien:' + m[1]);
+  if (!cadre) return page('Lien expiré', 'Le code n\'est valable que 15 minutes : scanne celui qui est affiché maintenant sur le cadre.');
+  const env = await envCadre(envBase, cadre);
+  if (!env) return page('Cadre introuvable', 'Ce cadre a été supprimé.');
+  return m[2] === 'sonos' ? connexionSonos(env) : connexionSpotify(env, new URL('https://x/?compte=moi'));
+}
 
 /* ---------- Applications Sonos et Spotify : clés saisies dans Cloudflare OU dans la page admin ----------
    Les variables du Worker (SONOS_ID…) restent prioritaires ; sinon on prend celles enregistrées dans le KV (« apps »). */
@@ -1358,7 +1438,8 @@ async function bilanConnexions(env) {
   if (MOD.musique) {
     if (avecSonos(env)) ajoute('sonos', 'Sonos', 'maison', await essai(async () => { E(env).SONOS_FOYER = null; const hh = await foyerSonos(env); const g = await sonos(env, '/households/' + hh + '/groups'); return { etat: 'ok', detail: (g.groups || []).map(x => x.name).join(', ') || 'aucune enceinte' }; }));
     else if (!env.HA_URL) ajoute('sonos', 'Sonos', env.SONOS_ID ? 'maison' : 'apps', { etat: 'absent', detail: env.SONOS_ID ? 'Compte Sonos pas encore connecté (onglet Maison).' : 'Application Sonos pas encore créée (Mes cadres → Applications).' });
-    if (env.HA_URL && !avecSonos(env)) for (const c of COMPTES_SPOTIFY) {
+    if (!sourceMusique(env) && env.SPOTIFY_ID) ajoute('spotify', 'Spotify', 'maison', { etat: 'absent', detail: 'Aucune musique connectée : scanne le QR code de l\'onglet Musique du cadre, ou « Connecter » dans l\'onglet Maison.' });
+    if (sourceMusique(env) === 'ha' || sourceMusique(env) === 'spotify') for (const c of COMPTES_SPOTIFY) {
       if (!env.SPOTIFY_ID) { ajoute('spotify', 'Spotify', 'maison', { etat: 'absent', detail: 'Application Spotify pas encore créée.' }); break; }
       const R = await lireReglages(env), nom = R.reglages.agenda.personnes[c] || c;
       ajoute('spotify-' + c, 'Spotify · ' + nom, 'maison', await essai(async () => (await jetonSpotify(env, c)) ? { etat: 'ok', detail: 'connecté' } : { etat: 'absent', detail: 'pas connecté (facultatif)' }));
@@ -1450,7 +1531,11 @@ async function retourSpotify(envBase, url) {
   await env.REGLAGES.put(cleKV(env, 'spotify-' + compte), JSON.stringify({ refresh: j.refresh_token, acces: j.access_token, exp: Date.now() + (j.expires_in || 3600) * 1000 }));
   await env.REGLAGES.delete('spotify-etat');
   delete E(env).SPOTIFY_JETON[compte]; delete E(env).SPOTIFY_LISTES[compte];
-  return page('Spotify est connecté ✓', 'Tes playlists vont apparaître sur l\'écran. Tu peux fermer cette page.');
+  if (morceaux[0] !== 'principal') {   // cadre d'une famille : sa musique peut passer par Spotify (sans Home Assistant)
+    const L = (await lireCadres(envBase)).slice(), c = L.find(x => x.id === morceaux[0]);
+    if (c) { c.config = c.config || {}; c.config.spotify = true; c.config.modules = Object.assign({}, c.config.modules, { musique: true }); await ecrireCadres(envBase, L); delete ETATS[c.id]; }
+  }
+  return page('Spotify est connecté ✓', 'La musique va apparaître sur l\'écran d\'ici quelques secondes. Tu peux fermer cette page.');
 }
 // Lancer une playlist : directement par Spotify si l'enceinte est visible, sinon par l'Assistant Google
 async function lancerPlaylist(env, compte, lecteurId, nomEnceinte, p) {
@@ -1624,7 +1709,7 @@ async function envCadre(env, id) {
   (cfg.agendas || []).forEach((a, i) => { if (a && a.url) e['GOOGLE_ICS' + (i + 1)] = a.url; });
   if (cfg.ha && cfg.ha.url && cfg.ha.token) { e.HA_URL = cfg.ha.url; e.HA_TOKEN = cfg.ha.token; if (cfg.ha.alerte) e.HA_ALERTE = cfg.ha.alerte; }
   e.CADRE = c.id;
-  e.CADRE_INFO = { id: c.id, nom: c.nom, lieu: cfg.lieu || LIEU_PRINCIPAL, modules: Object.assign({ maison: false, musique: false, transports: false, travail: false }, cfg.modules || {}), sonos: !!cfg.sonos };
+  e.CADRE_INFO = { id: c.id, nom: c.nom, lieu: cfg.lieu || LIEU_PRINCIPAL, modules: Object.assign({ maison: false, musique: false, transports: false, travail: false }, cfg.modules || {}), sonos: !!cfg.sonos, spotify: !!cfg.spotify };
   return e;
 }
 // Qui appelle ? super-admin (toi), admin d'une famille, ou un écran
@@ -1647,7 +1732,7 @@ function vueCadre(c, avecCles) {
   const v = { id: c.id, nom: c.nom, cree: c.cree, lieu: cfg.lieu || null, modules: cfg.modules || {},
     agendas: (cfg.agendas || []).map((a, i) => ({ cle: 'GOOGLE_ICS' + (i + 1), nom: a.nom || '', url: masquer(a.url) })),
     ha: cfg.ha && cfg.ha.url ? { url: cfg.ha.url, token: masquer(cfg.ha.token), alerte: cfg.ha.alerte || '' } : null,
-    transports: cfg.transports || [], sonos: !!cfg.sonos };
+    transports: cfg.transports || [], sonos: !!cfg.sonos, spotify: !!cfg.spotify };
   v.cle = c.cle;   // code de l'écran : visible par l'admin de la famille (il en a besoin pour brancher son cadre)
   if (avecCles) v.cleAdmin = c.cleAdmin;
   return v;
@@ -1742,6 +1827,7 @@ export default {
     try {
       if (chemin === '/spotify/retour') return await retourSpotify(env, url);
       if (chemin === '/sonos/retour') return await retourSonos(env, url);
+      if (chemin.indexOf('/m/') === 0) return await suivreLien(envBase, url);
       if (chemin === '/transports') {
         // sans code : le cadre principal ; avec le code d'un cadre : ses propres arrêts
         const c = url.searchParams.get('cle'), qui = c ? await identifier(envBase, c, url.searchParams.get('cadre')) : null;
@@ -1825,7 +1911,9 @@ export default {
       }
       // Modules désactivés pour ce cadre
       if ((chemin === '/maison' || chemin === '/maison/action' || chemin === '/maison/catalogue' || chemin === '/vigilance') && !env.HA_URL) return repondre({ erreur: 'Home Assistant n\'est pas configuré pour ce cadre', absent: true }, 200, entetes);
-      if (chemin.indexOf('/musique') === 0 && !env.HA_URL && !avecSonos(env)) return repondre({ erreur: 'Home Assistant n\'est pas configuré pour ce cadre', absent: true, lecteurs: [], favoris: [], comptes: [] }, 200, entetes);
+      if (chemin === '/musique/lien') return repondre(await lienConnexion(envBase, env.CADRE), 200, entetes);
+      // pas encore de source de musique : l'écran affiche les QR codes pour connecter Sonos ou Spotify
+      if (chemin.indexOf('/musique') === 0 && !sourceMusique(env)) return repondre({ erreur: 'Aucune musique connectée pour ce cadre', absent: true, connecter: { sonos: !!env.SONOS_ID, spotify: !!env.SPOTIFY_ID }, lecteurs: [], favoris: [], comptes: [] }, 200, entetes);
       if (chemin === '/trajet' && !MOD.travail) return repondre({ trouve: false, erreur: 'Module travail désactivé' }, 200, entetes);
 
       if (chemin === '/trajet') return repondre(await construireTrajet(url.searchParams.get('lieu') || '', url.searchParams.get('adresse') || '', url.searchParams.get('arrivee') || '', env).catch(e => ({ trouve: false, erreur: String(e.message || e) })), 200, entetes);
@@ -1834,12 +1922,13 @@ export default {
       if (chemin === '/spotify/connexion') return estAdmin ? await connexionSpotify(env, url) : repondre({ erreur: 'Clé admin requise' }, 403, entetes);
       if (chemin === '/sonos/connexion') return estAdmin ? await connexionSonos(env) : repondre({ erreur: 'Clé admin requise' }, 403, entetes);
       if (chemin === '/sonos/deconnexion' && request.method === 'POST') return repondre(estAdmin ? await deconnexionSonos(env) : { erreur: 'Clé admin requise' }, estAdmin ? 200 : 403, entetes);
-      if (chemin === '/musique') return repondre(await (avecSonos(env) ? construireSonos(env) : construireMusique(env)), 200, entetes);
+      if (chemin === '/musique') { const src = sourceMusique(env); return repondre(await (src === 'sonos' ? construireSonos(env) : src === 'spotify' ? construireSpotify(env) : construireMusique(env)), 200, entetes); }
       if (chemin === '/musique/pochette') return await pochetteMusique(env, url.searchParams.get('id') || '');
       if (chemin === '/musique/action' && request.method === 'POST') {
         let corps = {};
         try { corps = JSON.parse(await request.text()); } catch (e) {}
-        return repondre(await (avecSonos(env) && /^sonos:/.test(String(corps.id || '')) ? actionSonos(env, corps) : actionMusique(env, corps)), 200, entetes);
+        const cible = String(corps.id || '');
+        return repondre(await (/^sonos:/.test(cible) ? actionSonos(env, corps) : /^spotify:/.test(cible) ? actionSpotify(env, corps) : actionMusique(env, corps)), 200, entetes);
       }
       if (chemin === '/vigilance') return await avecCache('vigilance-' + env.CADRE, 300, () => construireVigilance(env), entetes, ctx);
       if (chemin === '/maison/action' && request.method === 'POST') {
@@ -1850,7 +1939,7 @@ export default {
       }
       if (chemin === '/reglages' && request.method === 'GET') {
         const R = await lireReglages(env);
-        return repondre({ reglages: R.reglages, maj: R.maj, stockage: R.stockage, admin: estAdmin, super: estSuper, cadre: { id: env.CADRE, nom: env.CADRE_INFO.nom, lieu: env.CADRE_INFO.lieu, modules: MOD, ha: !!env.HA_URL, sonos: avecSonos(env), sonosConfigure: !!env.SONOS_ID } }, 200, entetes);
+        return repondre({ reglages: R.reglages, maj: R.maj, stockage: R.stockage, admin: estAdmin, super: estSuper, cadre: { id: env.CADRE, nom: env.CADRE_INFO.nom, lieu: env.CADRE_INFO.lieu, modules: MOD, ha: !!env.HA_URL, sonos: avecSonos(env), sonosConfigure: !!env.SONOS_ID, musique: sourceMusique(env) } }, 200, entetes);
       }
       // Réservé à l'admin
       if (chemin === '/reglages' && request.method === 'POST') {

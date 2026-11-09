@@ -422,9 +422,9 @@ button.discret{background:transparent;color:var(--muted);padding:8px 10px;font-s
       <button type="button" id="deconnecterSonos" hidden>Déconnecter</button>
     </section>
 
-    <section data-groupe="maison" data-module="musiqueHA">
+    <section data-groupe="maison" data-module="spotify">
       <h2>Spotify</h2>
-      <p class="aide">Connecte ton compte Spotify pour voir <b>tes playlists</b> sur l'écran (onglet et tuile Musique). À faire une seule fois.</p>
+      <p class="aide">Connecte ton compte Spotify pour voir <b>tes playlists</b> sur l'écran (onglet et tuile Musique). À faire une seule fois. Sans Home Assistant ni Sonos, Spotify suffit : l'écran pilote alors les appareils Spotify Connect (enceintes, box, téléphone). On peut aussi se connecter en scannant le QR code de l'onglet Musique du cadre.</p>
       <p class="aide">Deux comptes possibles. Pour le 2ᵉ compte, son adresse e-mail Spotify doit d'abord être ajoutée dans l'application Spotify (onglet « User Management »).</p>
       <p id="etatSpotify" class="aide">…</p>
       <button type="button" id="connecterSpotify" data-compte="moi">Connecter Spotify</button>
@@ -1193,7 +1193,7 @@ function moduleOk(id) {
   const C = R && R.cadre;
   if (!C || !C.modules) return true;
   if (id === 'maison') return !!(C.modules[id] && C.ha);
-  if (id === 'musique') return !!(C.modules[id] && (C.ha || C.sonos));
+  if (id === 'musique') return !!(C.modules[id] && (C.ha || C.sonos || C.musique));
   if (id === 'transports' || id === 'travail') return !!C.modules[id];
   return true;
 }
@@ -1204,6 +1204,7 @@ function sectionOk(m) {
   if (m === 'famille') return !principal;
   if (m === 'super') return !!R.super;
   if (m === 'musiqueHA') return moduleOk('musique') && !!R.cadre.ha && !R.cadre.sonos;
+  if (m === 'spotify') return (principal || !!(R.cadre.modules && R.cadre.modules.musique)) && !R.cadre.sonos;
   if (m === 'sonos') return principal || !!(R.cadre.modules && R.cadre.modules.musique);
   if (m === 'maisonmusique') return principal || !!(R.cadre.modules && (R.cadre.modules.maison || R.cadre.modules.musique));
   return moduleOk(m);

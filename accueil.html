@@ -584,7 +584,7 @@ var CADRE = null;
 function moduleActif(id){
   if (!CADRE || !CADRE.modules) return true;
   if (id === 'maison') return !!(CADRE.modules[id] && CADRE.ha);
-  if (id === 'musique') return !!(CADRE.modules[id] && (CADRE.ha || CADRE.sonos));
+  if (id === 'musique') return !!(CADRE.modules[id] && (CADRE.ha || CADRE.sonos || CADRE.musique));
   if (id === 'transports' || id === 'travail') return !!CADRE.modules[id];
   return true;
 }

@@ -372,7 +372,7 @@ function appliquerReglages(R){
   var modOk = function(id){
     if (!C || !C.modules) return true;
     if (id === 'maison') return !!(C.modules[id] && C.ha);
-    if (id === 'musique') return !!(C.modules[id] && (C.ha || C.sonos));
+    if (id === 'musique') return !!C.modules[id];   // sans source : l'onglet affiche les QR codes pour connecter Sonos ou Spotify
     if (id === 'transports' || id === 'travail') return !!C.modules[id];
     return true;
   };
