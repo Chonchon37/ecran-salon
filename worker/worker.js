@@ -32,7 +32,7 @@ const FLUX_ALERTES = 'https://data.filbleu.fr/ws-tr/gtfs-rt/opendata/service-ale
 const FLUX_INCIDENTS = 'https://www.filbleu.fr/rss-incident.xml';   // l'info trafic du site filbleu.fr (travaux, déviations…)
 const NOMS_ARRETS = { 'A': 'Monconseil', '2': 'Maréchal Juin' };
 const CACHE_SECONDES = 30;   // les écrans redemandent toutes les 30 s
-const VERSION = '37';   // à changer à chaque mise à jour du code : vide les caches
+const VERSION = '38';   // à changer à chaque mise à jour du code : vide les caches
 
 // Horaires prévus, format compact : "jours" = n° de grille pour chaque jour depuis "debut",
 // chaque ligne "g=" = minutes depuis minuit, écrites en écarts successifs.
@@ -1084,7 +1084,10 @@ async function construireMusique(env) {
   const r = await fetch(haUrl(env, '/api/template'), { method: 'POST', headers: { Authorization: 'Bearer ' + env.HA_TOKEN, 'Content-Type': 'application/json' }, body: JSON.stringify({ template: TPL_MUSIQUE }) });
   const t = await r.text();
   if (!r.ok) throw new Error('Home Assistant : ' + t.slice(0, 160));
-  const L = JSON.parse(t).filter(x => masques.indexOf(x.id) < 0 && !/freebox|^media_player\.hub/.test(x.id));
+  const TOUS = JSON.parse(t);
+  // Toutes les enceintes Google (Hub compris) : pour régler le volume du groupe « Maison » enceinte par enceinte
+  E(env).ENCEINTES = TOUS.map(x => x.id).filter(i => !/freebox/.test(i));
+  const L = TOUS.filter(x => masques.indexOf(x.id) < 0 && !/freebox|^media_player\.hub/.test(x.id));
   const lecteurs = L.map(x => {
     let v = null;
     if (x.image) { E(env).IMAGES_MUSIQUE[x.id] = x.image; const m = /[?&]cache=([^&]+)/.exec(x.image); v = m ? m[1] : String(x.titre || '').length + '-' + (x.titre || ''); }
@@ -1215,11 +1218,13 @@ async function actionMusique(env, c) {
   if (c.action === 'stop') return appel('media_player/media_stop');
   if (c.action === 'volume') {
     const niveau = Math.min(1, Math.max(0, Number(c.valeur) / 100));
-    // « Maison » est l'enceinte maître : son volume s'applique aussi à toutes les autres enceintes
+    // « Maison » est le groupe Google de toutes les enceintes : régler le groupe ne fait que décaler chaque
+    // enceinte en gardant leurs écarts. On règle donc chaque enceinte au même niveau, et pas le groupe
+    // (son volume affiché devient la moyenne, donc ce même niveau).
     if (id === PRINCIPALE_MUSIQUE) {
-      const M = await construireMusique(env).catch(() => null);
-      const ids = M ? M.lecteurs.map(x => x.id) : [];
-      if (ids.indexOf(id) < 0) ids.push(id);
+      if (!E(env).ENCEINTES) await construireMusique(env).catch(() => null);
+      const ids = (E(env).ENCEINTES || []).filter(i => i !== id);
+      if (!ids.length) ids.push(id);
       E(env).MUSIQUE_MEMO = null;
       return fetch(haUrl(env, '/api/services/media_player/volume_set'), {
         method: 'POST', headers: { Authorization: 'Bearer ' + env.HA_TOKEN, 'Content-Type': 'application/json' }, body: JSON.stringify({ entity_id: ids, volume_level: niveau })
