@@ -219,6 +219,12 @@ body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;fon
 .tr-demi .tr-live{vertical-align:3px}
 @-webkit-keyframes tr-clignote{0%,100%{opacity:1}50%{opacity:.35}}
 @keyframes tr-clignote{0%,100%{opacity:1}50%{opacity:.35}}
+.tr-etroit .tl-m b{font-size:36px}
+.tr-etroit .tl + .tl{margin-top:10px}
+.tr-etroit .tl-n{font-size:14px}
+.tr-etroit .tr-live,.tr-etroit .tr-live svg{width:18px;height:18px}
+.tr-etroit .tr-live{vertical-align:4px;margin-right:4px}
+.tr-etroit .badge{width:42px;height:42px;font-size:23px;margin-right:10px}
 .tl-dir{font-size:16px;line-height:1.2;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:190px;margin:0 0 2px auto}
 .tl-dn{font-weight:600;color:var(--ink)}
 span.tl-dir{display:inline-block;max-width:100%;vertical-align:bottom}
@@ -963,6 +969,7 @@ function tuileTransports(T, now, l, h){
   T.className += ' tr lien'; T.setAttribute('data-page', 'transports');
   var html = '', avecNoms = l >= 2 && h >= 1, avecSuite = (l >= 3 && h >= 1) || h >= 2;
   if (h < 1) T.className += ' tr-demi';
+  else if (l < 2) T.className += ' tr-etroit';   // 1 colonne : direction au-dessus de l'heure, en plus compact pour tenir plusieurs arrêts
   for (var k = 0; k < LIGNES.length; k++) {
     var L = LIGNES[k];
     if (L.actif === false) continue;
@@ -981,6 +988,8 @@ function tuileTransports(T, now, l, h){
       '<div class="tl-m">' + (avecNoms ? '' : '<div class="tl-dir">vers <span class="tl-dn">' + L.direction + '</span></div>') + (P[0].tempsReel ? '<span class="tr-live" title="Temps réel">' + ICONE_LIVE + '</span>' : '') + '<b>' + hhmm(P[0].t) + '</b><div class="tl-n' + (marge <= 1 ? ' vite' : '') + '">' + (marge <= 1 ? 'pars maintenant' : 'pars dans ' + marge + ' min') + '</div>' + suite + '</div></div>';
   }
   T.innerHTML = html;
+  // trop serré : on retire d'abord les « pars dans… » des arrêts suivants, plutôt qu'un arrêt entier
+  if (deborde(T)) { var ns = T.querySelectorAll('.tl-n'); for (var w = 1; w < ns.length; w++) ns[w].style.display = 'none'; }
   var lignesTr = T.querySelectorAll('.tl'), reste = [];
   for (var q = 1; q < lignesTr.length; q++) reste.push(lignesTr[q]);   // la première ligne reste toujours
   tailler(T, reste);
