@@ -91,6 +91,9 @@ input[type=time]{font:inherit;color:var(--ink);background:var(--bg);border:1.5px
 .avatar.petit{width:26px;height:26px;border-radius:8px;font-size:12px}
 .tete .avatar{margin-right:2px}
 .sous .vu{font-size:inherit}
+details.precis{margin-top:12px}
+details.precis summary{cursor:pointer;font-weight:600;color:var(--accent);padding:6px 0}
+.page{padding-bottom:110px}
 .grille-cadres{display:grid;gap:12px}
 .carte-cadre{display:flex;align-items:center;gap:16px;width:100%;text-align:left;background:var(--card);border-radius:18px;padding:18px 20px;font:inherit;color:var(--ink);border:2px solid transparent}
 .carte-cadre:hover{border-color:var(--line)}
@@ -159,9 +162,10 @@ section[data-groupe]{scroll-margin-top:70px}
 button.discret{background:transparent;color:var(--muted);padding:8px 10px;font-size:14px;text-decoration:underline;text-underline-offset:3px}
 @media (max-width:520px){
   h1{font-size:25px}
-  .barre .qui{max-width:none}
+  .barre .qui{max-width:45%}
   .barre .dedans{flex-wrap:wrap;gap:8px 10px}
-  .barre .etat{flex-basis:100%}
+  .barre .etat{flex:1;font-size:13px}
+  .barre .qui:empty{display:none}
   .barre button{flex:1}
 }
 </style>
@@ -217,39 +221,48 @@ button.discret{background:transparent;color:var(--muted);padding:8px 10px;font-s
 
     <nav class="onglets" id="onglets" aria-label="Rubriques">
       <button type="button" data-g="accueil">Accueil</button>
-      <button type="button" data-g="pages">Pages</button>
-      <button type="button" data-g="jour-nuit">Jour & nuit</button>
-      <button type="button" data-g="donnees">Données</button>
-      <button type="button" data-g="cadre">Configuration</button>
+      <button type="button" data-g="affichage">Affichage</button>
+      <button type="button" data-g="agenda">Agenda</button>
+      <button type="button" data-g="transports" data-module="transports">Transports</button>
+      <button type="button" data-g="maison" data-module="maisonmusique">Maison</button>
+      <button type="button" data-g="cadre">Réglages</button>
     </nav>
     <p class="intro" id="intro"></p>
 
+    <!-- ACCUEIL -->
     <section data-groupe="accueil">
       <h2>Message de l'accueil</h2>
       <p class="aide">Un petit mot affiché sous la date (rappel, info du jour…). Laisse vide pour ne rien afficher.</p>
       <textarea id="message" maxlength="140" placeholder="Ex. : Pense à sortir les poubelles ce soir"></textarea>
       <div class="compteur"><span id="compteur">0</span> / 140</div>
     </section>
-
     <section data-groupe="accueil">
-      <h2>Taille des tuiles</h2>
-      <p class="aide">L'accueil est une grille de 4 colonnes sur 3 rangées (une tuile peut faire une demi-rangée). <b>Glisse une tuile</b> sur une autre pour changer l'ordre, et <b>tire le coin en bas à droite</b> pour l'agrandir ou la réduire, <b>✕</b> pour la retirer de l'écran (elle reste dans la liste pour la remettre). Plus une tuile est grande, plus elle montre d'informations (plus d'heures et de jours de météo, plus d'événements et de jours d'agenda, les passages suivants, les lumières…). Les tuiles ne s'agrandissent jamais toutes seules : une case libre reste vide sur l'écran (et une tuile masquée à certains moments laisse sa place vide).</p>
+      <h2>Rappel des poubelles</h2>
+      <p class="aide">Sous la date : « Ce soir : sortir le bac » la veille dès 15 h, puis « Ce matin : collecte » jusqu'à midi.</p>
+      <div id="dechets"></div>
+      <button type="button" id="ajoutDechet">+ Ajouter une collecte</button>
+    </section>
+    <section data-groupe="accueil">
+      <h2>Disposition des tuiles</h2>
+      <p class="aide"><b>Glisse</b> une tuile pour la déplacer, <b>tire son coin</b> pour l'agrandir, <b>✕</b> pour la retirer. Plus une tuile est grande, plus elle montre d'informations.</p>
       <div class="rang" style="margin-bottom:10px"><label for="apercuMoment">Disposition</label><select id="apercuMoment"></select></div>
       <div id="dispoMoment" style="margin-bottom:10px"></div>
       <div class="apercu" id="apercu" aria-label="Aperçu de l'accueil"></div>
       <p class="aide" id="cases" style="margin:8px 0 0"></p>
-      <div id="dispo" style="margin-top:10px"></div>
-      <button type="button" id="dispoOrigine" style="margin-top:12px">Revenir à la disposition d'origine</button>
+      <details class="precis"><summary>Réglage précis et tuiles retirées</summary>
+        <div id="dispo" style="margin-top:10px"></div>
+        <button type="button" id="dispoOrigine" style="margin-top:12px">Revenir à la disposition d'origine</button>
+      </details>
     </section>
-
     <section data-groupe="accueil">
-      <h2>Accueil selon le moment</h2>
-      <p class="aide">Pour chaque moment de la journée, cochez les tuiles à afficher sur l'accueil. « Demain d'abord » met l'agenda de demain en premier et donne la météo de demain. En dehors de ces moments, tout est affiché.</p>
+      <h2>Selon le moment de la journée</h2>
+      <p class="aide">Des tuiles différentes selon l'heure (ex. le soir : pas de transports, l'agenda de demain d'abord). En dehors de ces moments, tout est affiché.</p>
       <div id="moments"></div>
       <button type="button" id="ajouterMoment" style="margin-top:12px">Ajouter un moment</button>
     </section>
 
-    <section data-groupe="pages">
+    <!-- AFFICHAGE : pages, thème, veille -->
+    <section data-groupe="affichage">
       <h2>Pages et rotation</h2>
       <p class="aide">Ordre des pages et combien de secondes chacune reste à l'écran. « Onglet seulement » : la page reste accessible en touchant la barre du bas, mais ne passe pas toute seule.</p>
       <div id="slides"></div>
@@ -258,15 +271,13 @@ button.discret{background:transparent;color:var(--muted);padding:8px 10px;font-s
         <input type="number" id="pause" min="10" max="600"> <span>secondes</span>
       </div>
     </section>
-
-    <section data-groupe="pages">
+    <section data-groupe="affichage">
       <h2>Écran fixe selon l'heure</h2>
       <p class="aide">Pendant ces plages, l'écran reste sur une seule page au lieu de tourner (ex. : Transports le matin). Un toucher permet toujours de naviguer ; l'écran y revient ensuite tout seul.</p>
       <div id="plages"></div>
       <button type="button" id="ajouterPlage" style="margin-top:12px">Ajouter une plage</button>
     </section>
-
-    <section data-groupe="jour-nuit">
+    <section data-groupe="affichage">
       <h2>Thème</h2>
       <div class="rang">
         <div class="segment" role="radiogroup" aria-label="Thème">
@@ -283,8 +294,7 @@ button.discret{background:transparent;color:var(--muted);padding:8px 10px;font-s
         <input type="number" id="nuitFin" min="0" max="23"> <span>h</span>
       </div>
     </section>
-
-    <section data-groupe="jour-nuit">
+    <section data-groupe="affichage">
       <h2>Veille de nuit</h2>
       <p class="aide">L'écran devient noir sur cette plage. Un toucher le rallume quelques minutes, puis il se rendort.</p>
       <div class="rang">
@@ -300,87 +310,31 @@ button.discret{background:transparent;color:var(--muted);padding:8px 10px;font-s
       </div>
     </section>
 
-    <section data-groupe="donnees" data-module="transports">
-      <h2>Transports</h2>
-      <p class="aide">Temps de marche de chez vous jusqu'à l'arrêt : il sert à calculer « Pars dans… ».</p>
-      <div id="lignes"></div>
-    </section>
-
-    <section data-groupe="donnees">
-      <h2>Collecte des déchets</h2>
-      <p class="aide">Un rappel s'affiche sous la date : la veille à partir de 15 h (« Ce soir : sortir le bac »), puis le matin de la collecte.</p>
-      <div id="dechets"></div>
-      <button type="button" id="ajoutDechet">+ Ajouter une collecte</button>
-    </section>
-
-    <section data-groupe="donnees">
-      <h2>Agenda</h2>
-      <div class="rang">
-        <label for="prenomMoi">Prénom 1</label><input type="text" id="prenomMoi" maxlength="20" style="width:150px">
-        <label for="prenomFlo">Prénom 2</label><input type="text" id="prenomFlo" maxlength="20" style="width:150px">
-      </div>
-      <p class="aide" style="margin-top:16px">À qui appartient chaque agenda Google (la couleur des pastilles en dépend).</p>
-      <div id="agendas"></div>
-    </section>
-
-    <section data-groupe="donnees" data-module="maison">
-      <h2>Maison · lumières</h2>
-      <p class="aide">Jusqu'à 8 lumières. Sans choix, l'écran affiche automatiquement toutes les lumières sauf les « segments ».</p>
-      <div id="lumieres"></div>
-    </section>
-
-    <section data-groupe="donnees" data-module="maison">
-      <h2>Maison · boutons de modes</h2>
-      <p class="aide">Jusqu'à 5 boutons (automatisations, scènes ou scripts de Home Assistant). Les 4 premiers apparaissent aussi sur l'accueil. Tu peux changer le nom affiché sur chaque bouton.</p>
-      <div id="modes"></div>
-    </section>
-
-    <section data-groupe="donnees" data-module="musique">
-      <h2>Musique · Spotify</h2>
-      <p class="aide">Connecte ton compte Spotify pour voir <b>tes playlists</b> sur l'écran (onglet et tuile Musique). À faire une seule fois.</p>
-      <p class="aide">Deux comptes possibles. Pour le 2ᵉ compte, son adresse e-mail Spotify doit d'abord être ajoutée dans l'application Spotify (onglet « User Management »).</p>
-      <p id="etatSpotify" class="aide">…</p>
-      <button type="button" id="connecterSpotify" data-compte="moi">Connecter Spotify</button>
-      <button type="button" id="connecterSpotify2" data-compte="flo">Connecter Spotify</button>
-    </section>
-
-    <section data-groupe="donnees" data-module="musique">
-      <h2>Musique · favoris</h2>
-      <p class="aide">Boutons de la tuile Musique quand rien ne joue (8 au plus). Chaque bouton envoie une phrase à l'Assistant Google ; <b>{enceinte}</b> est remplacé par l'enceinte choisie sur l'écran. Exemple : « Joue ma playlist Soirée sur Spotify sur {enceinte} ».</p>
-      <div id="favorisMusique"></div>
-      <button type="button" id="ajoutFavori">+ Ajouter un favori</button>
-    </section>
-
-    <!-- Configuration du cadre : ville, modules, agendas, Home Assistant -->
-    <section data-groupe="cadre" id="secBranchement">
-      <h2>Brancher l'écran</h2>
-      <p class="aide">Dans Fully Kiosk, page de démarrage (Start URL) : l'adresse ci-dessous, la même pour tous les cadres. Au premier démarrage, l'écran demande ce code (on peut le changer ensuite avec la roue crantée).</p>
-      <div id="branchement"></div>
-    </section>
-    <section data-groupe="cadre" id="secPrincipal" data-module="principal">
-      <h2>Cadre principal</h2>
-      <p class="aide" style="margin:0">Ce cadre est configuré directement dans Cloudflare (agendas, Home Assistant, trajet). Ville : Tours Nord · tous les modules.</p>
-    </section>
-    <section data-groupe="cadre" id="secConfig" data-module="famille">
-      <h2>Ce cadre</h2>
-      <p class="aide">Nom, ville et ce que l'écran affiche. Ces réglages s'enregistrent avec le bouton en bas de cette rubrique.</p>
-      <div class="champ"><label for="cfgNom">Nom du cadre</label><input type="text" id="cfgNom" maxlength="40" placeholder="Ex. : Famille Martin"></div>
-      <div class="champ"><label for="cfgVille">Ville (pour la météo et le lever du soleil)</label><div id="cfgVille"></div></div>
-      <div class="champ"><span style="font-weight:600">Modules</span>
-        <div class="modules" id="cfgModules"></div>
-      </div>
-    </section>
-    <section data-groupe="cadre" id="secAgendasCfg" data-module="famille">
+    <!-- AGENDA -->
+    <section data-groupe="agenda" id="secAgendasCfg" data-module="famille">
       <h2>Agendas Google</h2>
       <p class="aide">Jusqu'à 6 agendas. Dans Google Agenda : Paramètres de l'agenda → « Adresse secrète au format iCal » → copier ici. L'adresse reste privée : elle n'est plus affichée en entier une fois enregistrée.</p>
       <div id="cfgAgendas"></div>
       <button type="button" id="cfgAjoutAgenda">+ Ajouter un agenda</button>
     </section>
-    <section data-groupe="cadre" id="secArrets" data-module="famille">
-      <h2>Arrêts Fil Bleu</h2>
-      <p class="aide">Les arrêts affichés sur l'écran (module Transports), une carte par direction. Les passages en temps réel s'affichent tout de suite ; les horaires prévus d'un nouvel arrêt arrivent la nuit suivante.</p>
-      <div id="cfgArrets"></div>
-      <div style="margin-top:14px;background:var(--bg);border-radius:14px;padding:14px">
+    <section data-groupe="agenda">
+      <h2>Prénoms et couleurs</h2>
+      <div class="rang">
+        <label for="prenomMoi">Prénom 1</label><input type="text" id="prenomMoi" maxlength="20" style="width:150px">
+        <label for="prenomFlo">Prénom 2</label><input type="text" id="prenomFlo" maxlength="20" style="width:150px">
+      </div>
+      <p class="aide" style="margin-top:16px">À qui appartient chaque agenda : la couleur des pastilles en dépend.</p>
+      <div id="agendas"></div>
+    </section>
+
+    <!-- TRANSPORTS -->
+    <section data-groupe="transports" data-module="transports">
+      <h2>Arrêts suivis</h2>
+      <p class="aide">Une carte par direction. Le temps de marche jusqu'à l'arrêt sert à calculer « Pars dans… ».</p>
+      <div id="lignes"></div>
+      <div id="ajoutArret" data-module="famille">
+      <p class="aide" style="margin:16px 0 8px">Ajouter un arrêt Fil Bleu : temps réel tout de suite, horaires prévus le lendemain matin.</p>
+      <div style="background:var(--bg);border-radius:14px;padding:14px">
         <div class="rang" style="margin-bottom:10px">
           <select id="arLigne" style="flex:1;min-width:200px"><option value="">Ligne…</option></select>
           <select id="arArret" style="flex:1;min-width:200px" disabled><option value="">Arrêt…</option></select>
@@ -388,16 +342,59 @@ button.discret{background:transparent;color:var(--muted);padding:8px 10px;font-s
         <div id="arDirections" class="modules" style="margin-bottom:10px"></div>
         <div class="rang"><button type="button" id="arAjouter" disabled>+ Ajouter</button><span id="arEtat" class="aide" style="margin:0"></span></div>
       </div>
+      </div>
     </section>
-    <section data-groupe="cadre" id="secHA" data-module="famille">
-      <h2>Home Assistant</h2>
+
+    <!-- MAISON & MUSIQUE -->
+    <section data-groupe="maison" id="secHA" data-module="famille">
+      <h2>Connexion Home Assistant</h2>
       <p class="aide">Nécessaire pour les modules Maison et Musique, et pour la vigilance Météo-France. Adresse accessible depuis Internet + jeton d'accès longue durée (Profil → Sécurité dans Home Assistant).</p>
       <div class="champ"><label for="haUrl">Adresse</label><input type="text" id="haUrl" placeholder="https://maison.duckdns.org:8123" autocomplete="off" spellcheck="false"></div>
       <div class="champ"><label for="haJeton">Jeton d'accès</label><input type="password" id="haJeton" placeholder="Colle le jeton" autocomplete="new-password"><small id="haJetonInfo"></small></div>
       <div class="champ"><label for="haAlerte">Capteur de vigilance (facultatif)</label><input type="text" id="haAlerte" placeholder="sensor.37_weather_alert" spellcheck="false"><small>Intégration Météo-France de Home Assistant : capteur « Weather alert » du département.</small></div>
     </section>
-    <section data-groupe="cadre" id="secEnregCfg" data-module="famille">
-      <div class="rang"><button type="button" class="principal" id="cfgEnregistrer">Enregistrer la configuration</button><span id="cfgEtat" class="aide" style="margin:0"></span></div>
+    <section data-groupe="maison" data-module="maison">
+      <h2>Lumières</h2>
+      <p class="aide">Jusqu'à 8 lumières. Sans choix, l'écran affiche automatiquement toutes les lumières sauf les « segments ».</p>
+      <div id="lumieres"></div>
+    </section>
+    <section data-groupe="maison" data-module="maison">
+      <h2>Boutons de modes</h2>
+      <p class="aide">Jusqu'à 5 boutons (automatisations, scènes ou scripts de Home Assistant). Les 4 premiers apparaissent aussi sur l'accueil. Tu peux changer le nom affiché sur chaque bouton.</p>
+      <div id="modes"></div>
+    </section>
+    <section data-groupe="maison" data-module="musique">
+      <h2>Spotify</h2>
+      <p class="aide">Connecte ton compte Spotify pour voir <b>tes playlists</b> sur l'écran (onglet et tuile Musique). À faire une seule fois.</p>
+      <p class="aide">Deux comptes possibles. Pour le 2ᵉ compte, son adresse e-mail Spotify doit d'abord être ajoutée dans l'application Spotify (onglet « User Management »).</p>
+      <p id="etatSpotify" class="aide">…</p>
+      <button type="button" id="connecterSpotify" data-compte="moi">Connecter Spotify</button>
+      <button type="button" id="connecterSpotify2" data-compte="flo">Connecter Spotify</button>
+    </section>
+    <section data-groupe="maison" data-module="musique">
+      <h2>Favoris musique</h2>
+      <p class="aide">Boutons de la tuile Musique quand rien ne joue (8 au plus). Chaque bouton envoie une phrase à l'Assistant Google ; <b>{enceinte}</b> est remplacé par l'enceinte choisie sur l'écran. Exemple : « Joue ma playlist Soirée sur Spotify sur {enceinte} ».</p>
+      <div id="favorisMusique"></div>
+      <button type="button" id="ajoutFavori">+ Ajouter un favori</button>
+    </section>
+
+    <!-- RÉGLAGES DU CADRE -->
+    <section data-groupe="cadre" id="secBranchement">
+      <h2>Brancher l'écran</h2>
+      <p class="aide">Dans Fully Kiosk, page de démarrage (Start URL) : l'adresse ci-dessous, la même pour tous les cadres. Au premier démarrage, l'écran demande ce code (on peut le changer ensuite avec la roue crantée).</p>
+      <div id="branchement"></div>
+    </section>
+    <section data-groupe="cadre" id="secPrincipal" data-module="principal">
+      <h2>Cadre principal</h2>
+      <p class="aide" style="margin:0">Ses agendas, son Home Assistant et son trajet sont réglés dans Cloudflare. Ville : Tours Nord · tous les modules.</p>
+    </section>
+    <section data-groupe="cadre" id="secConfig" data-module="famille">
+      <h2>Nom, ville et modules</h2>
+      <div class="champ"><label for="cfgNom">Nom du cadre</label><input type="text" id="cfgNom" maxlength="40" placeholder="Ex. : Famille Martin"></div>
+      <div class="champ"><label for="cfgVille">Ville (pour la météo et le lever du soleil)</label><div id="cfgVille"></div></div>
+      <div class="champ"><span style="font-weight:600">Modules</span>
+        <div class="modules" id="cfgModules"></div>
+      </div>
     </section>
 
   </div>
@@ -810,15 +807,19 @@ $('plages').addEventListener('change', e => {
 });
 
 function dessinerLignes() {
-  const T = R.reglages.transports;
-  TR_CONFIG.forEach(e => { if (!T[e.id]) T[e.id] = { actif: true, marche: 5 }; });
-  $('lignes').innerHTML = TR_CONFIG.length ? TR_CONFIG.map(e => `
+  const T = R.reglages.transports, famille = R.cadre && R.cadre.id !== 'principal';
+  const L = famille ? (CFG ? CFG.transports : []) : TR_CONFIG;
+  L.forEach(e => { if (!T[e.id]) T[e.id] = { actif: true, marche: 5 }; });
+  $('lignes').innerHTML = L.length ? L.map((e, i) => `
     <div class="ligne">
-      <div class="nom">${echapper(nomArret(e))}</div>
+      <span class="puce" style="${e.couleur ? 'background:#' + e.couleur + ';color:#fff' : ''}">${echapper(e.ligne)}</span>
+      <div class="nom" style="flex:1">vers ${echapper(e.direction)} <span style="color:var(--muted);font-weight:500">· ${echapper(e.arret)}</span></div>
       <label class="interrupteur"><input type="checkbox" data-ligne-actif="${e.id}" ${T[e.id].actif ? 'checked' : ''}> Affichée</label>
       <input type="number" min="0" max="60" data-marche="${e.id}" value="${T[e.id].marche}" aria-label="Minutes à pied jusqu'à ${echapper(e.arret)}"> <span>min à pied</span>
-    </div>`).join('') : '<p class="vide">Aucun arrêt : choisis-les dans Configuration → Arrêts Fil Bleu.</p>';
+      ${famille ? `<button type="button" data-ar-retirer="${i}">Retirer</button>` : ''}
+    </div>`).join('') : '<p class="vide">Aucun arrêt pour l\'instant.</p>';
 }
+$('lignes').addEventListener('click', e => { const i = e.target.dataset.arRetirer; if (i !== undefined && CFG) { CFG.transports.splice(+i, 1); marquerCfg(); dessinerLignes(); } });
 $('lignes').addEventListener('change', e => {
   const T = R.reglages.transports, t = e.target;
   if (t.dataset.ligneActif !== undefined) T[t.dataset.ligneActif].actif = t.checked;
@@ -948,19 +949,23 @@ $('nuitFin').addEventListener('change', () => { R.reglages.theme.nuitFin = +$('n
 
 /* ---------- Rubriques ---------- */
 const INTROS = {
-  'accueil': 'Ce que montre la page d\'accueil, et comment elle change selon le moment de la journée.',
-  'pages': 'Quelles pages tournent sur l\'écran, combien de temps, et lesquelles restent fixes à certaines heures.',
-  'jour-nuit': 'Thème clair ou sombre, et mise en veille la nuit.',
-  'donnees': 'Temps de marche jusqu\'aux arrêts, agendas, lumières et musique.',
-  'cadre': 'Code de l\'écran, nom, ville, modules, agendas Google et Home Assistant.'
+  'accueil': 'La page d\'accueil : petit mot, rappels, place des tuiles et changements selon l\'heure.',
+  'affichage': 'Les pages qui défilent, le thème clair ou sombre et la veille de nuit.',
+  'agenda': 'Les agendas Google affichés et à qui ils appartiennent.',
+  'transports': 'Les arrêts de bus et de tram affichés, et le temps de marche pour y aller.',
+  'maison': 'Maison et musique : lumières, boutons de modes, Spotify (via Home Assistant).',
+  'cadre': 'Réglages du cadre : brancher l\'écran, nom, ville et modules.'
 };
 function ouvrirGroupe(g) {
-  if (!INTROS[g]) g = 'accueil';
+  // onglets des modules absents de ce cadre : masqués
+  document.querySelectorAll('#onglets button').forEach(b => { b.hidden = !sectionOk(b.dataset.module); });
+  const bouton = document.querySelector('#onglets button[data-g="' + g + '"]');
+  if (!INTROS[g] || !bouton || bouton.hidden) g = 'accueil';
   document.querySelectorAll('section[data-groupe]').forEach(s => { s.hidden = s.dataset.groupe !== g || !sectionOk(s.dataset.module); });
+  document.querySelectorAll('section [data-module]').forEach(x => { x.hidden = !sectionOk(x.dataset.module); });
   document.querySelectorAll('#onglets button').forEach(b => b.setAttribute('aria-current', b.dataset.g === g ? 'true' : 'false'));
   $('intro').textContent = INTROS[g];
-  // « Configuration » a son propre bouton ; la barre du bas ne sert qu'aux réglages d'affichage
-  $('barre').hidden = g === 'cadre' && !modifie;
+  $('barre').hidden = false;
   if (g === 'cadre') dessinerBranchement();
   try { localStorage.setItem('ecran-admin-onglet', g); } catch (e) {}
 }
@@ -988,10 +993,13 @@ setInterval(majResume, 60000);
 
 /* ---------- Enregistrement ---------- */
 let SAUVE = null;   // copie des derniers réglages enregistrés, pour « Annuler »
+let cfgModifie = false;   // la configuration du cadre (nom, ville, modules, agendas, arrêts, Home Assistant) a changé
+function marquerCfg() { cfgModifie = true; aChange(); }
 function aChange() { modifie = true; $('enregistrer').disabled = !R.stockage; $('annuler').disabled = false; $('etat').textContent = 'Modifications non enregistrées'; $('etat').style.color = 'var(--warn)'; majResume(); }
 $('annuler').addEventListener('click', () => {
   if (!SAUVE) return;
   R.reglages = JSON.parse(SAUVE); modifie = false;
+  if (cfgModifie) { cfgModifie = false; CFG = null; chargerConfig(); }
   remplir(); dessinerMaison();
   $('enregistrer').disabled = true; $('annuler').disabled = true;
   $('etat').textContent = 'Changements annulés'; $('etat').style.color = '';
@@ -1000,8 +1008,21 @@ function alerteEtat(t) { $('etat').textContent = t; $('etat').style.color = 'var
 $('enregistrer').addEventListener('click', async () => {
   const sansJour = (R.reglages.rotation.plages || []).findIndex(p => !p.jours.length || !p.debut || !p.fin || p.debut === p.fin);
   if (sansJour >= 0) { alerteEtat('Plage ' + (sansJour + 1) + ' : choisis au moins un jour et deux heures différentes.'); return; }
+  let corpsCfg = null;
+  if (cfgModifie) { corpsCfg = corpsConfig(); if (typeof corpsCfg === 'string') { alerteEtat(corpsCfg); return; } }
   $('enregistrer').disabled = true; $('etat').textContent = 'Enregistrement…'; $('etat').style.color = '';
   try {
+    if (corpsCfg) {
+      // la configuration d'abord (modules, ville, arrêts…), puis on recharge le cadre pour en tenir compte
+      await appel('/cadre/config', { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(corpsCfg) });
+      await appel('/reglages', { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(R.reglages) });
+      cfgModifie = false; modifie = false;
+      const g = groupeActuel(); await connecter(CLE, true); ouvrirGroupe(g);
+      if (R.super) chargerCadres().then(afficherFiche);
+      $('etat').textContent = 'Enregistré ✓ L\'écran se met à jour d\'ici quelques minutes.'; $('etat').style.color = 'var(--ok)';
+      $('annuler').disabled = true;
+      return;
+    }
     const j = await appel('/reglages', { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(R.reglages) });
     R.reglages = j.reglages; R.maj = j.maj; modifie = false; SAUVE = JSON.stringify(R.reglages);
     remplir(); dessinerMaison(); $('annuler').disabled = true;
@@ -1028,6 +1049,7 @@ function sectionOk(m) {
   if (m === 'principal') return principal;
   if (m === 'famille') return !principal;
   if (m === 'super') return !!R.super;
+  if (m === 'maisonmusique') return principal || !!(R.cadre.modules && (R.cadre.modules.maison || R.cadre.modules.musique));
   return moduleOk(m);
 }
 function groupeActuel() { const b = document.querySelector('#onglets button[aria-current="true"]'); return b ? b.dataset.g : 'accueil'; }
@@ -1075,15 +1097,15 @@ let CFG = null, lireVille = null;
 async function chargerConfig() {
   if (!R.cadre || R.cadre.id === 'principal') return;
   try { CFG = await appel('/cadre/config'); dessinerConfig(); }
-  catch (err) { $('cfgEtat').textContent = 'Lecture impossible : ' + err.message; }
+  catch (err) { alerteEtat('Configuration illisible : ' + err.message); }
 }
 function dessinerConfig() {
   $('cfgNom').value = CFG.nom || '';
-  lireVille = champVille($('cfgVille'), CFG.lieu);
+  lireVille = champVille($('cfgVille'), CFG.lieu, marquerCfg);
   cocherModules($('cfgModules'), CFG.modules);
   dessinerAgendasCfg();
   CFG.transports = CFG.transports || [];
-  dessinerArretsCfg(); chargerCatalogue();
+  dessinerLignes(); chargerCatalogue();
   $('haUrl').value = CFG.ha ? CFG.ha.url : '';
   $('haJeton').value = '';
   $('haJetonInfo').textContent = CFG.ha && CFG.ha.token ? 'Jeton enregistré (' + CFG.ha.token + '). Laisse vide pour le garder.' : 'Aucun jeton enregistré.';
@@ -1102,37 +1124,23 @@ $('cfgAgendas').addEventListener('input', e => {
   if (d.agNom !== undefined) CFG.agendas[+d.agNom].nom = e.target.value;
   if (d.agUrl !== undefined) CFG.agendas[+d.agUrl].url = e.target.value;
 });
-$('cfgAgendas').addEventListener('click', e => { const i = e.target.dataset.agRetirer; if (i !== undefined) { CFG.agendas.splice(+i, 1); dessinerAgendasCfg(); } });
+$('cfgAgendas').addEventListener('click', e => { const i = e.target.dataset.agRetirer; if (i !== undefined) { CFG.agendas.splice(+i, 1); dessinerAgendasCfg(); marquerCfg(); } });
 $('cfgAjoutAgenda').addEventListener('click', () => { CFG.agendas.push({ nom: '', url: '' }); dessinerAgendasCfg(); });
-$('cfgEnregistrer').addEventListener('click', async () => {
+// Ce qui part au Worker pour la configuration du cadre (ou un message d'erreur)
+function corpsConfig() {
   const mauvais = CFG.agendas.find(a => a.url && !/^••••/.test(a.url) && !/^https:\/\//.test(a.url.trim()));
-  if (mauvais) { $('cfgEtat').textContent = 'Une adresse d\'agenda doit commencer par https://'; return; }
+  if (mauvais) return 'Une adresse d\'agenda doit commencer par https://';
   const haUrl = $('haUrl').value.trim();
-  if (haUrl && !/^https?:\/\//.test(haUrl)) { $('cfgEtat').textContent = 'L\'adresse Home Assistant doit commencer par https://'; return; }
+  if (haUrl && !/^https?:\/\//.test(haUrl)) return 'L\'adresse Home Assistant doit commencer par https://';
   const corps = { nom: $('cfgNom').value, modules: lireModules($('cfgModules')), agendas: CFG.agendas.filter(a => a.url.trim()), transports: CFG.transports,
     ha: haUrl ? { url: haUrl, token: $('haJeton').value.trim(), alerte: $('haAlerte').value.trim() } : null };
   const lieu = lireVille && lireVille(); if (lieu) corps.lieu = lieu;
-  $('cfgEnregistrer').disabled = true; $('cfgEtat').textContent = 'Enregistrement…';
-  try {
-    await appel('/cadre/config', { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(corps) });
-    if (modifie && !confirm('Des réglages ne sont pas enregistrés : les abandonner pour recharger le cadre ?')) { $('cfgEtat').textContent = 'Configuration enregistrée.'; return; }
-    modifie = false;
-    const g = groupeActuel(); await connecter(CLE, true); ouvrirGroupe(g);
-    $('cfgEtat').textContent = 'Configuration enregistrée ✓ L\'écran se met à jour d\'ici quelques minutes.';
-    if (R.super) chargerCadres();
-  } catch (err) { $('cfgEtat').textContent = 'Échec : ' + err.message; }
-  finally { $('cfgEnregistrer').disabled = false; }
-});
+  return corps;
+}
+['secConfig', 'secAgendasCfg', 'secHA'].forEach(id => { $(id).addEventListener('input', marquerCfg); $(id).addEventListener('change', marquerCfg); });
 
 /* ----- Arrêts Fil Bleu du cadre : catalogue des lignes (lignes.json, calculé chaque nuit par GitHub) ----- */
 let CATALOGUE = null;
-function dessinerArretsCfg() {
-  $('cfgArrets').innerHTML = CFG.transports.length ? CFG.transports.map((e, i) => `<div class="ligne">
-      <span class="puce" style="${e.couleur ? 'background:#' + e.couleur + ';color:#fff' : ''}">${echapper(e.ligne)}</span>
-      <div class="nom" style="flex:1">${echapper(e.arret)} <span style="color:var(--muted);font-weight:500">→ ${echapper(e.direction)}</span></div>
-      <button type="button" data-ar-retirer="${i}">Retirer</button></div>`).join('') : '<p class="vide">Aucun arrêt.</p>';
-}
-$('cfgArrets').addEventListener('click', e => { const i = e.target.dataset.arRetirer; if (i !== undefined) { CFG.transports.splice(+i, 1); dessinerArretsCfg(); } });
 async function chargerCatalogue() {
   if (CATALOGUE) return remplirLignes();
   try { CATALOGUE = await fetch(SITE + 'lignes.json', { cache: 'no-cache' }).then(r => { if (!r.ok) throw 0; return r.json(); }); remplirLignes(); }
@@ -1161,11 +1169,11 @@ $('arAjouter').addEventListener('click', () => {
   $('arDirections').querySelectorAll('[data-dir]:checked').forEach(c => {
     const d = L.directions[+c.dataset.dir], a = d.arrets.find(x => x[1] === nom);
     if (!a || CFG.transports.some(e => e.stop === a[0] && e.ligne === L.ligne) || CFG.transports.length >= 6) return;
-    CFG.transports.push({ ligne: L.ligne, stop: a[0], arret: nom, direction: d.vers, type: L.type, couleur: L.couleur }); n++;
+    CFG.transports.push({ id: (L.ligne + '-' + a[0].slice(4)).replace(/[^\w-]/g, '').slice(0, 30), ligne: L.ligne, stop: a[0], arret: nom, direction: d.vers, type: L.type, couleur: L.couleur }); n++;
   });
-  dessinerArretsCfg();
-  $('arEtat').textContent = n ? n + ' arrêt' + (n > 1 ? 's' : '') + ' ajouté' + (n > 1 ? 's' : '') + ' : pense à enregistrer la configuration.' : 'Rien d\'ajouté (déjà présent ou 6 arrêts maximum).';
-  const m = $('cfgModules').querySelector('[data-mod=transports]'); if (n && m) m.checked = true;
+  if (n) marquerCfg();
+  dessinerLignes();
+  $('arEtat').textContent = n ? n + ' arrêt' + (n > 1 ? 's' : '') + ' ajouté' + (n > 1 ? 's' : '') + '.' : 'Rien d\'ajouté (déjà présent ou 6 arrêts maximum).';
 });
 
 /* ----- Deux vues : la liste des cadres (super-admin) et la fiche d'un cadre ----- */
@@ -1242,7 +1250,6 @@ function afficherFiche() {
   if (R.super) $('cadreActif').value = CADRE_ID || 'principal';
 }
 async function ouvrirCadre(id) {
-  $('cfgEtat').textContent = '';
   CADRE_ID = id === 'principal' ? '' : id;
   const g = $('reglages').hidden ? 'accueil' : groupeActuel();
   await connecter(CLE, true);
@@ -1310,7 +1317,7 @@ $('nvCreer').addEventListener('click', async () => {
     await chargerCadres();
     // on ouvre directement sa configuration : code de l'écran, agendas, Home Assistant
     await aller('#cadre/' + r.cadre.id); ouvrirGroupe('cadre');
-    $('cfgEtat').textContent = '« ' + r.cadre.nom + ' » créé ✓ Ajoute ses agendas et son Home Assistant ci-dessus.';
+    $('etat').textContent = '« ' + r.cadre.nom + ' » créé ✓ Ajoute ses agendas (onglet Agenda) et ses arrêts (Transports).'; $('etat').style.color = 'var(--ok)';
   } catch (err) { $('nvEtat').textContent = 'Échec : ' + err.message; }
   finally { $('nvCreer').disabled = false; }
 });

@@ -344,7 +344,7 @@ function lireReglages(quandFini){
   if (!CLE || !CONFIG.WORKER) { quandFini(null); return; }
   var fini = false, xhr = new XMLHttpRequest();
   function terminer(r){ if (!fini) { fini = true; quandFini(r); } }
-  xhr.open('GET', CONFIG.WORKER + '/reglages?cle=' + encodeURIComponent(CLE), true);
+  xhr.open('GET', CONFIG.WORKER + '/reglages?ecran=1&cle=' + encodeURIComponent(CLE), true);
   xhr.timeout = 8000;
   xhr.onload = function(){ var j = null; try { j = JSON.parse(xhr.responseText); } catch (e) {} terminer(xhr.status === 200 && j ? j : null); };
   xhr.onerror = xhr.ontimeout = function(){ terminer(null); };

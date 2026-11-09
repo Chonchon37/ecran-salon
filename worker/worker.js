@@ -33,7 +33,7 @@ const FLUX_TR = 'https://data.filbleu.fr/ws-tr/gtfs-rt/opendata/trip-updates';
 const FLUX_ALERTES = 'https://data.filbleu.fr/ws-tr/gtfs-rt/opendata/service-alerts';
 const FLUX_INCIDENTS = 'https://www.filbleu.fr/rss-incident.xml';   // l'info trafic du site filbleu.fr (travaux, déviations…)
 const CACHE_SECONDES = 30;   // les écrans redemandent toutes les 30 s
-const VERSION = '42';   // à changer à chaque mise à jour du code : vide les caches
+const VERSION = '43';   // à changer à chaque mise à jour du code : vide les caches
 
 // Horaires prévus, format compact : "jours" = n° de grille pour chaque jour depuis "debut",
 // chaque ligne "g=" = minutes depuis minuit, écrites en écarts successifs.
@@ -1515,7 +1515,8 @@ export default {
       env = await envCadre(envBase, qui.cadre);
       if (!env) return repondre({ erreur: 'Cadre introuvable' }, 404, entetes);
       const MOD = env.CADRE_INFO.modules;
-      if (qui.role === 'ecran' && chemin === '/reglages') ctx.waitUntil(noterVisite(env.CADRE));
+      // dernière visite : un écran (ou le cadre principal, dont la clé sert aussi d'admin : il ajoute &ecran=1)
+      if ((qui.role === 'ecran' || url.searchParams.get('ecran') === '1') && chemin === '/reglages') ctx.waitUntil(noterVisite(env.CADRE));
 
       // Gestion des cadres : réservée au super-admin
       if (chemin === '/cadres' && request.method === 'GET') {
