@@ -33,7 +33,7 @@ const FLUX_TR = 'https://data.filbleu.fr/ws-tr/gtfs-rt/opendata/trip-updates';
 const FLUX_ALERTES = 'https://data.filbleu.fr/ws-tr/gtfs-rt/opendata/service-alerts';
 const FLUX_INCIDENTS = 'https://www.filbleu.fr/rss-incident.xml';   // l'info trafic du site filbleu.fr (travaux, déviations…)
 const CACHE_SECONDES = 30;   // les écrans redemandent toutes les 30 s
-const VERSION = '41';   // à changer à chaque mise à jour du code : vide les caches
+const VERSION = '42';   // à changer à chaque mise à jour du code : vide les caches
 
 // Horaires prévus, format compact : "jours" = n° de grille pour chaque jour depuis "debut",
 // chaque ligne "g=" = minutes depuis minuit, écrites en écarts successifs.
@@ -787,7 +787,8 @@ const REGLAGES_DEFAUT = {
     { nom: 'Découvertes', commande: 'Joue Découvertes de la semaine sur Spotify sur {enceinte}' },
     { nom: 'FIP', commande: 'Mets la radio FIP sur {enceinte}' }
   ], masques: [] },
-  message: ''
+  message: '',
+  dechets: []   // collecte des déchets : [{ type: 'ordures'|'tri'|'verre'|'vegetaux'|'encombrants'|'autre', nom, jour: 0-6 (0 = dimanche) }]
 };
 const entier = (v, min, max, defaut) => { const n = Math.round(Number(v)); return isFinite(n) ? Math.min(max, Math.max(min, n)) : defaut; };
 const texte = (v, max) => String(v == null ? '' : v).replace(/[<>]/g, '').trim().slice(0, max);
@@ -898,6 +899,10 @@ function nettoyerReglages(r) {
   }
   res.musique.masques = (Array.isArray(mu.masques) ? mu.masques : []).filter(x => /^media_player\.[a-z0-9_]+$/.test(x)).slice(0, 20);
   res.message = texte(r.message, 140);
+  const TYPES_DECHETS = ['ordures', 'tri', 'verre', 'vegetaux', 'encombrants', 'autre'];
+  res.dechets = (Array.isArray(r.dechets) ? r.dechets : []).map(d => ({
+    type: TYPES_DECHETS.indexOf(d && d.type) >= 0 ? d.type : 'autre', nom: texte(d && d.nom, 30), jour: entier(d && d.jour, 0, 6, 1)
+  })).filter(d => d.nom).slice(0, 6);
   return res;
 }
 /* =====================================================================

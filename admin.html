@@ -307,6 +307,13 @@ button.discret{background:transparent;color:var(--muted);padding:8px 10px;font-s
     </section>
 
     <section data-groupe="donnees">
+      <h2>Collecte des déchets</h2>
+      <p class="aide">Un rappel s'affiche sous la date : la veille à partir de 15 h (« Ce soir : sortir le bac »), puis le matin de la collecte.</p>
+      <div id="dechets"></div>
+      <button type="button" id="ajoutDechet">+ Ajouter une collecte</button>
+    </section>
+
+    <section data-groupe="donnees">
       <h2>Agenda</h2>
       <div class="rang">
         <label for="prenomMoi">Prénom 1</label><input type="text" id="prenomMoi" maxlength="20" style="width:150px">
@@ -483,7 +490,7 @@ function remplir() {
   $('veilleActif').checked = V.actif; $('veilleDebut').value = V.debut; $('veilleFin').value = V.fin; $('reveil').value = V.reveil;
   majVeille();
   dessinerDispo(); dessinerMoments();
-  dessinerSlides(); dessinerPlages(); dessinerLignes(); dessinerAgendas(); dessinerFavoris(); etatSpotify();
+  dessinerSlides(); dessinerPlages(); dessinerLignes(); dessinerDechets(); dessinerAgendas(); dessinerFavoris(); etatSpotify();
   $('lumieres').innerHTML = $('modes').innerHTML = '<p class="vide">Lecture de Home Assistant…</p>';
   majResume();
 }
@@ -818,6 +825,26 @@ $('lignes').addEventListener('change', e => {
   if (t.dataset.marche !== undefined) T[t.dataset.marche].marche = +t.value;
   aChange();
 });
+
+const TYPES_DECHETS = { ordures: 'Ordures ménagères', tri: 'Tri', verre: 'Verre', vegetaux: 'Déchets verts', encombrants: 'Encombrants', autre: 'Autre' };
+const JOURS_SEM = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
+function dessinerDechets() {
+  const D = R.reglages.dechets = R.reglages.dechets || [];
+  $('dechets').innerHTML = D.length ? D.map((d, i) => `<div class="ligne">
+      <select data-dc-type="${i}" aria-label="Type">${Object.keys(TYPES_DECHETS).map(k => `<option value="${k}" ${d.type === k ? 'selected' : ''}>${TYPES_DECHETS[k]}</option>`).join('')}</select>
+      <input type="text" data-dc-nom="${i}" value="${echapper(d.nom)}" maxlength="30" style="flex:1;min-width:140px" aria-label="Nom affiché">
+      <select data-dc-jour="${i}" aria-label="Jour de collecte">${[1, 2, 3, 4, 5, 6, 0].map(j => `<option value="${j}" ${d.jour === j ? 'selected' : ''}>le ${JOURS_SEM[j]}</option>`).join('')}</select>
+      <button type="button" data-dc-retirer="${i}">Retirer</button></div>`).join('') : '<p class="vide">Aucune collecte.</p>';
+}
+$('dechets').addEventListener('change', e => {
+  const D = R.reglages.dechets, d = e.target.dataset;
+  if (d.dcType !== undefined) { const x = D[+d.dcType], ancien = TYPES_DECHETS[x.type]; x.type = e.target.value; if (!x.nom || x.nom === ancien) x.nom = TYPES_DECHETS[x.type]; dessinerDechets(); }
+  if (d.dcJour !== undefined) D[+d.dcJour].jour = +e.target.value;
+  aChange();
+});
+$('dechets').addEventListener('input', e => { const d = e.target.dataset; if (d.dcNom !== undefined) { R.reglages.dechets[+d.dcNom].nom = e.target.value; aChange(); } });
+$('dechets').addEventListener('click', e => { const i = e.target.dataset.dcRetirer; if (i !== undefined) { R.reglages.dechets.splice(+i, 1); dessinerDechets(); aChange(); } });
+$('ajoutDechet').addEventListener('click', () => { R.reglages.dechets.push({ type: 'ordures', nom: 'Ordures ménagères', jour: 1 }); dessinerDechets(); aChange(); });
 
 function dessinerAgendas() {
   const A = R.reglages.agenda.agendas;
