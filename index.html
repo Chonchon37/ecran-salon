@@ -90,11 +90,11 @@ body{
 /* Anneau autour de l'onglet en cours : il se remplit pendant que la page reste affichée,
    puis (après un toucher) se vide doucement, en orange, le temps de la pause */
 .tab{position:relative}
-#anneau{position:absolute;left:0;top:0;width:100%;height:100%;overflow:visible;pointer-events:none;display:none}
+#anneau{position:absolute;left:0;top:0;overflow:visible;pointer-events:none;display:none}
 .tab.on #anneau{display:block}
 #anneau rect{fill:none;stroke-width:3;stroke-linecap:round}
 #anneau .fond{stroke:var(--line);opacity:.0}
-#anneau .trait{stroke:var(--accent);stroke-dasharray:100 100;stroke-dashoffset:100}
+#anneau .trait{stroke:var(--accent)}
 #anneau.pause .trait{stroke:var(--warn)}
 #anneau.pause .fond{opacity:.35}
 #fixe{
@@ -461,22 +461,42 @@ function construire(){
 var actuel = -1, minuteur = null, pauseJusqua = 0;
 var zonePause = document.getElementById('pause');
 // L'anneau (un seul, déplacé dans l'onglet affiché)
+// (tailles calculées en pixels : la WebView du cadre ne gère pas les tailles SVG en CSS ni pathLength)
 var NS = 'http://www.w3.org/2000/svg', anneau = document.createElementNS(NS, 'svg');
 anneau.setAttribute('id', 'anneau');
-anneau.innerHTML = '<rect class="fond" x="1.5" y="1.5" rx="23.5" ry="23.5" style="width:calc(100% - 3px);height:calc(100% - 3px)"/>' +
-  '<rect class="trait" x="1.5" y="1.5" rx="23.5" ry="23.5" pathLength="100" style="width:calc(100% - 3px);height:calc(100% - 3px)"/>';
-var trait = anneau.querySelector('.trait');
+var fondAnneau = document.createElementNS(NS, 'rect'), trait = document.createElementNS(NS, 'rect');
+fondAnneau.setAttribute('class', 'fond'); trait.setAttribute('class', 'trait');
+anneau.appendChild(fondAnneau); anneau.appendChild(trait);
+var perimetre = 0, minuteurAnneau = null;
+function mesurerAnneau(){
+  var t = tabs[actuel]; if (!t) return;
+  var w = t.offsetWidth, h = t.offsetHeight, l = Math.max(0, w - 3), H = Math.max(0, h - 3), r = H / 2;
+  anneau.setAttribute('width', w); anneau.setAttribute('height', h);
+  var R = [fondAnneau, trait];
+  for (var i = 0; i < 2; i++) { R[i].setAttribute('x', 1.5); R[i].setAttribute('y', 1.5); R[i].setAttribute('width', l); R[i].setAttribute('height', H); R[i].setAttribute('rx', r); R[i].setAttribute('ry', r); }
+  perimetre = 2 * (l - H) + Math.PI * H;   // pilule : deux côtés droits + deux demi-cercles
+  trait.style.strokeDasharray = perimetre + ' ' + perimetre;
+}
 // de « vide » à « plein » en `secondes` (sens = 1), ou de plein à vide (sens = -1, pause) ; 0 = anneau caché
 function animerAnneau(secondes, sens){
   if (tabs[actuel] && anneau.parentNode !== tabs[actuel]) tabs[actuel].appendChild(anneau);
   anneau.setAttribute('class', sens < 0 ? 'pause' : '');
+  clearTimeout(minuteurAnneau);
   trait.style.webkitTransition = trait.style.transition = 'none';
-  trait.style.strokeDashoffset = sens < 0 ? '0' : '100';
-  trait.getBoundingClientRect();   // force le navigateur à repartir du début
-  if (secondes > 0) setTimeout(function(){
-    trait.style.webkitTransition = trait.style.transition = 'stroke-dashoffset ' + secondes + 's linear';
-    trait.style.strokeDashoffset = sens < 0 ? '100' : '0';
-  }, 30);
+  mesurerAnneau();
+  trait.style.strokeDashoffset = sens < 0 ? 0 : perimetre;
+  if (secondes <= 0) return;
+  var debut = Date.now();
+  // on attend que le nom de l'onglet ait fini de s'afficher (l'onglet s'élargit), puis on mesure et on lance
+  minuteurAnneau = setTimeout(function(){
+    var reste = Math.max(0.1, secondes - (Date.now() - debut) / 1000), fait = 1 - reste / secondes;
+    trait.style.webkitTransition = trait.style.transition = 'none';
+    mesurerAnneau();
+    trait.style.strokeDashoffset = sens < 0 ? perimetre * fait : perimetre * (1 - fait);
+    trait.getBoundingClientRect();
+    trait.style.webkitTransition = trait.style.transition = 'stroke-dashoffset ' + reste + 's linear';
+    trait.style.strokeDashoffset = sens < 0 ? perimetre : 0;
+  }, 450);
 }
 function lancerBarre(secondes){ if (pauseJusqua <= Date.now()) animerAnneau(secondes, 1); }
 function dureeSlide(){ return (S[actuel].duree || CONFIG.DUREE_DEFAUT); }
