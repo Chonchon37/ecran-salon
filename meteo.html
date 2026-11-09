@@ -462,7 +462,7 @@ window.addEventListener('message', function(e){
   var d = e.data;
   if (!d || d.type !== 'reglages' || !d.value || !d.value.cadre || !d.value.cadre.lieu) return;
   var L = d.value.cadre.lieu;
-  if (L.nom) $('lieu').textContent = L.nom;
+  if (L.nom) { CONFIG.NOM = L.nom; $('lieu').textContent = L.nom; }
   if (L.lat !== CONFIG.LAT || L.lon !== CONFIG.LON) { CONFIG.LAT = L.lat; CONFIG.LON = L.lon; charger(); }
 });
 </script>
