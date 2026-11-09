@@ -85,7 +85,18 @@ body{
 #pause svg.tour{position:absolute;left:0;top:0;width:100%;height:100%;margin:0;overflow:visible;pointer-events:none}
 #pause svg.tour rect{fill:none;stroke:var(--warn);stroke-width:3;stroke-linecap:round;stroke-dasharray:100 100}
 #pause svg.tour rect.fond{stroke-dasharray:none;opacity:.22}
-#pause.on{display:flex}
+#pause.on{display:none}
+#bar{display:none}
+/* Anneau autour de l'onglet en cours : il se remplit pendant que la page reste affichée,
+   puis (après un toucher) se vide doucement, en orange, le temps de la pause */
+.tab{position:relative}
+#anneau{position:absolute;left:0;top:0;width:100%;height:100%;overflow:visible;pointer-events:none;display:none}
+.tab.on #anneau{display:block}
+#anneau rect{fill:none;stroke-width:3;stroke-linecap:round}
+#anneau .fond{stroke:var(--line);opacity:.0}
+#anneau .trait{stroke:var(--accent);stroke-dasharray:100 100;stroke-dashoffset:100}
+#anneau.pause .trait{stroke:var(--warn)}
+#anneau.pause .fond{opacity:.35}
 #fixe{
   display:none;align-items:center;height:36px;padding:0 14px;margin-right:16px;border-radius:18px;
   background:var(--card);color:var(--accent);font-size:15px;font-weight:700;
@@ -435,9 +446,10 @@ function construire(){
     t.innerHTML = SVG_DEBUT + ICONES[S[i].icone] + '</svg><span>' + S[i].nom + '</span>';
     (function(index){
       t.addEventListener('click', function(){
+        // toucher l'onglet déjà affiché pendant une pause : la rotation reprend
+        if (index === actuel && pauseJusqua > Date.now()) { pauseJusqua = 0; programmer(); return; }
         pauseJusqua = Date.now() + CONFIG.PAUSE_APRES_TOUCHER * 1000;   // d'abord la pause, puis la page choisie
-        majPause();
-        if (index === actuel) programmer(); else afficher(index);
+        if (index === actuel) { majPause(); programmer(); } else { afficher(index); majPause(); }
       });
     })(i);
     zoneTabs.appendChild(t);
@@ -447,18 +459,26 @@ function construire(){
 
 /* ---------- Rotation automatique ---------- */
 var actuel = -1, minuteur = null, pauseJusqua = 0;
-var barFill = document.getElementById('barFill');
 var zonePause = document.getElementById('pause');
-
-function lancerBarre(secondes){
-  barFill.style.webkitTransition = barFill.style.transition = 'none';
-  barFill.style.width = '0';
-  void barFill.offsetWidth; // force le navigateur à repartir de 0
-  if (secondes > 0) {
-    barFill.style.webkitTransition = barFill.style.transition = 'width ' + secondes + 's linear';
-    barFill.style.width = '100%';
-  }
+// L'anneau (un seul, déplacé dans l'onglet affiché)
+var NS = 'http://www.w3.org/2000/svg', anneau = document.createElementNS(NS, 'svg');
+anneau.setAttribute('id', 'anneau');
+anneau.innerHTML = '<rect class="fond" x="1.5" y="1.5" rx="23.5" ry="23.5" style="width:calc(100% - 3px);height:calc(100% - 3px)"/>' +
+  '<rect class="trait" x="1.5" y="1.5" rx="23.5" ry="23.5" pathLength="100" style="width:calc(100% - 3px);height:calc(100% - 3px)"/>';
+var trait = anneau.querySelector('.trait');
+// de « vide » à « plein » en `secondes` (sens = 1), ou de plein à vide (sens = -1, pause) ; 0 = anneau caché
+function animerAnneau(secondes, sens){
+  if (tabs[actuel] && anneau.parentNode !== tabs[actuel]) tabs[actuel].appendChild(anneau);
+  anneau.setAttribute('class', sens < 0 ? 'pause' : '');
+  trait.style.webkitTransition = trait.style.transition = 'none';
+  trait.style.strokeDashoffset = sens < 0 ? '0' : '100';
+  trait.getBoundingClientRect();   // force le navigateur à repartir du début
+  if (secondes > 0) setTimeout(function(){
+    trait.style.webkitTransition = trait.style.transition = 'stroke-dashoffset ' + secondes + 's linear';
+    trait.style.strokeDashoffset = sens < 0 ? '100' : '0';
+  }, 30);
 }
+function lancerBarre(secondes){ if (pauseJusqua <= Date.now()) animerAnneau(secondes, 1); }
 function dureeSlide(){ return (S[actuel].duree || CONFIG.DUREE_DEFAUT); }
 
 function afficher(index){
@@ -542,13 +562,7 @@ function mettreEnPause(){
 }
 function majPause(){
   var reste = pauseJusqua - Date.now();
-  zonePause.className = reste > 0 ? 'on' : '';
-  var r = document.getElementById('pauseTour');
-  if (reste <= 0) return;
-  // le contour repart plein, puis se vide en ligne droite jusqu'à la fin de la pause
-  r.style.transition = 'none'; r.style.strokeDashoffset = '0';
-  r.getBoundingClientRect();
-  setTimeout(function(){ r.style.transition = 'stroke-dashoffset ' + (reste / 1000) + 's linear'; r.style.strokeDashoffset = '100'; }, 30);
+  if (reste > 0) animerAnneau(reste / 1000, -1);   // pause : l'anneau orange se vide jusqu'à la reprise
 }
 zonePause.addEventListener('click', function(){ pauseJusqua = 0; majPause(); programmer(); });
 
