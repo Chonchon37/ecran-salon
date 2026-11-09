@@ -33,7 +33,7 @@ const FLUX_TR = 'https://data.filbleu.fr/ws-tr/gtfs-rt/opendata/trip-updates';
 const FLUX_ALERTES = 'https://data.filbleu.fr/ws-tr/gtfs-rt/opendata/service-alerts';
 const FLUX_INCIDENTS = 'https://www.filbleu.fr/rss-incident.xml';   // l'info trafic du site filbleu.fr (travaux, déviations…)
 const CACHE_SECONDES = 30;   // les écrans redemandent toutes les 30 s
-const VERSION = '47';   // à changer à chaque mise à jour du code : vide les caches
+const VERSION = '48';   // à changer à chaque mise à jour du code : vide les caches
 
 // Horaires prévus, format compact : "jours" = n° de grille pour chaque jour depuis "debut",
 // chaque ligne "g=" = minutes depuis minuit, écrites en écarts successifs.
@@ -1314,10 +1314,10 @@ async function gererApps(envBase, corps) {
   }
   const res = {};
   for (const a in APPS) {
-    const cf = appCloudflare(envBase, a), src = cf ? envBase : (v[a] || {});
-    const champs = {};
-    for (const [k, secret] of APPS[a]) champs[k] = secret ? masquer(src[k]) : (src[k] || '');
-    res[a] = { source: cf ? 'cloudflare' : (APPS[a].every(([k]) => (v[a] || {})[k]) ? 'admin' : ''), champs };
+    // champs = ce qui est enregistré dans l'admin (secours) ; cloudflare = ce qui sert en priorité, s'il existe
+    const cf = appCloudflare(envBase, a), adm = v[a] || {}, champs = {}, cloudflare = {};
+    for (const [k, secret] of APPS[a]) { champs[k] = secret ? masquer(adm[k]) : (adm[k] || ''); if (cf) cloudflare[k] = secret ? masquer(envBase[k]) : envBase[k]; }
+    res[a] = { source: cf ? 'cloudflare' : (APPS[a].every(([k]) => adm[k]) ? 'admin' : ''), secours: cf && APPS[a].every(([k]) => adm[k]), champs, cloudflare: cf ? cloudflare : null };
   }
   res.retours = { sonos: SONOS_RETOUR, spotify: SPOTIFY_RETOUR };
   return res;

@@ -1148,11 +1148,17 @@ async function chargerApps() {
     const a = await fetch(WORKER + '/apps?cle=' + encodeURIComponent(CLE)).then(r => r.json());
     if (a.erreur) return;
     $('retourSonos').textContent = a.retours.sonos; $('retourSpotify').textContent = a.retours.spotify;
-    const etat = x => x.source === 'cloudflare' ? 'réglée dans Cloudflare' : x.source === 'admin' ? 'prête ✓' : 'à créer';
+    const etat = x => x.source === 'cloudflare' ? (x.secours ? 'Cloudflare + secours ✓' : 'réglée dans Cloudflare') : x.source === 'admin' ? 'prête ✓' : 'à créer';
     for (const n in CHAMPS_APPS) {
       const x = a[n]; if (!x) continue;
       $('app' + NOMS_APPS[n] + 'Etat').textContent = etat(x);
-      for (const [k, id] of CHAMPS_APPS[n]) { $(id).value = x.champs[k] || ''; $(id).disabled = x.source === 'cloudflare'; }
+      for (const [k, id] of CHAMPS_APPS[n]) { $(id).value = x.champs[k] || ''; $(id).disabled = false; }
+      // si Cloudflare a déjà les clés : elles servent en priorité, ce qui est saisi ici sert de secours
+      const zone = $(CHAMPS_APPS[n][0][1]).closest('.app-bloc');
+      let note = zone.querySelector('.note-cf');
+      if (!note) { note = document.createElement('p'); note.className = 'aide note-cf'; note.style.margin = '8px 0 0'; zone.appendChild(note); }
+      note.hidden = !x.cloudflare;
+      if (x.cloudflare) note.innerHTML = 'En service : les clés de Cloudflare (' + Object.values(x.cloudflare).map(echapper).join(' · ') + '). Ce que tu saisis ici sert de <b>secours</b> si elles sont retirées de Cloudflare.';
     }
   } catch (e) {}
 }
@@ -1163,10 +1169,7 @@ $('apps').addEventListener('click', async e => {
 });
 $('appsEnregistrer').addEventListener('click', async () => {
   const corps = {};
-  for (const n in CHAMPS_APPS) {
-    if ($(CHAMPS_APPS[n][0][1]).disabled) continue;
-    corps[n] = {}; for (const [k, id] of CHAMPS_APPS[n]) corps[n][k] = $(id).value;
-  }
+  for (const n in CHAMPS_APPS) { corps[n] = {}; for (const [k, id] of CHAMPS_APPS[n]) corps[n][k] = $(id).value; }
   $('appsEtat').textContent = 'Enregistrement…';
   try {
     const r = await fetch(WORKER + '/apps?cle=' + encodeURIComponent(CLE), { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(corps) }).then(x => x.json());
