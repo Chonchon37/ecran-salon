@@ -33,7 +33,7 @@ const FLUX_TR = 'https://data.filbleu.fr/ws-tr/gtfs-rt/opendata/trip-updates';
 const FLUX_ALERTES = 'https://data.filbleu.fr/ws-tr/gtfs-rt/opendata/service-alerts';
 const FLUX_INCIDENTS = 'https://www.filbleu.fr/rss-incident.xml';   // l'info trafic du site filbleu.fr (travaux, déviations…)
 const CACHE_SECONDES = 30;   // les écrans redemandent toutes les 30 s
-const VERSION = '44';   // à changer à chaque mise à jour du code : vide les caches
+const VERSION = '45';   // à changer à chaque mise à jour du code : vide les caches
 
 // Horaires prévus, format compact : "jours" = n° de grille pour chaque jour depuis "debut",
 // chaque ligne "g=" = minutes depuis minuit, écrites en écarts successifs.
@@ -1275,6 +1275,41 @@ async function deconnexionSonos(env) {
 }
 const avecSonos = env => !!(env.CADRE_INFO && env.CADRE_INFO.sonos);
 
+/* ---------- Applications Sonos et Spotify : clés saisies dans Cloudflare OU dans la page admin ----------
+   Les variables du Worker (SONOS_ID…) restent prioritaires ; sinon on prend celles enregistrées dans le KV (« apps »). */
+const APPS = { sonos: ['SONOS_ID', 'SONOS_SECRET'], spotify: ['SPOTIFY_ID', 'SPOTIFY_SECRET'] };
+let APPS_MEMO = null;
+async function avecApps(env) {
+  if (!env.REGLAGES) return env;
+  if (!APPS_MEMO || Date.now() - APPS_MEMO.t > 60000) APPS_MEMO = { t: Date.now(), v: (await env.REGLAGES.get('apps', 'json').catch(() => null)) || {} };
+  const e = Object.assign({}, env);
+  for (const a in APPS) {
+    const k = APPS_MEMO.v[a];
+    if (k && k.id && k.secret && !(env[APPS[a][0]] && env[APPS[a][1]])) { e[APPS[a][0]] = k.id; e[APPS[a][1]] = k.secret; }
+  }
+  return e;
+}
+async function gererApps(envBase, corps) {
+  const v = (await envBase.REGLAGES.get('apps', 'json').catch(() => null)) || {};
+  if (corps) {
+    for (const a in APPS) {
+      const n = corps[a]; if (!n) continue;
+      const id = String(n.id || '').trim(), sec = String(n.secret || '').trim();
+      if (!id) { delete v[a]; continue; }
+      v[a] = { id: id.slice(0, 100), secret: /^••••/.test(sec) || !sec ? (v[a] && v[a].secret) || '' : sec.slice(0, 200) };
+    }
+    await envBase.REGLAGES.put('apps', JSON.stringify(v));
+    APPS_MEMO = null;
+  }
+  const res = {};
+  for (const a in APPS) {
+    const cf = !!(envBase[APPS[a][0]] && envBase[APPS[a][1]]);
+    res[a] = { source: cf ? 'cloudflare' : (v[a] && v[a].id && v[a].secret ? 'admin' : ''), id: cf ? envBase[APPS[a][0]] : (v[a] ? v[a].id : ''), secret: cf ? masquer(envBase[APPS[a][1]]) : (v[a] ? masquer(v[a].secret) : '') };
+  }
+  res.retours = { sonos: SONOS_RETOUR, spotify: SPOTIFY_RETOUR };
+  return res;
+}
+
 /* ---------- Spotify : mes playlists (connexion OAuth faite une fois, jeton gardé dans le KV) ---------- */
 // Secrets du Worker : SPOTIFY_ID et SPOTIFY_SECRET (application créée sur developer.spotify.com)
 const SPOTIFY_RETOUR = 'https://ecran-salon.nico-michon37.workers.dev/spotify/retour';
@@ -1619,7 +1654,8 @@ async function lireVisite(cadre) {
 }
 
 export default {
-  async fetch(request, envBase, ctx) {
+  async fetch(request, envBrut, ctx) {
+    const envBase = await avecApps(envBrut);   // clés Sonos / Spotify du Worker, sinon celles saisies dans l'admin
     let env = envBase;
     const entetes = {
       'Access-Control-Allow-Origin': ORIGINE_AUTORISEE,
@@ -1663,6 +1699,12 @@ export default {
       if ((qui.role === 'ecran' || url.searchParams.get('ecran') === '1') && chemin === '/reglages') ctx.waitUntil(noterVisite(env.CADRE));
 
       // Gestion des cadres : réservée au super-admin
+      if (chemin === '/apps') {
+        if (!estSuper) return repondre({ erreur: 'Réservé à l\'administrateur principal' }, 403, entetes);
+        let corps = null;
+        if (request.method === 'POST') { try { corps = JSON.parse(await request.text()); } catch (e) { corps = {}; } }
+        return repondre(await gererApps(envBrut, corps), 200, entetes);
+      }
       if (chemin === '/cadres' && request.method === 'GET') {
         if (!estSuper) return repondre({ erreur: 'Réservé à l\'administrateur principal' }, 403, entetes);
         const L = await lireCadres(envBase), liste = [];

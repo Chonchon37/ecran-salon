@@ -94,6 +94,12 @@ input[type=time]{font:inherit;color:var(--ink);background:var(--bg);border:1.5px
 details.precis{margin-top:12px}
 details.precis summary{cursor:pointer;font-weight:600;color:var(--accent);padding:6px 0}
 .page{padding-bottom:110px}
+.app-bloc{border-top:1px solid var(--line);padding-top:14px;margin-top:14px}
+.app-bloc h3{margin:0 0 6px;font-size:17px;display:flex;align-items:center;gap:10px}
+.etapes{margin:0 0 12px;padding-left:20px;color:var(--muted);font-size:14px;line-height:1.5}
+.etapes li{margin-bottom:6px}
+.etapes .adresse{margin-top:6px}
+.etapes a{color:var(--accent)}
 .grille-cadres{display:grid;gap:12px}
 .carte-cadre{display:flex;align-items:center;gap:16px;width:100%;text-align:left;background:var(--card);border-radius:18px;padding:18px 20px;font:inherit;color:var(--ink);border:2px solid transparent}
 .carte-cadre:hover{border-color:var(--line)}
@@ -206,6 +212,33 @@ button.discret{background:transparent;color:var(--muted);padding:8px 10px;font-s
       <div class="champ"><label>Ville</label><div id="nvVille"></div></div>
       <div class="champ"><span style="font-weight:600">Modules</span><div class="modules" id="nvModules"></div></div>
       <div class="rang"><button type="button" class="principal" id="nvCreer">Créer le cadre</button><button type="button" id="nvAnnuler">Annuler</button><span id="nvEtat" class="aide" style="margin:0"></span></div>
+    </section>
+
+    <!-- Applications partagées par tous les cadres -->
+    <section id="apps" style="margin-top:28px">
+      <h2>Applications Sonos et Spotify</h2>
+      <p class="aide">Ces deux applications servent à tous les cadres : on les crée une seule fois, puis chaque famille connecte son propre compte (onglet Maison de son cadre). Les clés restent dans le Worker et ne sont plus affichées en entier.</p>
+      <div class="app-bloc">
+        <h3>Sonos <span class="puce" id="appSonosEtat"></span></h3>
+        <ol class="etapes">
+          <li>Sur <a href="https://developer.sonos.com/" target="_blank" rel="noopener">developer.sonos.com</a>, se connecter puis <b>Integrations → New Control Integration</b> (nom : « Ecran salon »).</li>
+          <li>Créer une clé (<b>Key</b>) et ajouter cette adresse de retour (<b>Redirect URI</b>) :
+            <div class="adresse"><div class="rang"><code id="retourSonos"></code><button type="button" data-copier-app="retourSonos">Copier</button></div></div></li>
+          <li>Coller ici la <b>Key</b> et le <b>Secret</b>.</li>
+        </ol>
+        <div class="rang"><input type="text" id="appSonosId" placeholder="Key (identifiant)" style="flex:1;min-width:200px" autocomplete="off" spellcheck="false"><input type="password" id="appSonosSecret" placeholder="Secret" style="flex:1;min-width:160px" autocomplete="new-password"></div>
+      </div>
+      <div class="app-bloc">
+        <h3>Spotify <span class="puce" id="appSpotifyEtat"></span></h3>
+        <ol class="etapes">
+          <li>Sur <a href="https://developer.spotify.com/dashboard" target="_blank" rel="noopener">developer.spotify.com/dashboard</a> : <b>Create app</b> (Web API).</li>
+          <li>Adresse de retour (<b>Redirect URI</b>) :
+            <div class="adresse"><div class="rang"><code id="retourSpotify"></code><button type="button" data-copier-app="retourSpotify">Copier</button></div></div></li>
+          <li>Coller ici le <b>Client ID</b> et le <b>Client secret</b>. En mode développement, ajouter l'e-mail Spotify de chaque utilisateur dans <b>User Management</b>.</li>
+        </ol>
+        <div class="rang"><input type="text" id="appSpotifyId" placeholder="Client ID" style="flex:1;min-width:200px" autocomplete="off" spellcheck="false"><input type="password" id="appSpotifySecret" placeholder="Client secret" style="flex:1;min-width:160px" autocomplete="new-password"></div>
+      </div>
+      <div class="rang" style="margin-top:14px"><button type="button" class="principal" id="appsEnregistrer">Enregistrer les applications</button><span id="appsEtat" class="aide" style="margin:0"></span></div>
     </section>
   </div>
 
@@ -1044,13 +1077,57 @@ $('enregistrer').addEventListener('click', async () => {
 window.addEventListener('beforeunload', e => { if (modifie) { e.preventDefault(); e.returnValue = ''; } });
 
 /* ---------- Sonos ---------- */
-function etatSonos() {
+async function etatSonos() {
   const C = R.cadre || {};
-  $('connecterSonos').hidden = !!C.sonos; $('deconnecterSonos').hidden = !C.sonos;
+  $('connecterSonos').hidden = false; $('deconnecterSonos').hidden = !C.sonos;
+  $('connecterSonos').textContent = C.sonos ? 'Reconnecter Sonos' : 'Connecter Sonos';
   $('connecterSonos').disabled = !C.sonosConfigure;
-  $('etatSonos').innerHTML = !C.sonosConfigure ? 'Pas encore disponible : l\'application Sonos doit d\'abord être déclarée dans le Worker (SONOS_ID et SONOS_SECRET).'
-    : C.sonos ? '<b style="color:var(--ok)">Connecté ✓</b> La musique de l\'écran passe par Sonos.' : 'Non connecté.';
+  if (!C.sonosConfigure) {
+    $('etatSonos').innerHTML = R.super ? 'L\'application Sonos n\'est pas encore créée : <a href="#" id="versApps">Mes cadres → Applications Sonos et Spotify</a>.'
+      : 'Pas encore disponible : l\'administrateur doit d\'abord activer Sonos.';
+    const l = $('versApps'); if (l) l.addEventListener('click', e => { e.preventDefault(); aller(''); setTimeout(() => $('apps').scrollIntoView({ behavior: 'smooth' }), 300); });
+    return;
+  }
+  if (!C.sonos) { $('etatSonos').textContent = 'Non connecté. Connecte le compte Sonos du foyer : les enceintes apparaîtront sur l\'écran.'; return; }
+  // connecté : on vérifie que le compte répond toujours
+  $('etatSonos').textContent = 'Vérification…';
+  try {
+    const m = await appel('/musique');
+    if (m.erreur) throw new Error(m.erreur);
+    $('etatSonos').innerHTML = '<b style="color:var(--ok)">Connecté ✓</b> ' + m.lecteurs.length + ' enceinte' + (m.lecteurs.length > 1 ? 's' : '') + ' ou groupe' + (m.lecteurs.length > 1 ? 's' : '') + ' : ' + echapper(m.lecteurs.map(x => x.nom).join(', ')) + '.';
+  } catch (err) { $('etatSonos').innerHTML = '<b style="color:var(--warn)">Connexion à refaire</b> (' + echapper(err.message) + ') : touche « Reconnecter Sonos ».'; }
 }
+
+/* ---------- Applications Sonos et Spotify (super-admin) ---------- */
+async function chargerApps() {
+  try {
+    const a = await fetch(WORKER + '/apps?cle=' + encodeURIComponent(CLE)).then(r => r.json());
+    if (a.erreur) return;
+    $('retourSonos').textContent = a.retours.sonos; $('retourSpotify').textContent = a.retours.spotify;
+    const etat = x => x.source === 'cloudflare' ? 'réglée dans Cloudflare' : x.source === 'admin' ? 'prête ✓' : 'à créer';
+    [['Sonos', a.sonos], ['Spotify', a.spotify]].forEach(([n, x]) => {
+      $('app' + n + 'Etat').textContent = etat(x);
+      $('app' + n + 'Id').value = x.id || ''; $('app' + n + 'Secret').value = x.secret || '';
+      $('app' + n + 'Id').disabled = $('app' + n + 'Secret').disabled = x.source === 'cloudflare';
+    });
+  } catch (e) {}
+}
+$('apps').addEventListener('click', async e => {
+  const c = e.target.dataset.copierApp; if (!c) return;
+  try { await navigator.clipboard.writeText($(c).textContent); e.target.textContent = 'Copié ✓'; } catch (err) {}
+  setTimeout(() => e.target.textContent = 'Copier', 1800);
+});
+$('appsEnregistrer').addEventListener('click', async () => {
+  const corps = {};
+  if (!$('appSonosId').disabled) corps.sonos = { id: $('appSonosId').value, secret: $('appSonosSecret').value };
+  if (!$('appSpotifyId').disabled) corps.spotify = { id: $('appSpotifyId').value, secret: $('appSpotifySecret').value };
+  $('appsEtat').textContent = 'Enregistrement…';
+  try {
+    const r = await fetch(WORKER + '/apps?cle=' + encodeURIComponent(CLE), { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(corps) }).then(x => x.json());
+    if (r.erreur) throw new Error(r.erreur);
+    await chargerApps(); $('appsEtat').textContent = 'Enregistré ✓';
+  } catch (err) { $('appsEtat').textContent = 'Échec : ' + err.message; }
+});
 $('connecterSonos').addEventListener('click', () => {
   window.open(WORKER + '/sonos/connexion?cle=' + encodeURIComponent(CLE) + (CADRE_ID ? '&cadre=' + CADRE_ID : ''), '_blank');
   $('etatSonos').textContent = 'Connecte-toi avec le compte Sonos du foyer dans l\'onglet ouvert, puis reviens ici et recharge la page.';
@@ -1264,7 +1341,7 @@ function afficherListe() {
   $('avatarTete').hidden = true; $('titre').textContent = 'Mes cadres';
   $('sous').textContent = 'Choisis un cadre pour modifier ce qu\'il affiche. ' + CADRES.length + ' cadre' + (CADRES.length > 1 ? 's' : '') + '.';
   document.title = 'Mes cadres';
-  chargerCadres();
+  chargerCadres(); chargerApps();
   window.scrollTo({ top: 0 });
 }
 function afficherFiche() {
