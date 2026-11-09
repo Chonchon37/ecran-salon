@@ -94,6 +94,15 @@ input[type=time]{font:inherit;color:var(--ink);background:var(--bg);border:1.5px
 details.precis{margin-top:12px}
 details.precis summary{cursor:pointer;font-weight:600;color:var(--accent);padding:6px 0}
 .page{padding-bottom:110px}
+.connexion{display:flex;align-items:center;gap:12px;padding:11px 0;border-top:1px solid var(--line)}
+.connexion:first-child{border-top:0}
+.connexion[data-ou]{cursor:pointer}
+.connexion i{width:11px;height:11px;border-radius:50%;flex:none}
+.pt-ok{background:var(--ok)} .pt-err{background:var(--warn)} .pt-abs{background:transparent;border:2px solid var(--muted);box-sizing:border-box}
+.cx-t{flex:1;min-width:0;display:flex;flex-direction:column}
+.cx-t span{color:var(--muted);font-size:14px}
+.connexion.erreur .cx-t span{color:var(--warn)}
+.cx-go{color:var(--accent);font-weight:700;font-size:14px;white-space:nowrap}
 .app-bloc{border-top:1px solid var(--line);padding-top:14px;margin-top:14px}
 .app-bloc h3{margin:0 0 6px;font-size:17px;display:flex;align-items:center;gap:10px}
 .etapes{margin:0 0 12px;padding-left:20px;color:var(--muted);font-size:14px;line-height:1.5}
@@ -216,7 +225,7 @@ button.discret{background:transparent;color:var(--muted);padding:8px 10px;font-s
 
     <!-- Applications partagées par tous les cadres -->
     <section id="apps" style="margin-top:28px">
-      <h2>Applications Sonos et Spotify</h2>
+      <h2>Applications (Sonos, Spotify, TomTom)</h2>
       <p class="aide">Ces deux applications servent à tous les cadres : on les crée une seule fois, puis chaque famille connecte son propre compte (onglet Maison de son cadre). Les clés restent dans le Worker et ne sont plus affichées en entier.</p>
       <div class="app-bloc">
         <h3>Sonos <span class="puce" id="appSonosEtat"></span></h3>
@@ -237,6 +246,13 @@ button.discret{background:transparent;color:var(--muted);padding:8px 10px;font-s
           <li>Coller ici le <b>Client ID</b> et le <b>Client secret</b>. En mode développement, ajouter l'e-mail Spotify de chaque utilisateur dans <b>User Management</b>.</li>
         </ol>
         <div class="rang"><input type="text" id="appSpotifyId" placeholder="Client ID" style="flex:1;min-width:200px" autocomplete="off" spellcheck="false"><input type="password" id="appSpotifySecret" placeholder="Client secret" style="flex:1;min-width:160px" autocomplete="new-password"></div>
+      </div>
+      <div class="app-bloc">
+        <h3>TomTom <span class="puce" id="appTomtomEtat"></span></h3>
+        <ol class="etapes">
+          <li>Facultatif : sert au trajet du travail avec la circulation. Clé gratuite sur <a href="https://developer.tomtom.com/" target="_blank" rel="noopener">developer.tomtom.com</a> (Dashboard → Keys).</li>
+        </ol>
+        <div class="rang"><input type="password" id="appTomtomCle" placeholder="Clé API TomTom" style="flex:1;min-width:200px" autocomplete="new-password"></div>
       </div>
       <div class="rang" style="margin-top:14px"><button type="button" class="principal" id="appsEnregistrer">Enregistrer les applications</button><span id="appsEtat" class="aide" style="margin:0"></span></div>
     </section>
@@ -344,8 +360,9 @@ button.discret{background:transparent;color:var(--muted);padding:8px 10px;font-s
     </section>
 
     <!-- AGENDA -->
-    <section data-groupe="agenda" id="secAgendasCfg" data-module="famille">
+    <section data-groupe="agenda" id="secAgendasCfg">
       <h2>Agendas Google</h2>
+      <p class="aide" id="agendasCloudflare" hidden></p>
       <p class="aide">Jusqu'à 6 agendas. Dans Google Agenda : Paramètres de l'agenda → « Adresse secrète au format iCal » → copier ici. L'adresse reste privée : elle n'est plus affichée en entier une fois enregistrée.</p>
       <div id="cfgAgendas"></div>
       <button type="button" id="cfgAjoutAgenda">+ Ajouter un agenda</button>
@@ -379,8 +396,9 @@ button.discret{background:transparent;color:var(--muted);padding:8px 10px;font-s
     </section>
 
     <!-- MAISON & MUSIQUE -->
-    <section data-groupe="maison" id="secHA" data-module="famille">
+    <section data-groupe="maison" id="secHA">
       <h2>Connexion Home Assistant</h2>
+      <p class="bandeau" id="haCloudflare" style="margin:0 0 12px" hidden>Réglée dans Cloudflare (HA_URL et HA_TOKEN) : c'est elle qui sert. Pour la changer, modifie ces variables dans Cloudflare.</p>
       <p class="aide">Facultatif : seulement si la famille a Home Assistant (lumières, enceintes Google, vigilance Météo-France). Pour des enceintes Sonos, voir plus bas. Adresse accessible depuis Internet + jeton d'accès longue durée (Profil → Sécurité dans Home Assistant).</p>
       <div class="champ"><label for="haUrl">Adresse</label><input type="text" id="haUrl" placeholder="https://maison.duckdns.org:8123" autocomplete="off" spellcheck="false"></div>
       <div class="champ"><label for="haJeton">Jeton d'accès</label><input type="password" id="haJeton" placeholder="Colle le jeton" autocomplete="new-password"><small id="haJetonInfo"></small></div>
@@ -425,9 +443,15 @@ button.discret{background:transparent;color:var(--muted);padding:8px 10px;font-s
       <p class="aide">Dans Fully Kiosk, page de démarrage (Start URL) : l'adresse ci-dessous, la même pour tous les cadres. Au premier démarrage, l'écran demande ce code (on peut le changer ensuite avec la roue crantée).</p>
       <div id="branchement"></div>
     </section>
+    <section data-groupe="cadre" id="secConnexions">
+      <h2>Connexions</h2>
+      <p class="aide">Tout ce dont l'écran a besoin, vérifié en direct. Touche une ligne en erreur pour aller la corriger.</p>
+      <div id="connexions"><p class="vide">…</p></div>
+      <button type="button" id="verifierConnexions" style="margin-top:10px">Tout revérifier</button>
+    </section>
     <section data-groupe="cadre" id="secPrincipal" data-module="principal">
       <h2>Cadre principal</h2>
-      <p class="aide" style="margin:0">Ses agendas, son Home Assistant et son trajet sont réglés dans Cloudflare. Ville : Tours Nord · tous les modules.</p>
+      <p class="aide" style="margin:0">Ville : Tours Nord · tous les modules. Les connexions réglées dans Cloudflare restent prioritaires ; tu peux les compléter dans les onglets Agenda et Maison, et dans Mes cadres → Applications.</p>
     </section>
     <section data-groupe="cadre" id="secConfig" data-module="famille">
       <h2>Nom, ville et modules</h2>
@@ -1007,7 +1031,7 @@ function ouvrirGroupe(g) {
   document.querySelectorAll('#onglets button').forEach(b => b.setAttribute('aria-current', b.dataset.g === g ? 'true' : 'false'));
   $('intro').textContent = INTROS[g];
   $('barre').hidden = false;
-  if (g === 'cadre') dessinerBranchement();
+  if (g === 'cadre') { dessinerBranchement(); verifierConnexions(); }
   if (g === 'maison') etatSonos();
   try { localStorage.setItem('ecran-admin-onglet', g); } catch (e) {}
 }
@@ -1098,18 +1122,38 @@ async function etatSonos() {
   } catch (err) { $('etatSonos').innerHTML = '<b style="color:var(--warn)">Connexion à refaire</b> (' + echapper(err.message) + ') : touche « Reconnecter Sonos ».'; }
 }
 
+/* ---------- Bilan des connexions du cadre (onglet Réglages) ---------- */
+async function verifierConnexions() {
+  $('connexions').innerHTML = '<p class="vide">Vérification en cours…</p>';
+  try {
+    const r = await appel('/connexions');
+    const ico = { ok: '<i class="pt-ok"></i>', erreur: '<i class="pt-err"></i>', absent: '<i class="pt-abs"></i>' };
+    $('connexions').innerHTML = r.connexions.map(c => `<div class="connexion ${c.etat}" ${c.etat !== 'ok' ? `data-ou="${c.ou}" role="button" tabindex="0"` : ''}>
+        ${ico[c.etat] || ''}<div class="cx-t"><b>${echapper(c.nom)}</b><span>${echapper(c.detail || '')}</span></div>${c.etat !== 'ok' ? '<span class="cx-go">Corriger ›</span>' : ''}</div>`).join('');
+  } catch (err) { $('connexions').innerHTML = '<p class="vide">Vérification impossible : ' + echapper(err.message) + '</p>'; }
+}
+$('verifierConnexions').addEventListener('click', verifierConnexions);
+$('connexions').addEventListener('click', e => {
+  const x = e.target.closest('[data-ou]'); if (!x) return;
+  const ou = x.dataset.ou;
+  if (ou === 'apps') { if (R.super) { aller(''); setTimeout(() => $('apps').scrollIntoView({ behavior: 'smooth' }), 300); } return; }
+  ouvrirGroupe(ou); window.scrollTo({ top: $('onglets').offsetTop - 4, behavior: 'smooth' });
+});
+
 /* ---------- Applications Sonos et Spotify (super-admin) ---------- */
+const CHAMPS_APPS = { sonos: [['SONOS_ID', 'appSonosId'], ['SONOS_SECRET', 'appSonosSecret']], spotify: [['SPOTIFY_ID', 'appSpotifyId'], ['SPOTIFY_SECRET', 'appSpotifySecret']], tomtom: [['TOMTOM_CLE', 'appTomtomCle']] };
+const NOMS_APPS = { sonos: 'Sonos', spotify: 'Spotify', tomtom: 'Tomtom' };
 async function chargerApps() {
   try {
     const a = await fetch(WORKER + '/apps?cle=' + encodeURIComponent(CLE)).then(r => r.json());
     if (a.erreur) return;
     $('retourSonos').textContent = a.retours.sonos; $('retourSpotify').textContent = a.retours.spotify;
     const etat = x => x.source === 'cloudflare' ? 'réglée dans Cloudflare' : x.source === 'admin' ? 'prête ✓' : 'à créer';
-    [['Sonos', a.sonos], ['Spotify', a.spotify]].forEach(([n, x]) => {
-      $('app' + n + 'Etat').textContent = etat(x);
-      $('app' + n + 'Id').value = x.id || ''; $('app' + n + 'Secret').value = x.secret || '';
-      $('app' + n + 'Id').disabled = $('app' + n + 'Secret').disabled = x.source === 'cloudflare';
-    });
+    for (const n in CHAMPS_APPS) {
+      const x = a[n]; if (!x) continue;
+      $('app' + NOMS_APPS[n] + 'Etat').textContent = etat(x);
+      for (const [k, id] of CHAMPS_APPS[n]) { $(id).value = x.champs[k] || ''; $(id).disabled = x.source === 'cloudflare'; }
+    }
   } catch (e) {}
 }
 $('apps').addEventListener('click', async e => {
@@ -1119,8 +1163,10 @@ $('apps').addEventListener('click', async e => {
 });
 $('appsEnregistrer').addEventListener('click', async () => {
   const corps = {};
-  if (!$('appSonosId').disabled) corps.sonos = { id: $('appSonosId').value, secret: $('appSonosSecret').value };
-  if (!$('appSpotifyId').disabled) corps.spotify = { id: $('appSpotifyId').value, secret: $('appSpotifySecret').value };
+  for (const n in CHAMPS_APPS) {
+    if ($(CHAMPS_APPS[n][0][1]).disabled) continue;
+    corps[n] = {}; for (const [k, id] of CHAMPS_APPS[n]) corps[n][k] = $(id).value;
+  }
   $('appsEtat').textContent = 'Enregistrement…';
   try {
     const r = await fetch(WORKER + '/apps?cle=' + encodeURIComponent(CLE), { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(corps) }).then(x => x.json());
@@ -1202,7 +1248,7 @@ function champVille(zone, depart, quandChoisi) {
 /* ----- Configuration du cadre courant ----- */
 let CFG = null, lireVille = null;
 async function chargerConfig() {
-  if (!R.cadre || R.cadre.id === 'principal') return;
+  if (!R.cadre) return;
   try { CFG = await appel('/cadre/config'); dessinerConfig(); }
   catch (err) { alerteEtat('Configuration illisible : ' + err.message); }
 }
@@ -1217,6 +1263,13 @@ function dessinerConfig() {
   $('haJeton').value = '';
   $('haJetonInfo').textContent = CFG.ha && CFG.ha.token ? 'Jeton enregistré (' + CFG.ha.token + '). Laisse vide pour le garder.' : 'Aucun jeton enregistré.';
   $('haAlerte').value = CFG.ha ? CFG.ha.alerte : '';
+  // cadre principal : connexions de Cloudflare (prioritaires), affichées pour information
+  const cf = CFG.agendasCloudflare || [];
+  $('agendasCloudflare').hidden = !cf.length;
+  $('agendasCloudflare').innerHTML = cf.length ? '<b>' + cf.length + ' agenda' + (cf.length > 1 ? 's' : '') + ' réglé' + (cf.length > 1 ? 's' : '') + ' dans Cloudflare</b> (' + cf.join(', ') + '). Tu peux en ajouter d\'autres ici.' : '';
+  const haCf = !!(CFG.ha && CFG.ha.source === 'cloudflare');
+  $('haCloudflare').hidden = !haCf;
+  ['haUrl', 'haJeton', 'haAlerte'].forEach(id => { $(id).disabled = haCf; });
 }
 function dessinerAgendasCfg() {
   const A = CFG.agendas;
@@ -1239,8 +1292,9 @@ function corpsConfig() {
   if (mauvais) return 'Une adresse d\'agenda doit commencer par https://';
   const haUrl = $('haUrl').value.trim();
   if (haUrl && !/^https?:\/\//.test(haUrl)) return 'L\'adresse Home Assistant doit commencer par https://';
-  const corps = { nom: $('cfgNom').value, modules: lireModules($('cfgModules')), agendas: CFG.agendas.filter(a => a.url.trim()), transports: CFG.transports,
-    ha: haUrl ? { url: haUrl, token: $('haJeton').value.trim(), alerte: $('haAlerte').value.trim() } : null };
+  const ha = $('haUrl').disabled ? undefined : haUrl ? { url: haUrl, token: $('haJeton').value.trim(), alerte: $('haAlerte').value.trim() } : null;
+  if (CFG.principal) return { agendas: CFG.agendas.filter(a => a.url.trim()), ha };
+  const corps = { nom: $('cfgNom').value, modules: lireModules($('cfgModules')), agendas: CFG.agendas.filter(a => a.url.trim()), transports: CFG.transports, ha };
   const lieu = lireVille && lireVille(); if (lieu) corps.lieu = lieu;
   return corps;
 }

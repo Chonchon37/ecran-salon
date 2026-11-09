@@ -33,7 +33,7 @@ const FLUX_TR = 'https://data.filbleu.fr/ws-tr/gtfs-rt/opendata/trip-updates';
 const FLUX_ALERTES = 'https://data.filbleu.fr/ws-tr/gtfs-rt/opendata/service-alerts';
 const FLUX_INCIDENTS = 'https://www.filbleu.fr/rss-incident.xml';   // l'info trafic du site filbleu.fr (travaux, déviations…)
 const CACHE_SECONDES = 30;   // les écrans redemandent toutes les 30 s
-const VERSION = '45';   // à changer à chaque mise à jour du code : vide les caches
+const VERSION = '46';   // à changer à chaque mise à jour du code : vide les caches
 
 // Horaires prévus, format compact : "jours" = n° de grille pour chaque jour depuis "debut",
 // chaque ligne "g=" = minutes depuis minuit, écrites en écarts successifs.
@@ -1277,15 +1277,21 @@ const avecSonos = env => !!(env.CADRE_INFO && env.CADRE_INFO.sonos);
 
 /* ---------- Applications Sonos et Spotify : clés saisies dans Cloudflare OU dans la page admin ----------
    Les variables du Worker (SONOS_ID…) restent prioritaires ; sinon on prend celles enregistrées dans le KV (« apps »). */
-const APPS = { sonos: ['SONOS_ID', 'SONOS_SECRET'], spotify: ['SPOTIFY_ID', 'SPOTIFY_SECRET'] };
+// [variable, secrète ?]
+const APPS = {
+  sonos: [['SONOS_ID', false], ['SONOS_SECRET', true]],
+  spotify: [['SPOTIFY_ID', false], ['SPOTIFY_SECRET', true]],
+  tomtom: [['TOMTOM_CLE', true]]
+};
 let APPS_MEMO = null;
+const appCloudflare = (env, a) => APPS[a].every(([k]) => !!env[k]);
 async function avecApps(env) {
   if (!env.REGLAGES) return env;
   if (!APPS_MEMO || Date.now() - APPS_MEMO.t > 60000) APPS_MEMO = { t: Date.now(), v: (await env.REGLAGES.get('apps', 'json').catch(() => null)) || {} };
   const e = Object.assign({}, env);
   for (const a in APPS) {
     const k = APPS_MEMO.v[a];
-    if (k && k.id && k.secret && !(env[APPS[a][0]] && env[APPS[a][1]])) { e[APPS[a][0]] = k.id; e[APPS[a][1]] = k.secret; }
+    if (k && APPS[a].every(([n]) => k[n]) && !appCloudflare(env, a)) for (const [n] of APPS[a]) e[n] = k[n];
   }
   return e;
 }
@@ -1294,19 +1300,83 @@ async function gererApps(envBase, corps) {
   if (corps) {
     for (const a in APPS) {
       const n = corps[a]; if (!n) continue;
-      const id = String(n.id || '').trim(), sec = String(n.secret || '').trim();
-      if (!id) { delete v[a]; continue; }
-      v[a] = { id: id.slice(0, 100), secret: /^••••/.test(sec) || !sec ? (v[a] && v[a].secret) || '' : sec.slice(0, 200) };
+      const anc = v[a] || {}, nv = {};
+      for (const [k, secret] of APPS[a]) {
+        const x = String(n[k] || '').trim();
+        nv[k] = secret && (/^••••/.test(x) || !x) ? (anc[k] || '') : x.slice(0, 200);
+      }
+      if (APPS[a].every(([k]) => !nv[k] && !(n[k] || '').trim())) delete v[a]; else v[a] = nv;
     }
     await envBase.REGLAGES.put('apps', JSON.stringify(v));
     APPS_MEMO = null;
   }
   const res = {};
   for (const a in APPS) {
-    const cf = !!(envBase[APPS[a][0]] && envBase[APPS[a][1]]);
-    res[a] = { source: cf ? 'cloudflare' : (v[a] && v[a].id && v[a].secret ? 'admin' : ''), id: cf ? envBase[APPS[a][0]] : (v[a] ? v[a].id : ''), secret: cf ? masquer(envBase[APPS[a][1]]) : (v[a] ? masquer(v[a].secret) : '') };
+    const cf = appCloudflare(envBase, a), src = cf ? envBase : (v[a] || {});
+    const champs = {};
+    for (const [k, secret] of APPS[a]) champs[k] = secret ? masquer(src[k]) : (src[k] || '');
+    res[a] = { source: cf ? 'cloudflare' : (APPS[a].every(([k]) => (v[a] || {})[k]) ? 'admin' : ''), champs };
   }
   res.retours = { sonos: SONOS_RETOUR, spotify: SPOTIFY_RETOUR };
+  return res;
+}
+
+/* ---------- Connexions du cadre principal saisies dans l'admin (en plus de celles de Cloudflare) ---------- */
+// KV « config-principal » : { agendas: [{ nom, url }], ha: { url, token, alerte } }
+async function configPrincipal(env) {
+  return env.REGLAGES ? ((await env.REGLAGES.get('config-principal', 'json').catch(() => null)) || {}) : {};
+}
+
+/* ---------- Bilan des connexions d'un cadre (page admin, Réglages) ---------- */
+async function bilanConnexions(env) {
+  const res = [], MOD = env.CADRE_INFO.modules, essai = async (fn) => { try { return await fn(); } catch (e) { return { etat: 'erreur', detail: String(e.message || e).slice(0, 160) }; } };
+  const ajoute = (id, nom, ou, r) => res.push(Object.assign({ id, nom, ou }, r));
+  const delai = (u, o) => fetch(u, Object.assign({ signal: AbortSignal.timeout(8000) }, o || {}));
+  // Agendas Google : chaque adresse iCal
+  const cles = Object.keys(env).filter(k => /^GOOGLE_ICS\d*$/.test(k) && env[k]).sort();
+  if (!cles.length) ajoute('agenda', 'Agendas Google', 'agenda', { etat: 'absent', detail: 'Aucun agenda : ajoute une adresse iCal secrète.' });
+  for (const k of cles) ajoute('agenda-' + k, 'Agenda Google n°' + (+k.slice(10) > 50 ? +k.slice(10) - 50 + ' (ajouté dans l\'admin)' : (k.slice(10) || '0')), 'agenda', await essai(async () => {
+    const r = await delai(env[k], { cf: { cacheTtl: 300 } }); const t = await r.text();
+    if (!r.ok || t.indexOf('BEGIN:VCALENDAR') < 0) return { etat: 'erreur', detail: 'Google Agenda a répondu ' + r.status + ' : vérifie l\'adresse secrète iCal.' };
+    const m = /X-WR-CALNAME:(.*)/.exec(t), n = (t.match(/BEGIN:VEVENT/g) || []).length;
+    return { etat: 'ok', detail: (m ? '« ' + m[1].trim().slice(0, 40) + ' » · ' : '') + n + ' événement' + (n > 1 ? 's' : '') };
+  }));
+  // Home Assistant
+  if (env.HA_URL) {
+    ajoute('ha', 'Home Assistant', 'maison', await essai(async () => {
+      const r = await delai(haUrl(env, '/api/'), { headers: { Authorization: 'Bearer ' + env.HA_TOKEN } });
+      return r.ok ? { etat: 'ok', detail: env.HA_URL.replace(/^https?:\/\//, '') } : { etat: 'erreur', detail: r.status === 401 ? 'Jeton refusé (401) : crée un nouveau jeton longue durée.' : 'Home Assistant a répondu ' + r.status };
+    }));
+    const capteur = env.HA_ALERTE || 'sensor.37_weather_alert';
+    ajoute('vigilance', 'Vigilance Météo-France', 'maison', await essai(async () => {
+      const r = await delai(haUrl(env, '/api/states/' + capteur), { headers: { Authorization: 'Bearer ' + env.HA_TOKEN } });
+      if (!r.ok) return { etat: 'erreur', detail: 'Capteur ' + capteur + ' introuvable dans Home Assistant.' };
+      const j = await r.json(); return { etat: 'ok', detail: capteur + ' : ' + j.state };
+    }));
+  } else if (MOD.maison) ajoute('ha', 'Home Assistant', 'maison', { etat: 'absent', detail: 'Pas configuré : lumières et vigilance indisponibles.' });
+  // Musique
+  if (MOD.musique) {
+    if (avecSonos(env)) ajoute('sonos', 'Sonos', 'maison', await essai(async () => { E(env).SONOS_FOYER = null; const hh = await foyerSonos(env); const g = await sonos(env, '/households/' + hh + '/groups'); return { etat: 'ok', detail: (g.groups || []).map(x => x.name).join(', ') || 'aucune enceinte' }; }));
+    else if (env.SONOS_ID && !env.HA_URL) ajoute('sonos', 'Sonos', 'maison', { etat: 'absent', detail: 'Compte Sonos pas encore connecté.' });
+    if (env.HA_URL && !avecSonos(env)) for (const c of COMPTES_SPOTIFY) {
+      if (!env.SPOTIFY_ID) { ajoute('spotify', 'Spotify', 'maison', { etat: 'absent', detail: 'Application Spotify pas encore créée.' }); break; }
+      const R = await lireReglages(env), nom = R.reglages.agenda.personnes[c] || c;
+      ajoute('spotify-' + c, 'Spotify · ' + nom, 'maison', await essai(async () => (await jetonSpotify(env, c)) ? { etat: 'ok', detail: 'connecté' } : { etat: 'absent', detail: 'pas connecté (facultatif)' }));
+    }
+  }
+  // Transports Fil Bleu
+  if (MOD.transports) ajoute('filbleu', 'Fil Bleu temps réel', 'transports', await essai(async () => {
+    const r = await delai(FLUX_TR, { cf: { cacheTtl: 15 } }); await chargerHoraires(); const P = lirePrevus();
+    return r.ok ? { etat: 'ok', detail: 'flux en ligne · horaires prévus jusqu\'au ' + P.jusqua.slice(6, 8) + '/' + P.jusqua.slice(4, 6) } : { etat: 'erreur', detail: 'Fil Bleu a répondu ' + r.status };
+  }));
+  // Météo (Open-Meteo, sans clé)
+  const L = env.CADRE_INFO.lieu;
+  ajoute('meteo', 'Météo · ' + L.nom, 'cadre', await essai(async () => {
+    const r = await delai('https://api.open-meteo.com/v1/forecast?latitude=' + L.lat + '&longitude=' + L.lon + '&current=temperature_2m');
+    const j = await r.json(); return r.ok ? { etat: 'ok', detail: Math.round(j.current.temperature_2m) + ' °C en ce moment' } : { etat: 'erreur', detail: 'Open-Meteo a répondu ' + r.status };
+  }));
+  // Trajet du travail (TomTom)
+  if (MOD.travail) ajoute('tomtom', 'Trafic TomTom (trajet travail)', 'apps', env.TOMTOM_CLE ? { etat: 'ok', detail: 'clé présente' } : { etat: 'absent', detail: 'Sans clé : durée sans la circulation.' });
   return res;
 }
 
@@ -1541,7 +1611,10 @@ const LIEU_PRINCIPAL = { nom: 'Tours Nord', lat: 47.418, lon: 0.688 };
 async function envCadre(env, id) {
   if (!id || id === 'principal') {
     const sonosP = env.REGLAGES ? !!(await env.REGLAGES.get('sonos-principal').catch(() => null)) : false;
-    return Object.assign({}, env, { CADRE: 'principal', CADRE_INFO: { id: 'principal', nom: env.NOM_CADRE || 'Écran du salon', lieu: LIEU_PRINCIPAL, modules: { maison: true, musique: true, transports: true, travail: true }, sonos: sonosP } });
+    const cp = await configPrincipal(env), extra = {};
+    (cp.agendas || []).forEach((a, i) => { if (a && a.url) extra['GOOGLE_ICS' + (51 + i)] = a.url; });   // après ceux de Cloudflare
+    if (!env.HA_URL && cp.ha && cp.ha.url && cp.ha.token) { extra.HA_URL = cp.ha.url; extra.HA_TOKEN = cp.ha.token; if (cp.ha.alerte) extra.HA_ALERTE = cp.ha.alerte; }
+    return Object.assign({}, env, extra, { CADRE: 'principal', CADRE_INFO: { id: 'principal', nom: env.NOM_CADRE || 'Écran du salon', lieu: LIEU_PRINCIPAL, modules: { maison: true, musique: true, transports: true, travail: true }, sonos: sonosP } });
   }
   const c = (await lireCadres(env)).find(x => x.id === id);
   if (!c) return null;
@@ -1699,6 +1772,7 @@ export default {
       if ((qui.role === 'ecran' || url.searchParams.get('ecran') === '1') && chemin === '/reglages') ctx.waitUntil(noterVisite(env.CADRE));
 
       // Gestion des cadres : réservée au super-admin
+      if (chemin === '/connexions') return repondre(estAdmin ? { connexions: await bilanConnexions(env) } : { erreur: 'Clé admin requise' }, estAdmin ? 200 : 403, entetes);
       if (chemin === '/apps') {
         if (!estSuper) return repondre({ erreur: 'Réservé à l\'administrateur principal' }, 403, entetes);
         let corps = null;
@@ -1721,7 +1795,24 @@ export default {
       // Configuration du cadre (ville, modules, agendas, Home Assistant) : admin de la famille ou super-admin
       if (chemin === '/cadre/config') {
         if (!estAdmin) return repondre({ erreur: 'Clé admin requise' }, 403, entetes);
-        if (env.CADRE === 'principal') return repondre({ principal: true, nom: env.CADRE_INFO.nom, lieu: LIEU_PRINCIPAL, modules: MOD }, 200, entetes);
+        if (env.CADRE === 'principal') {
+          // le principal garde ses connexions Cloudflare ; l'admin peut ajouter des agendas, et Home Assistant si Cloudflare n'en a pas
+          const cp = await configPrincipal(envBase);
+          if (request.method === 'POST') {
+            let corps = {};
+            try { corps = JSON.parse(await request.text()); } catch (e) {}
+            const faux = { config: { agendas: cp.agendas || [], ha: cp.ha } };
+            appliquerConfig(faux, { agendas: corps.agendas, ha: envBrut.HA_URL ? undefined : corps.ha });
+            cp.agendas = faux.config.agendas; if (faux.config.ha) cp.ha = faux.config.ha; else delete cp.ha;
+            await envBase.REGLAGES.put('config-principal', JSON.stringify(cp));
+            delete ETATS.principal;
+          }
+          return repondre({ principal: true, nom: env.CADRE_INFO.nom, lieu: LIEU_PRINCIPAL, modules: MOD, cle: await codePrincipal(envBase),
+            agendasCloudflare: Object.keys(envBrut).filter(k => /^GOOGLE_ICS\d*$/.test(k) && envBrut[k]).sort(),
+            agendas: (cp.agendas || []).map((a, i) => ({ cle: 'GOOGLE_ICS' + (51 + i), nom: a.nom || '', url: masquer(a.url) })),
+            ha: envBrut.HA_URL ? { source: 'cloudflare', url: envBrut.HA_URL, token: masquer(envBrut.HA_TOKEN), alerte: envBrut.HA_ALERTE || '' }
+              : cp.ha ? { url: cp.ha.url, token: masquer(cp.ha.token), alerte: cp.ha.alerte || '' } : null, transports: [] }, 200, entetes);
+        }
         const L = (await lireCadres(envBase)).slice(), c = L.find(x => x.id === env.CADRE);
         if (request.method === 'POST') {
           let corps = {};
