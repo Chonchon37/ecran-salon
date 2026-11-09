@@ -482,9 +482,21 @@ function mockCode(h){
 }
 function jourA(h){ return h >= 9 && h < 19; }
 var t0 = Date.now();
+var REG_TR = null;   // temps de marche et lignes affichées (réglages)
+// Arrêts suivis par ce cadre, envoyés par le Worker avec les passages
+function lignesDepuis(config){
+  var res = [];
+  for (var i = 0; i < config.length; i++) {
+    var c = config[i], r = REG_TR && REG_TR[c.id];
+    res.push({ id: c.id, ligne: c.ligne, type: c.type, arret: c.arret, direction: c.direction, couleur: c.couleur, horaires: c.horaires,
+      marche: r ? r.marche : 5, actif: r ? r.actif !== false : true, passages: [] });
+  }
+  return res;
+}
+function styleBadge(L){ return L.couleur ? ' style="background:#' + L.couleur + '"' : ''; }
 var LIGNES = [
-  { ligne: 'A', type: 'tram', arret: 'Monconseil', direction: 'Jean Monnet', marche: 7, passages: [3.6, 11.2, 19.4, 27.0] },
-  { ligne: '2', type: 'bus', arret: 'Maréchal Juin', direction: 'CHU Trousseau', marche: 9, passages: [7.3, 21.5, 35.2, 49.0] }
+  { id: 'A', ligne: 'A', type: 'tram', arret: 'Monconseil', direction: 'Jean Monnet', marche: 7, passages: [3.6, 11.2, 19.4, 27.0] },
+  { id: '2', ligne: '2', type: 'bus', arret: 'Maréchal Juin', direction: 'CHU Trousseau', marche: 9, passages: [7.3, 21.5, 35.2, 49.0] }
 ];
 var DEMO_AG = [
   { j: 0, debut: '08:30', titre: 'Point d\'équipe', qui: 'moi' },
@@ -517,7 +529,7 @@ function chargerMeteo(){
     '&hourly=temperature_2m,weather_code,is_day,precipitation,precipitation_probability&forecast_hours=40' +
     '&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset&timezone=Europe%2FParis&forecast_days=7', function(j){ meteo = j; afficher(); });
 }
-function chargerTransports(){ if (CONFIG.WORKER_TRANSPORTS) lireJson(CONFIG.WORKER_TRANSPORTS, function(j){ transportsReels = j; afficher(); }); }
+function chargerTransports(){ if (CONFIG.WORKER_TRANSPORTS) lireJson(CONFIG.WORKER_TRANSPORTS + (CLE ? '?cle=' + encodeURIComponent(CLE) : ''), function(j){ transportsReels = j; if (j.config) LIGNES = lignesDepuis(j.config); afficher(); }); }
 function chargerAgenda(){ if (prive()) lireJson(CONFIG.WORKER + '/agenda?cle=' + encodeURIComponent(CLE), function(j){ agendaReel = j; afficher(); }); }
 function chargerMaison(){ if (prive()) lireJson(CONFIG.WORKER + '/maison?cle=' + encodeURIComponent(CLE), function(j){ maisonReelle = j; afficher(); }); }
 function chargerVigi(){ if (prive() && (!CADRE || CADRE.ha)) lireJson(CONFIG.WORKER + '/vigilance?cle=' + encodeURIComponent(CLE), function(j){ vigilance = j && j.absent ? null : j; afficher(); }); }
@@ -906,7 +918,7 @@ function tuileMeteo(T, now, l, h){
 function passagesLigne(L){
   var res = [];
   if (transportsReels) {
-    var PR = transportsReels.lignes[L.ligne] ? transportsReels.lignes[L.ligne].passages : [];
+    var PR = transportsReels.lignes[L.id] ? transportsReels.lignes[L.id].passages : [];
     for (var q = 0; q < PR.length; q++) { var mq = Math.floor((PR[q].t - Date.now()) / 60000); if (mq >= L.marche) res.push({ min: mq, t: PR[q].t }); }
   } else {
     for (var p = 0; p < L.passages.length; p++) {
@@ -929,13 +941,13 @@ function tuileTransports(T, now, l, h){
   for (var k = 0; k < LIGNES.length; k++) {
     var L = LIGNES[k];
     if (L.actif === false) continue;
-    var P = passagesLigne(L), badge = '<div class="badge ' + L.type + '">' + L.ligne + '</div>';
+    var P = passagesLigne(L), badge = '<div class="badge ' + L.type + '"' + styleBadge(L) + '>' + L.ligne + '</div>';
     var noms = avecNoms ? '<div class="tl-txt"><div class="tl-s">' + L.arret + '</div><div class="tl-d">vers ' + L.direction + '</div></div>' : '';
     if (!P.length) {
       // Plus rien dans les 2 h : on annonce le premier passage suivant (souvent demain matin)
-      var pro = transportsReels && transportsReels.lignes[L.ligne] ? transportsReels.lignes[L.ligne].prochain : null, txt = 'Plus de passage';
+      var pro = transportsReels && transportsReels.lignes[L.id] ? transportsReels.lignes[L.id].prochain : null, txt = L.horaires === false ? 'Horaires disponibles demain' : 'Plus de passage';
       if (pro) { var dp = new Date(pro), demainP = dp.getDate() !== now.getDate(); txt = (L.type === 'tram' ? 'Premier tram ' : 'Premier bus ') + (demainP ? 'demain ' : '') + 'à ' + hhmm(pro); }
-      html += '<div class="tl">' + badge + '<div class="tl-txt">' + (avecNoms ? '<div class="tl-s">' + L.arret + '</div>' : '') + '<div class="tl-d" style="white-space:normal">' + txt + '</div></div></div>';
+      html += '<div class="tl">' + badge + '<div class="tl-txt">' + (avecNoms ? '<div class="tl-s">' + L.arret + '</div>' : '') + '<div class="tl-d" style="white-space:normal">' + (avecNoms ? 'vers ' + L.direction + ' · ' : '') + txt + '</div></div></div>';
       continue;
     }
     var marge = P[0].min - L.marche, suite = '';
@@ -1483,7 +1495,7 @@ document.addEventListener('click', function(e){
 window.addEventListener('message', function(e){
   if (!e.data || e.data.type !== 'reglages' || !e.data.value) return;
   var g = e.data.value, k;
-  if (g.transports) for (k = 0; k < LIGNES.length; k++) { var t = g.transports[LIGNES[k].ligne]; if (t) { LIGNES[k].marche = t.marche; LIGNES[k].actif = t.actif; } }
+  if (g.transports) { REG_TR = g.transports; for (k = 0; k < LIGNES.length; k++) { var t = g.transports[LIGNES[k].id]; if (t) { LIGNES[k].marche = t.marche; LIGNES[k].actif = t.actif; } } }
   if (g.agenda) { for (k in g.agenda.agendas) AGENDAS[k] = g.agenda.agendas[k]; if (g.agenda.personnes && g.agenda.personnes.flo) PRENOM_FLO = g.agenda.personnes.flo; }
   MESSAGE = g.message || '';
   if (g.cadre) {

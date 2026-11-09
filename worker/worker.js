@@ -21,18 +21,19 @@
  *  /maison/catalogue lumières, automatisations, scènes et scripts disponibles (clé admin)
  */
 
-const ARRETS = {           // ligne → identifiant du quai dans ta direction
-  'A': 'TTR:MONC-1T',      // Monconseil, vers Lycée J. Monnet
-  '2': 'TTR:MAJUB-1'       // Maréchal Juin, vers CHU Trousseau
-};
-const ROUTES = { 'TTR:LINE:A': 'A', 'TTR:LINE:2': '2' };
+// Arrêts suivis par le cadre principal (un par quai = une direction). Les autres cadres ont les leurs
+// (configuration du cadre dans la page admin). id = clé des réglages (temps de marche…) et des réponses.
+const ARRETS_PRINCIPAL = [
+  { id: 'A', ligne: 'A', stop: 'TTR:MONC-1T', arret: 'Monconseil', direction: 'Jean Monnet', type: 'tram', couleur: '' },
+  { id: '2', ligne: '2', stop: 'TTR:MAJUB-1', arret: 'Maréchal Juin', direction: 'CHU Trousseau', type: 'bus', couleur: '' }
+];
+const ligneDeRoute = r => /^TTR:LINE:/.test(r) ? r.slice(9) : null;
 const ORIGINE_AUTORISEE = '*';   // tu pourras mettre 'https://chonchon37.github.io'
 const FLUX_TR = 'https://data.filbleu.fr/ws-tr/gtfs-rt/opendata/trip-updates';
 const FLUX_ALERTES = 'https://data.filbleu.fr/ws-tr/gtfs-rt/opendata/service-alerts';
 const FLUX_INCIDENTS = 'https://www.filbleu.fr/rss-incident.xml';   // l'info trafic du site filbleu.fr (travaux, déviations…)
-const NOMS_ARRETS = { 'A': 'Monconseil', '2': 'Maréchal Juin' };
 const CACHE_SECONDES = 30;   // les écrans redemandent toutes les 30 s
-const VERSION = '38';   // à changer à chaque mise à jour du code : vide les caches
+const VERSION = '39';   // à changer à chaque mise à jour du code : vide les caches
 
 // Horaires prévus, format compact : "jours" = n° de grille pour chaque jour depuis "debut",
 // chaque ligne "g=" = minutes depuis minuit, écrites en écarts successifs.
@@ -113,8 +114,8 @@ function joursEntre(a, b) {
   return Math.round((B - A) / 86400000);
 }
 
-function passagesPrevus(stop, maintenant, finFenetre) {
-  const P = lirePrevus(), A = P.arrets[stop], out = [];
+function passagesPrevus(e, maintenant, finFenetre) {
+  const P = lirePrevus(), A = P.arrets[e.ligne + '@' + e.stop] || P.arrets[e.stop], out = [];
   if (!A) return out;
   const p = partiesParis(maintenant);
   for (let delta = -1; delta <= 1; delta++) {        // hier (services après minuit), aujourd'hui, demain
@@ -181,9 +182,9 @@ function lirePassagesTR(b, stopsVoulus) {
     DIAG_TR.decodes++;
     parcourir(a, z, (f2, v2, a2, z2) => {
       if (f2 !== 3) return;                                // TripUpdate
-      let annule = false; const trouves = [];
+      let annule = false, route = null; const trouves = [];
       parcourir(a2, z2, (f3, v3, a3, z3) => {
-        if (f3 === 1) parcourir(a3, z3, (f4, v4) => { if (f4 === 4 && v4 === 3) annule = true; }); // trip CANCELED
+        if (f3 === 1) parcourir(a3, z3, (f4, v4, a4, z4) => { if (f4 === 4 && v4 === 3) annule = true; if (f4 === 5 && a4 !== undefined) route = ligneDeRoute(DEC.decode(b.subarray(a4, z4))); }); // trip CANCELED, route_id
         if (f3 !== 2) return;                              // StopTimeUpdate
         let stop = null, dep = 0, arr = 0, saute = false;
         parcourir(a3, z3, (f4, v4, a4, z4) => {
@@ -193,7 +194,7 @@ function lirePassagesTR(b, stopsVoulus) {
         });
         if (stop && stopsVoulus.has(stop) && !saute && (dep || arr)) trouves.push([stop, (dep || arr) * 1000]);
       });
-      if (!annule) for (const [s, t] of trouves) (res[s] = res[s] || []).push(t);
+      if (!annule) for (const [s, t] of trouves) (res[s] = res[s] || []).push([t, route]);
     });
   });
   return res;
@@ -219,8 +220,8 @@ function lireAlertesBrut(b, maintenant) {
         if (f3 === 1) { periodes++; let s = 0, e = 0; parcourir(a3, z3, (f4, v4) => { if (f4 === 1) s = v4; if (f4 === 2) e = v4; });
           const t = maintenant / 1000; if ((!s || t >= s) && (!e || t <= e)) dedans = true; }
         if (f3 === 5) parcourir(a3, z3, (f4, v4, a4, z4) => {
-          if (f4 === 2) { const r = DEC.decode(b.subarray(a4, z4)); if (ROUTES[r]) lignes.add(ROUTES[r]); }
-          if (f4 === 4) { const st = DEC.decode(b.subarray(a4, z4)); for (const l in ARRETS) if (ARRETS[l] === st) lignes.add(l); }
+          if (f4 === 2) { const l = ligneDeRoute(DEC.decode(b.subarray(a4, z4))); if (l) lignes.add(l); }
+          if (f4 === 4) lignes.add('@' + DEC.decode(b.subarray(a4, z4)));   // un arrêt précis
         });
         if ((f3 === 10 || f3 === 6) && !texte) parcourir(a3, z3, (f4, v4, a4, z4) => {   // header_text, sinon description
           if (f4 === 1 && !texte) parcourir(a4, z4, (f5, v5, a5, z5) => { if (f5 === 1 && !texte) texte = DEC.decode(b.subarray(a5, z5)); });
@@ -275,7 +276,6 @@ function lireIncidents(xml, maintenant) {
 }
 function lireIncidentsBrut(xml, maintenant) {
   const res = {}, vus = {};
-  for (const l in ARRETS) { res[l] = []; vus[l] = new Set(); }
   const items = xml.match(/<item[\s>][\s\S]*?<\/item>/g) || [];
   for (const it of items) {
     const champ = n => { const m = new RegExp('<' + n + '[^>]*>([\\s\\S]*?)</' + n + '>').exec(it); return m ? decoderXml(m[1]) : ''; };
@@ -284,8 +284,9 @@ function lireIncidentsBrut(xml, maintenant) {
     const lignes = lignesCitees(titre + ' . ' + texte);
     const court = titre.replace(/^\[[^\]]*\]\s*-\s*/, '').replace(/^[^-]{2,40}\s-\s(?=\S)/, '');   // sans « [Info réseau] - » ni « Tours - »
     const cle = court.toLowerCase();
-    for (const l in ARRETS) {
-      if (!lignes.has(l) || vus[l].has(cle)) continue;
+    for (const l of lignes) {
+      if (!res[l]) { res[l] = []; vus[l] = new Set(); }
+      if (vus[l].has(cle)) continue;
       vus[l].add(cle);
       res[l].push({
         titre: court.slice(0, 90),
@@ -294,11 +295,10 @@ function lireIncidentsBrut(xml, maintenant) {
         report: nettoyerDetail((texte.split(/Arrêt\(s\) de report\s*:?/i)[1] || '')).slice(0, 400),
         debut: debut,
         aVenir: debut > maintenant,
-        arret: texte.indexOf(NOMS_ARRETS[l]) >= 0 || titre.indexOf(NOMS_ARRETS[l]) >= 0
+        brut: titre + ' ' + texte     // pour savoir si « ton arrêt » est cité (retiré avant l'envoi)
       });
     }
   }
-  for (const l in res) res[l].sort((a, b) => (a.aVenir - b.aVenir) || (b.arret - a.arret) || (b.debut - a.debut));
   return res;
 }
 
@@ -331,21 +331,25 @@ async function binaire(url) {
   return new Uint8Array(await r.arrayBuffer());
 }
 
-async function construire() {
+async function construire(liste) {
   const maintenant = Date.now(), fin = maintenant + 2 * 3600000;
-  const stops = new Set(Object.values(ARRETS));
+  const stops = new Set(liste.map(e => e.stop));
   const [tr, al, inc] = await Promise.allSettled([binaire(FLUX_TR), binaire(FLUX_ALERTES), texteDistant(FLUX_INCIDENTS), chargerHoraires()]);
   const reels = tr.status === 'fulfilled' ? lirePassagesTR(tr.value, stops) : {};
   const alertes = al.status === 'fulfilled' ? lireAlertes(al.value, maintenant) : {};
   let incidents = null;
   if (inc.status === 'fulfilled') { try { incidents = lireIncidents(inc.value, maintenant); } catch (e) {} }
   const lignes = {};
-  for (const l in ARRETS) {
-    lignes[l] = {
-      passages: fusionner(passagesPrevus(ARRETS[l], maintenant, fin), reels[ARRETS[l]] || [], maintenant),
-      perturbation: alertes[l] || null,
-      incidents: incidents ? incidents[l] : null,     // null = info trafic indisponible
-      prochain: (passagesPrevus(ARRETS[l], fin, maintenant + 30 * 3600000)[0]) || null   // premier passage prévu après la fenêtre de 2 h
+  for (const e of liste) {
+    const ici = (reels[e.stop] || []).filter(x => !x[1] || x[1] === e.ligne).map(x => x[0]);
+    const inc = incidents ? (incidents[e.ligne] || []).map(x => {
+      const o = Object.assign({}, x, { arret: x.brut.indexOf(e.arret) >= 0 }); delete o.brut; return o;
+    }).sort((a, b) => (a.aVenir - b.aVenir) || (b.arret - a.arret) || (b.debut - a.debut)) : null;
+    lignes[e.id] = {
+      passages: fusionner(passagesPrevus(e, maintenant, fin), ici, maintenant),
+      perturbation: alertes[e.ligne] || alertes['@' + e.stop] || null,
+      incidents: inc,     // null = info trafic indisponible
+      prochain: (passagesPrevus(e, fin, maintenant + 30 * 3600000)[0]) || null   // premier passage prévu après la fenêtre de 2 h
     };
   }
   const P = lirePrevus();
@@ -358,8 +362,17 @@ async function construire() {
     horairesJusqua: P.jusqua,
     horairesSource: P.source,
     horairesAMettreAJour: joursEntre(ymd(...(() => { const p = partiesParis(maintenant); return [+p.year, +p.month, +p.day]; })()), P.jusqua) < 7,
+    // arrêts suivis par ce cadre, dans l'ordre d'affichage ; « horaires » = faux tant que GitHub n'a pas encore calculé ses horaires prévus
+    config: liste.map(e => ({ id: e.id, ligne: e.ligne, arret: e.arret, direction: e.direction, type: e.type, couleur: e.couleur || '',
+      horaires: !!(P.arrets[e.ligne + '@' + e.stop] || P.arrets[e.stop]) })),
     lignes: lignes
   };
+}
+// Arrêts suivis par un cadre
+async function arretsDuCadre(env, id) {
+  if (!id || id === 'principal') return ARRETS_PRINCIPAL;
+  const c = (await lireCadres(env)).find(x => x.id === id);
+  return c && c.config && c.config.modules && c.config.modules.transports ? (c.config.transports || []) : [];
 }
 
 /* =====================================================================
@@ -853,9 +866,11 @@ function nettoyerReglages(r) {
   }
   const tr = r.transports || {};
   res.transports = {};
-  for (const l of Object.keys(D.transports)) {
+  // arrêts du cadre principal (A, 2) + ceux des autres cadres (id « 55-VOCEB-1 »…)
+  const idsTr = Object.keys(D.transports).concat(Object.keys(tr).filter(k => !D.transports[k] && /^[\w-]{1,30}$/.test(k)).slice(0, 8));
+  for (const l of idsTr) {
     const x = tr[l] || {};
-    res.transports[l] = { actif: x.actif !== false, marche: entier(x.marche, 0, 60, D.transports[l].marche) };
+    res.transports[l] = { actif: x.actif !== false, marche: entier(x.marche, 0, 60, D.transports[l] ? D.transports[l].marche : 5) };
   }
   const ag = r.agenda || {}, pers = ag.personnes || {};
   res.agenda = {
@@ -1373,7 +1388,8 @@ function vueCadre(c, avecCles) {
   const cfg = c.config || {};
   const v = { id: c.id, nom: c.nom, cree: c.cree, lieu: cfg.lieu || null, modules: cfg.modules || {},
     agendas: (cfg.agendas || []).map((a, i) => ({ cle: 'GOOGLE_ICS' + (i + 1), nom: a.nom || '', url: masquer(a.url) })),
-    ha: cfg.ha && cfg.ha.url ? { url: cfg.ha.url, token: masquer(cfg.ha.token), alerte: cfg.ha.alerte || '' } : null };
+    ha: cfg.ha && cfg.ha.url ? { url: cfg.ha.url, token: masquer(cfg.ha.token), alerte: cfg.ha.alerte || '' } : null,
+    transports: cfg.transports || [] };
   v.cle = c.cle;   // code de l'écran : visible par l'admin de la famille (il en a besoin pour brancher son cadre)
   if (avecCles) v.cleAdmin = c.cleAdmin;
   return v;
@@ -1390,6 +1406,17 @@ function appliquerConfig(c, n) {
       const url = String(a.url || '').trim(), garde = /^••••/.test(url) || !url;
       return { nom: String(a.nom || '').slice(0, 30), url: garde ? (anciens[i] && anciens[i].url) || '' : url };
     }).filter(a => a.url && /^https:\/\/calendar\.google\.com\/|^https:\/\//.test(a.url));
+  }
+  if (Array.isArray(n.transports)) {
+    const vus = new Set();
+    cfg.transports = n.transports.slice(0, 6).map(e => {
+      const ligne = String(e.ligne || '').trim().slice(0, 5), stop = String(e.stop || '').trim().slice(0, 40);
+      if (!/^[0-9A-Za-z]+$/.test(ligne) || !/^TTR:[\w-]+$/.test(stop)) return null;
+      const id = (ligne + '-' + stop.slice(4)).replace(/[^\w-]/g, '').slice(0, 30);
+      if (vus.has(id)) return null; vus.add(id);
+      return { id, ligne, stop, arret: String(e.arret || '').slice(0, 40), direction: String(e.direction || '').slice(0, 40),
+        type: e.type === 'tram' ? 'tram' : 'bus', couleur: /^[0-9a-fA-F]{6}$/.test(e.couleur || '') ? e.couleur : '' };
+    }).filter(Boolean);
   }
   if (n.ha === null) delete cfg.ha;
   else if (n.ha) {
@@ -1455,7 +1482,19 @@ export default {
     if (request.method === 'OPTIONS') return new Response(null, { headers: entetes });
     try {
       if (chemin === '/spotify/retour') return await retourSpotify(env, url);
-      if (chemin === '/transports') return await avecCache('transports', CACHE_SECONDES, construire, entetes, ctx);
+      if (chemin === '/transports') {
+        // sans code : le cadre principal ; avec le code d'un cadre : ses propres arrêts
+        const c = url.searchParams.get('cle'), qui = c ? await identifier(envBase, c, url.searchParams.get('cadre')) : null;
+        const cadre = qui ? qui.cadre : 'principal', liste = await arretsDuCadre(envBase, cadre);
+        return await avecCache('transports-' + cadre + '-' + liste.map(e => e.id).join('.'), CACHE_SECONDES, () => construire(liste), entetes, ctx);
+      }
+      // Arrêts suivis par tous les cadres : lu par GitHub (outils/horaires.py) pour calculer les horaires prévus
+      if (chemin === '/transports/arrets') {
+        const vus = {}, L = ARRETS_PRINCIPAL.slice();
+        for (const c of await lireCadres(envBase)) if (c.config && c.config.modules && c.config.modules.transports) L.push(...(c.config.transports || []));
+        for (const e of L) vus[e.ligne + '@' + e.stop] = { ligne: e.ligne, stop: e.stop };
+        return repondre({ arrets: Object.values(vus) }, 200, entetes);
+      }
 
       // Tout le reste est privé
       const cle = url.searchParams.get('cle') || '';

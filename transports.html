@@ -192,8 +192,8 @@ var CONFIG = {
   WORKER: 'https://ecran-salon.nico-michon37.workers.dev/transports',
   RAFRAICHIR_SEC: 30,
   LIGNES: [
-    { ligne: 'A', type: 'tram', nom: 'tram', arret: 'Monconseil',    direction: 'Jean Monnet',   marche: 7, actif: true },
-    { ligne: '2', type: 'bus',  nom: 'bus',  arret: 'Maréchal Juin', direction: 'CHU Trousseau', marche: 9, actif: true }
+    { id: 'A', ligne: 'A', type: 'tram', nom: 'tram', arret: 'Monconseil',    direction: 'Jean Monnet',   marche: 7, actif: true },
+    { id: '2', ligne: '2', type: 'bus',  nom: 'bus',  arret: 'Maréchal Juin', direction: 'CHU Trousseau', marche: 9, actif: true }
   ]
   // marche = minutes à pied jusqu'à l'arrêt (modifiable aussi depuis la page admin)
 };
@@ -209,6 +209,18 @@ function signalerToucher(){ if (window.parent !== window) { try { window.parent.
 document.addEventListener('touchstart', signalerToucher, true);
 document.addEventListener('mousedown', signalerToucher, true);
 function $(id){ return document.getElementById(id); }
+function styleBadge(c){ return c.couleur ? ' style="background:#' + c.couleur + '"' : ''; }
+var REG_TR = null;
+// Arrêts suivis par ce cadre (envoyés par le Worker) ; temps de marche et affichage d'après les réglages
+function lignesDepuis(config){
+  var res = [];
+  for (var i = 0; i < config.length; i++) {
+    var c = config[i], r = REG_TR && REG_TR[c.id];
+    res.push({ id: c.id, ligne: c.ligne, type: c.type, nom: c.type === 'tram' ? 'tram' : 'bus', arret: c.arret, direction: c.direction,
+      couleur: c.couleur, horaires: c.horaires, marche: r ? r.marche : 5, actif: r ? r.actif !== false : true });
+  }
+  return res;
+}
 function hm(ms){ var d = new Date(ms); return pad(d.getHours()) + ':' + pad(d.getMinutes()); }
 
 var PIETON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13" cy="4.5" r="1.8"/><path d="M10 21l2-6 3 3v3M9 12l2-4 4 2 2 3M11 8l-2 4"/></svg>';
@@ -265,7 +277,7 @@ function retardMax(P){
 function etatTrafic(D, P, cfg){
   if (!D) return '';
   var n = enCours(D).length + (D.perturbation ? 1 : 0), r = retardMax(P);
-  var lien = ' lien" data-ligne="' + cfg.ligne + '"';
+  var lien = ' lien" data-ligne="' + cfg.id + '"';
   if (n) return '<div class="ln-status pb' + lien + '>' + (n > 1 ? n + ' perturbations' : 'Perturbé') + '<span class="chev">›</span></div>';
   if (r >= 5) return '<div class="ln-status pb">Retard ~' + r + ' min</div>';
   if (aVenir(D).length) return '<div class="ln-status av' + lien + '>Travaux à venir<span class="chev">›</span></div>';
@@ -275,19 +287,19 @@ function etatTrafic(D, P, cfg){
 function encadreAlerte(D, cfg){
   if (!D) return '';
   var E = enCours(D), V = aVenir(D);
-  if (D.perturbation) return '<div class="alerte" data-ligne="' + cfg.ligne + '"><span class="al-t">' + esc(D.perturbation) + '</span>' + (E.length ? '<span class="al-plus"> + ' + E.length + ' autre' + (E.length > 1 ? 's' : '') + ' sur le site Fil Bleu</span>' : '') + '</div>';
+  if (D.perturbation) return '<div class="alerte" data-ligne="' + cfg.id + '"><span class="al-t">' + esc(D.perturbation) + '</span>' + (E.length ? '<span class="al-plus"> + ' + E.length + ' autre' + (E.length > 1 ? 's' : '') + ' sur le site Fil Bleu</span>' : '') + '</div>';
   if (E.length) {
     var x = E[0];
-    return '<div class="alerte" data-ligne="' + cfg.ligne + '"><span class="al-t"><b>' + esc(x.titre) + '</b> — ' + esc(x.texte) + '</span>' +
+    return '<div class="alerte" data-ligne="' + cfg.id + '"><span class="al-t"><b>' + esc(x.titre) + '</b> — ' + esc(x.texte) + '</span>' +
       (E.length > 1 ? '<span class="al-plus">+ ' + (E.length - 1) + ' autre' + (E.length > 2 ? 's' : '') + ' : ' + esc(E.slice(1).map(function(y){ return y.titre; }).join(' · ')) + '</span>' : '') + '</div>';
   }
-  if (V.length) return '<div class="alerte bientot" data-ligne="' + cfg.ligne + '"><span class="al-t"><b>Dès ' + quand(V[0].debut) + '</b> — ' + esc(V[0].texte || V[0].titre) + '</span></div>';
+  if (V.length) return '<div class="alerte bientot" data-ligne="' + cfg.id + '"><span class="al-t"><b>Dès ' + quand(V[0].debut) + '</b> — ' + esc(V[0].texte || V[0].titre) + '</span></div>';
   return '';
 }
 function carte(cfg, D){
   var P = (D ? D.passages : []).filter(function(p){ return p.heure > Date.now() - 30000; });
   var html = '<div class="card line' + (ALIGNER ? ' serre' : '') + '"><div class="ln-head">' +
-    '<div class="badge ' + cfg.type + '">' + cfg.ligne + '</div>' +
+    '<div class="badge ' + cfg.type + '"' + styleBadge(cfg) + '>' + cfg.ligne + '</div>' +
     '<div class="ln-txt"><div class="ln-l1"><div class="ln-stop h">' + cfg.arret + '</div>' + etatTrafic(D, P, cfg) + '</div>' +
     '<div class="ln-sub">vers ' + cfg.direction + '<span class="sep">·</span>' + PIETON + cfg.marche + ' min à pied</div></div></div>';
 
@@ -299,7 +311,7 @@ function carte(cfg, D){
   if (cible < 0) {
     html += '<div class="hero rien"><div class="hero-l">Prochain départ</div>' +
       '<div class="hero-n mot h">' + (P.length ? 'Trop tard' : 'Aucun') + '</div>' +
-      '<div class="hero-d">' + (P.length ? Nom + ' de ' + hm(P[0].heure) + ' · rien d\'autre d\'annoncé dans les 2 h' : 'Aucun passage dans les 2 prochaines heures') + '</div></div>';
+      '<div class="hero-d">' + (P.length ? Nom + ' de ' + hm(P[0].heure) + ' · rien d\'autre d\'annoncé dans les 2 h' : cfg.horaires === false ? 'Horaires prévus disponibles d\'ici demain matin' : 'Aucun passage dans les 2 prochaines heures') + '</div></div>';
   } else {
     var p = P[cible], marge = minutesAvant(p.heure) - cfg.marche, vite = marge <= 1;
     html += '<div class="hero' + (vite ? ' vite' : '') + '"><div class="hero-l">' + (vite ? 'Pars' : 'Pars dans') + '</div>' +
@@ -312,7 +324,7 @@ function carte(cfg, D){
   html += rate ? '<div class="rate">' + ATTENTION + hm(rate.heure) + ' — trop tard à pied</div>' : '<div class="rate vide">' + ATTENTION + '</div>';
 
   // Frise des 60 prochaines minutes ; la zone hachurée = temps de marche
-  var coul = cfg.type === 'tram' ? 'var(--tram)' : 'var(--bus)';
+  var coul = cfg.couleur ? '#' + cfg.couleur : cfg.type === 'tram' ? 'var(--tram)' : 'var(--bus)';
   html += '<div class="frise"><div class="fr-titre">Prochaine heure</div><div class="fr-track"></div>' +
     '<div class="fr-walk" style="width:' + (Math.min(cfg.marche, 60) / 60 * 100).toFixed(1) + '%"></div>';
   for (var f = 0; f < P.length; f++) {
@@ -346,7 +358,7 @@ var ALIGNER = false;   // une ligne a un encadré : l'autre en reçoit un de mê
 function afficher(D){
   var html = '';
   ALIGNER = false;   // plus d'encadré : le détail s'ouvre en touchant la pastille
-  for (var i = 0; i < CONFIG.LIGNES.length; i++) if (CONFIG.LIGNES[i].actif !== false) html += carte(CONFIG.LIGNES[i], D[CONFIG.LIGNES[i].ligne]);
+  for (var i = 0; i < CONFIG.LIGNES.length; i++) if (CONFIG.LIGNES[i].actif !== false) html += carte(CONFIG.LIGNES[i], D[CONFIG.LIGNES[i].id]);
   $('lines').innerHTML = html;
   $('demo').style.display = CONFIG.WORKER ? 'none' : '';
 }
@@ -361,12 +373,13 @@ var dernieresDonnees = null, derniereMaj = 0;
 function charger(){
   if (!CONFIG.WORKER) { dernieresDonnees = donneesDemo(); derniereMaj = Date.now(); afficher(dernieresDonnees); majTexte(); return; }
   var xhr = new XMLHttpRequest();
-  xhr.open('GET', CONFIG.WORKER, true);
+  xhr.open('GET', CONFIG.WORKER + (param('cle') ? '?cle=' + encodeURIComponent(param('cle')) : ''), true);
   xhr.timeout = 20000;
   xhr.onload = function(){
     if (xhr.status !== 200) return;
     try {
       var j = JSON.parse(xhr.responseText), res = {};
+      if (j.config) CONFIG.LIGNES = lignesDepuis(j.config);
       for (var cle in j.lignes) {
         res[cle] = {
           passages: j.lignes[cle].passages.map(function(p){ return { heure: p.t, tempsReel: p.tempsReel, retard: p.retard }; }),
@@ -384,9 +397,9 @@ function charger(){
 // Réglages envoyés par l'écran (page admin) : temps de marche, lignes affichées
 window.addEventListener('message', function(e){
   if (!e.data || e.data.type !== 'reglages' || !e.data.value || !e.data.value.transports) return;
-  var T = e.data.value.transports;
+  var T = REG_TR = e.data.value.transports;
   for (var i = 0; i < CONFIG.LIGNES.length; i++) {
-    var r = T[CONFIG.LIGNES[i].ligne];
+    var r = T[CONFIG.LIGNES[i].id];
     if (r) { CONFIG.LIGNES[i].marche = r.marche; CONFIG.LIGNES[i].actif = r.actif; }
   }
   if (dernieresDonnees) afficher(dernieresDonnees);
@@ -398,9 +411,9 @@ var minuteurPanneau = null;
 function depuis(ms){ var d = new Date(ms); return 'depuis le ' + d.getDate() + ' ' + MS[d.getMonth()]; }
 function ouvrirPanneau(ligne){
   var cfg = null, D = dernieresDonnees ? dernieresDonnees[ligne] : null;
-  for (var i = 0; i < CONFIG.LIGNES.length; i++) if (CONFIG.LIGNES[i].ligne === ligne) cfg = CONFIG.LIGNES[i];
+  for (var i = 0; i < CONFIG.LIGNES.length; i++) if (CONFIG.LIGNES[i].id === ligne) cfg = CONFIG.LIGNES[i];
   if (!cfg || !D) return;
-  var h = '<div class="pn-tete"><div class="badge ' + cfg.type + '">' + cfg.ligne + '</div><div class="pn-titre h">Info trafic · ' + (cfg.type === 'tram' ? 'Tram ' : 'Ligne ') + cfg.ligne + '</div><div class="pn-fermer">Fermer ✕</div></div><div class="pn-liste">';
+  var h = '<div class="pn-tete"><div class="badge ' + cfg.type + '"' + styleBadge(cfg) + '>' + cfg.ligne + '</div><div class="pn-titre h">Info trafic · ' + (cfg.type === 'tram' ? 'Tram ' : 'Ligne ') + cfg.ligne + '</div><div class="pn-fermer">Fermer ✕</div></div><div class="pn-liste">';
   if (D.perturbation) h += '<div class="pn-item"><div class="pn-it-t">Alerte en cours</div><div class="pn-it-d">' + esc(D.perturbation) + '</div></div>';
   var L = (D.incidents || []).slice().sort(function(a, b){ return (a.aVenir - b.aVenir) || (b.arret - a.arret); });
   for (var k = 0; k < L.length; k++) {

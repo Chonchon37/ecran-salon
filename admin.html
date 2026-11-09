@@ -369,6 +369,19 @@ button.discret{background:transparent;color:var(--muted);padding:8px 10px;font-s
       <div id="cfgAgendas"></div>
       <button type="button" id="cfgAjoutAgenda">+ Ajouter un agenda</button>
     </section>
+    <section data-groupe="cadre" id="secArrets" data-module="famille">
+      <h2>Arrêts Fil Bleu</h2>
+      <p class="aide">Les arrêts affichés sur l'écran (module Transports), une carte par direction. Les passages en temps réel s'affichent tout de suite ; les horaires prévus d'un nouvel arrêt arrivent la nuit suivante.</p>
+      <div id="cfgArrets"></div>
+      <div style="margin-top:14px;background:var(--bg);border-radius:14px;padding:14px">
+        <div class="rang" style="margin-bottom:10px">
+          <select id="arLigne" style="flex:1;min-width:200px"><option value="">Ligne…</option></select>
+          <select id="arArret" style="flex:1;min-width:200px" disabled><option value="">Arrêt…</option></select>
+        </div>
+        <div id="arDirections" class="modules" style="margin-bottom:10px"></div>
+        <div class="rang"><button type="button" id="arAjouter" disabled>+ Ajouter</button><span id="arEtat" class="aide" style="margin:0"></span></div>
+      </div>
+    </section>
     <section data-groupe="cadre" id="secHA" data-module="famille">
       <h2>Home Assistant</h2>
       <p class="aide">Nécessaire pour les modules Maison et Musique, et pour la vigilance Météo-France. Adresse accessible depuis Internet + jeton d'accès longue durée (Profil → Sécurité dans Home Assistant).</p>
@@ -395,7 +408,9 @@ button.discret{background:transparent;color:var(--muted);padding:8px 10px;font-s
 <script>
 const WORKER = 'https://ecran-salon.nico-michon37.workers.dev';
 const NOMS_SLIDES = { accueil: 'Accueil', meteo: 'Météo', transports: 'Transports', agenda: 'Agenda', maison: 'Maison', anniversaires: 'Anniversaires', travail: 'Travail 💼', musique: 'Musique 🎵' };
-const LIGNES = { A: 'Tram A · Monconseil', '2': 'Bus 2 · Maréchal Juin' };
+// Arrêts suivis par le cadre affiché (lus sur le Worker) ; par défaut ceux du cadre principal
+let TR_CONFIG = [{ id: 'A', ligne: 'A', type: 'tram', arret: 'Monconseil', direction: 'Jean Monnet' }, { id: '2', ligne: '2', type: 'bus', arret: 'Maréchal Juin', direction: 'CHU Trousseau' }];
+const nomArret = e => (e.type === 'tram' ? 'Tram ' : 'Bus ') + e.ligne + ' · ' + e.arret + (e.direction ? ' → ' + e.direction : '');
 const $ = id => document.getElementById(id);
 const echapper = t => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
@@ -444,6 +459,8 @@ async function connecter(cle, recharge) {
     // Infos complémentaires (catalogue Home Assistant, noms des agendas) : en parallèle
     catalogue = null; CFG = null; chargerConfig();
     if (moduleOk('maison')) appel('/maison/catalogue').then(c => { if (c.absent) throw new Error(c.erreur); catalogue = c; dessinerMaison(); }).catch(err => { $('lumieres').innerHTML = $('modes').innerHTML = '<p class="vide">Home Assistant injoignable : ' + echapper(err.message) + '</p>'; });
+    TR_CONFIG = R.cadre.id === 'principal' ? TR_CONFIG.filter(e => e.id === 'A' || e.id === '2') : [];
+    if (moduleOk('transports')) appel('/transports').then(t => { if (t.config) { TR_CONFIG = t.config; dessinerLignes(); } }).catch(() => {});
     agendasConnus = [];
     appel('/agenda').then(a => { agendasConnus = a.agendas || []; dessinerAgendas(); }).catch(() => dessinerAgendas());
   } catch (err) {
@@ -787,12 +804,13 @@ $('plages').addEventListener('change', e => {
 
 function dessinerLignes() {
   const T = R.reglages.transports;
-  $('lignes').innerHTML = ['A', '2'].map(l => `
+  TR_CONFIG.forEach(e => { if (!T[e.id]) T[e.id] = { actif: true, marche: 5 }; });
+  $('lignes').innerHTML = TR_CONFIG.length ? TR_CONFIG.map(e => `
     <div class="ligne">
-      <div class="nom">${LIGNES[l]}</div>
-      <label class="interrupteur"><input type="checkbox" data-ligne-actif="${l}" ${T[l].actif ? 'checked' : ''}> Affichée</label>
-      <input type="number" min="0" max="60" data-marche="${l}" value="${T[l].marche}" aria-label="Minutes à pied jusqu'à ${LIGNES[l]}"> <span>min à pied</span>
-    </div>`).join('');
+      <div class="nom">${echapper(nomArret(e))}</div>
+      <label class="interrupteur"><input type="checkbox" data-ligne-actif="${e.id}" ${T[e.id].actif ? 'checked' : ''}> Affichée</label>
+      <input type="number" min="0" max="60" data-marche="${e.id}" value="${T[e.id].marche}" aria-label="Minutes à pied jusqu'à ${echapper(e.arret)}"> <span>min à pied</span>
+    </div>`).join('') : '<p class="vide">Aucun arrêt : choisis-les dans Configuration → Arrêts Fil Bleu.</p>';
 }
 $('lignes').addEventListener('change', e => {
   const T = R.reglages.transports, t = e.target;
@@ -990,7 +1008,7 @@ function groupeActuel() { const b = document.querySelector('#onglets button[aria
 const NOMS_MODULES = {
   maison: ['Maison', 'Lumières et boutons de modes (Home Assistant)'],
   musique: ['Musique', 'Enceintes Google et playlists Spotify (Home Assistant)'],
-  transports: ['Transports Fil Bleu', 'Tram A et bus 2 à Tours (arrêts Monconseil / Maréchal Juin)']
+  transports: ['Transports Fil Bleu', 'Bus et tram de Tours Métropole : passages en temps réel aux arrêts choisis']
 };
 function cocherModules(zone, mods) {
   zone.innerHTML = Object.keys(NOMS_MODULES).map(k => `<label><input type="checkbox" data-mod="${k}" ${mods && mods[k] ? 'checked' : ''}><span>${NOMS_MODULES[k][0]}<small>${NOMS_MODULES[k][1]}</small></span></label>`).join('');
@@ -1037,6 +1055,8 @@ function dessinerConfig() {
   lireVille = champVille($('cfgVille'), CFG.lieu);
   cocherModules($('cfgModules'), CFG.modules);
   dessinerAgendasCfg();
+  CFG.transports = CFG.transports || [];
+  dessinerArretsCfg(); chargerCatalogue();
   $('haUrl').value = CFG.ha ? CFG.ha.url : '';
   $('haJeton').value = '';
   $('haJetonInfo').textContent = CFG.ha && CFG.ha.token ? 'Jeton enregistré (' + CFG.ha.token + '). Laisse vide pour le garder.' : 'Aucun jeton enregistré.';
@@ -1062,7 +1082,7 @@ $('cfgEnregistrer').addEventListener('click', async () => {
   if (mauvais) { $('cfgEtat').textContent = 'Une adresse d\'agenda doit commencer par https://'; return; }
   const haUrl = $('haUrl').value.trim();
   if (haUrl && !/^https?:\/\//.test(haUrl)) { $('cfgEtat').textContent = 'L\'adresse Home Assistant doit commencer par https://'; return; }
-  const corps = { nom: $('cfgNom').value, modules: lireModules($('cfgModules')), agendas: CFG.agendas.filter(a => a.url.trim()),
+  const corps = { nom: $('cfgNom').value, modules: lireModules($('cfgModules')), agendas: CFG.agendas.filter(a => a.url.trim()), transports: CFG.transports,
     ha: haUrl ? { url: haUrl, token: $('haJeton').value.trim(), alerte: $('haAlerte').value.trim() } : null };
   const lieu = lireVille && lireVille(); if (lieu) corps.lieu = lieu;
   $('cfgEnregistrer').disabled = true; $('cfgEtat').textContent = 'Enregistrement…';
@@ -1075,6 +1095,50 @@ $('cfgEnregistrer').addEventListener('click', async () => {
     if (R.super) chargerCadres();
   } catch (err) { $('cfgEtat').textContent = 'Échec : ' + err.message; }
   finally { $('cfgEnregistrer').disabled = false; }
+});
+
+/* ----- Arrêts Fil Bleu du cadre : catalogue des lignes (lignes.json, calculé chaque nuit par GitHub) ----- */
+let CATALOGUE = null;
+function dessinerArretsCfg() {
+  $('cfgArrets').innerHTML = CFG.transports.length ? CFG.transports.map((e, i) => `<div class="ligne">
+      <span class="puce" style="${e.couleur ? 'background:#' + e.couleur + ';color:#fff' : ''}">${echapper(e.ligne)}</span>
+      <div class="nom" style="flex:1">${echapper(e.arret)} <span style="color:var(--muted);font-weight:500">→ ${echapper(e.direction)}</span></div>
+      <button type="button" data-ar-retirer="${i}">Retirer</button></div>`).join('') : '<p class="vide">Aucun arrêt.</p>';
+}
+$('cfgArrets').addEventListener('click', e => { const i = e.target.dataset.arRetirer; if (i !== undefined) { CFG.transports.splice(+i, 1); dessinerArretsCfg(); } });
+async function chargerCatalogue() {
+  if (CATALOGUE) return remplirLignes();
+  try { CATALOGUE = await fetch(SITE + 'lignes.json', { cache: 'no-cache' }).then(r => { if (!r.ok) throw 0; return r.json(); }); remplirLignes(); }
+  catch (e) { $('arEtat').textContent = 'Liste des lignes pas encore disponible (elle est calculée cette nuit).'; }
+}
+function remplirLignes() {
+  $('arLigne').innerHTML = '<option value="">Ligne…</option>' + CATALOGUE.lignes.map((l, i) => `<option value="${i}">${echapper((l.type === 'tram' ? 'Tram ' : 'Ligne ') + l.ligne + ' · ' + l.nom)}</option>`).join('');
+}
+const ligneChoisie = () => CATALOGUE && CATALOGUE.lignes[+$('arLigne').value];
+$('arLigne').addEventListener('change', () => {
+  const L = $('arLigne').value === '' ? null : ligneChoisie(); $('arDirections').innerHTML = ''; $('arAjouter').disabled = true;
+  if (!L) { $('arArret').disabled = true; return; }
+  const noms = [];
+  L.directions.forEach(d => d.arrets.forEach(a => { if (noms.indexOf(a[1]) < 0) noms.push(a[1]); }));
+  $('arArret').innerHTML = '<option value="">Arrêt…</option>' + noms.map(n => `<option>${echapper(n)}</option>`).join('');
+  $('arArret').disabled = false;
+});
+$('arArret').addEventListener('change', () => {
+  const L = ligneChoisie(), nom = $('arArret').value;
+  $('arDirections').innerHTML = nom ? L.directions.map((d, i) => d.arrets.some(x => x[1] === nom) ? `<label><input type="checkbox" data-dir="${i}" checked><span>vers ${echapper(d.vers)}</span></label>` : '').join('') : '';
+  $('arAjouter').disabled = !nom;
+});
+$('arAjouter').addEventListener('click', () => {
+  const L = ligneChoisie(), nom = $('arArret').value;
+  let n = 0;
+  $('arDirections').querySelectorAll('[data-dir]:checked').forEach(c => {
+    const d = L.directions[+c.dataset.dir], a = d.arrets.find(x => x[1] === nom);
+    if (!a || CFG.transports.some(e => e.stop === a[0] && e.ligne === L.ligne) || CFG.transports.length >= 6) return;
+    CFG.transports.push({ ligne: L.ligne, stop: a[0], arret: nom, direction: d.vers, type: L.type, couleur: L.couleur }); n++;
+  });
+  dessinerArretsCfg();
+  $('arEtat').textContent = n ? n + ' arrêt' + (n > 1 ? 's' : '') + ' ajouté' + (n > 1 ? 's' : '') + ' : pense à enregistrer la configuration.' : 'Rien d\'ajouté (déjà présent ou 6 arrêts maximum).';
+  const m = $('cfgModules').querySelector('[data-mod=transports]'); if (n && m) m.checked = true;
 });
 
 /* ----- Deux vues : la liste des cadres (super-admin) et la fiche d'un cadre ----- */
