@@ -348,7 +348,7 @@ button.discret{background:transparent;color:var(--muted);padding:8px 10px;font-s
     <!-- MAISON & MUSIQUE -->
     <section data-groupe="maison" id="secHA" data-module="famille">
       <h2>Connexion Home Assistant</h2>
-      <p class="aide">Nécessaire pour les modules Maison et Musique, et pour la vigilance Météo-France. Adresse accessible depuis Internet + jeton d'accès longue durée (Profil → Sécurité dans Home Assistant).</p>
+      <p class="aide">Facultatif : seulement si la famille a Home Assistant (lumières, enceintes Google, vigilance Météo-France). Pour des enceintes Sonos, voir plus bas. Adresse accessible depuis Internet + jeton d'accès longue durée (Profil → Sécurité dans Home Assistant).</p>
       <div class="champ"><label for="haUrl">Adresse</label><input type="text" id="haUrl" placeholder="https://maison.duckdns.org:8123" autocomplete="off" spellcheck="false"></div>
       <div class="champ"><label for="haJeton">Jeton d'accès</label><input type="password" id="haJeton" placeholder="Colle le jeton" autocomplete="new-password"><small id="haJetonInfo"></small></div>
       <div class="champ"><label for="haAlerte">Capteur de vigilance (facultatif)</label><input type="text" id="haAlerte" placeholder="sensor.37_weather_alert" spellcheck="false"><small>Intégration Météo-France de Home Assistant : capteur « Weather alert » du département.</small></div>
@@ -363,7 +363,15 @@ button.discret{background:transparent;color:var(--muted);padding:8px 10px;font-s
       <p class="aide">Jusqu'à 5 boutons (automatisations, scènes ou scripts de Home Assistant). Les 4 premiers apparaissent aussi sur l'accueil. Tu peux changer le nom affiché sur chaque bouton.</p>
       <div id="modes"></div>
     </section>
-    <section data-groupe="maison" data-module="musique">
+    <section data-groupe="maison" data-module="sonos">
+      <h2>Sonos</h2>
+      <p class="aide">Pour piloter des enceintes <b>Sonos</b> depuis l'écran (lecture, volume, favoris), sans Home Assistant. Connecte le compte Sonos du foyer une seule fois.</p>
+      <p id="etatSonos" class="aide">…</p>
+      <button type="button" id="connecterSonos">Connecter Sonos</button>
+      <button type="button" id="deconnecterSonos" hidden>Déconnecter</button>
+    </section>
+
+    <section data-groupe="maison" data-module="musiqueHA">
       <h2>Spotify</h2>
       <p class="aide">Connecte ton compte Spotify pour voir <b>tes playlists</b> sur l'écran (onglet et tuile Musique). À faire une seule fois.</p>
       <p class="aide">Deux comptes possibles. Pour le 2ᵉ compte, son adresse e-mail Spotify doit d'abord être ajoutée dans l'application Spotify (onglet « User Management »).</p>
@@ -371,7 +379,7 @@ button.discret{background:transparent;color:var(--muted);padding:8px 10px;font-s
       <button type="button" id="connecterSpotify" data-compte="moi">Connecter Spotify</button>
       <button type="button" id="connecterSpotify2" data-compte="flo">Connecter Spotify</button>
     </section>
-    <section data-groupe="maison" data-module="musique">
+    <section data-groupe="maison" data-module="musiqueHA">
       <h2>Favoris musique</h2>
       <p class="aide">Boutons de la tuile Musique quand rien ne joue (8 au plus). Chaque bouton envoie une phrase à l'Assistant Google ; <b>{enceinte}</b> est remplacé par l'enceinte choisie sur l'écran. Exemple : « Joue ma playlist Soirée sur Spotify sur {enceinte} ».</p>
       <div id="favorisMusique"></div>
@@ -967,6 +975,7 @@ function ouvrirGroupe(g) {
   $('intro').textContent = INTROS[g];
   $('barre').hidden = false;
   if (g === 'cadre') dessinerBranchement();
+  if (g === 'maison') etatSonos();
   try { localStorage.setItem('ecran-admin-onglet', g); } catch (e) {}
 }
 $('onglets').addEventListener('click', e => { const g = e.target.dataset.g; if (g) { ouvrirGroupe(g); window.scrollTo({ top: $('onglets').offsetTop - 4, behavior: 'smooth' }); } });
@@ -1034,12 +1043,31 @@ $('enregistrer').addEventListener('click', async () => {
 });
 window.addEventListener('beforeunload', e => { if (modifie) { e.preventDefault(); e.returnValue = ''; } });
 
+/* ---------- Sonos ---------- */
+function etatSonos() {
+  const C = R.cadre || {};
+  $('connecterSonos').hidden = !!C.sonos; $('deconnecterSonos').hidden = !C.sonos;
+  $('connecterSonos').disabled = !C.sonosConfigure;
+  $('etatSonos').innerHTML = !C.sonosConfigure ? 'Pas encore disponible : l\'application Sonos doit d\'abord être déclarée dans le Worker (SONOS_ID et SONOS_SECRET).'
+    : C.sonos ? '<b style="color:var(--ok)">Connecté ✓</b> La musique de l\'écran passe par Sonos.' : 'Non connecté.';
+}
+$('connecterSonos').addEventListener('click', () => {
+  window.open(WORKER + '/sonos/connexion?cle=' + encodeURIComponent(CLE) + (CADRE_ID ? '&cadre=' + CADRE_ID : ''), '_blank');
+  $('etatSonos').textContent = 'Connecte-toi avec le compte Sonos du foyer dans l\'onglet ouvert, puis reviens ici et recharge la page.';
+});
+$('deconnecterSonos').addEventListener('click', async () => {
+  if (!confirm('Déconnecter Sonos de ce cadre ?')) return;
+  await appel('/sonos/deconnexion', { method: 'POST' });
+  await connecter(CLE, true); ouvrirGroupe('maison');
+});
+
 /* ---------- Plusieurs cadres ---------- */
 // Ce que le cadre affiche (le principal a tout ; une famille selon ses modules et son Home Assistant)
 function moduleOk(id) {
   const C = R && R.cadre;
   if (!C || !C.modules) return true;
-  if (id === 'maison' || id === 'musique') return !!(C.modules[id] && C.ha);
+  if (id === 'maison') return !!(C.modules[id] && C.ha);
+  if (id === 'musique') return !!(C.modules[id] && (C.ha || C.sonos));
   if (id === 'transports' || id === 'travail') return !!C.modules[id];
   return true;
 }
@@ -1049,6 +1077,8 @@ function sectionOk(m) {
   if (m === 'principal') return principal;
   if (m === 'famille') return !principal;
   if (m === 'super') return !!R.super;
+  if (m === 'musiqueHA') return moduleOk('musique') && !!R.cadre.ha && !R.cadre.sonos;
+  if (m === 'sonos') return principal || !!(R.cadre.modules && R.cadre.modules.musique);
   if (m === 'maisonmusique') return principal || !!(R.cadre.modules && (R.cadre.modules.maison || R.cadre.modules.musique));
   return moduleOk(m);
 }

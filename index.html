@@ -360,7 +360,8 @@ function appliquerReglages(R){
   if (C && C.lieu) { CONFIG.LAT = C.lieu.lat; CONFIG.LON = C.lieu.lon; }
   var modOk = function(id){
     if (!C || !C.modules) return true;
-    if (id === 'maison' || id === 'musique') return !!(C.modules[id] && C.ha);
+    if (id === 'maison') return !!(C.modules[id] && C.ha);
+    if (id === 'musique') return !!(C.modules[id] && (C.ha || C.sonos));
     if (id === 'transports' || id === 'travail') return !!C.modules[id];
     return true;
   };

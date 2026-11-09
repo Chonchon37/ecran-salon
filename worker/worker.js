@@ -33,7 +33,7 @@ const FLUX_TR = 'https://data.filbleu.fr/ws-tr/gtfs-rt/opendata/trip-updates';
 const FLUX_ALERTES = 'https://data.filbleu.fr/ws-tr/gtfs-rt/opendata/service-alerts';
 const FLUX_INCIDENTS = 'https://www.filbleu.fr/rss-incident.xml';   // l'info trafic du site filbleu.fr (travaux, déviations…)
 const CACHE_SECONDES = 30;   // les écrans redemandent toutes les 30 s
-const VERSION = '43';   // à changer à chaque mise à jour du code : vide les caches
+const VERSION = '44';   // à changer à chaque mise à jour du code : vide les caches
 
 // Horaires prévus, format compact : "jours" = n° de grille pour chaque jour depuis "debut",
 // chaque ligne "g=" = minutes depuis minuit, écrites en écarts successifs.
@@ -1130,11 +1130,151 @@ async function construireMusique(env) {
 }
 async function pochetteMusique(env, id) {
   let chemin = E(env).IMAGES_MUSIQUE[id];
+  if (/^sonos:/.test(id)) {   // pochette Sonos : adresse publique du service de musique
+    if (!chemin) return new Response('', { status: 404 });
+    const r = await fetch(chemin);
+    return new Response(r.body, { status: r.status, headers: { 'Content-Type': r.headers.get('Content-Type') || 'image/jpeg', 'Cache-Control': 'public, max-age=86400', 'Access-Control-Allow-Origin': '*' } });
+  }
   if (!chemin) { const e = await fetch(haUrl(env, '/api/states/' + id), { headers: { Authorization: 'Bearer ' + env.HA_TOKEN } }).then(r => r.ok ? r.json() : null).catch(() => null); chemin = e && e.attributes && e.attributes.entity_picture; }
   if (!chemin) return new Response('', { status: 404 });
   const r = await fetch(/^https?:/.test(chemin) ? chemin : haUrl(env, chemin), { headers: { Authorization: 'Bearer ' + env.HA_TOKEN } });
   return new Response(r.body, { status: r.status, headers: { 'Content-Type': r.headers.get('Content-Type') || 'image/jpeg', 'Cache-Control': 'public, max-age=86400', 'Access-Control-Allow-Origin': '*' } });
 }
+/* ---------- Sonos (API Control de Sonos, dans le cloud : pas besoin de Home Assistant) ----------
+   Secrets du Worker : SONOS_ID et SONOS_SECRET (intégration « Control » créée sur developer.sonos.com,
+   adresse de retour : SONOS_RETOUR). Chaque cadre connecte son propre compte Sonos depuis la page admin. */
+const SONOS_RETOUR = 'https://ecran-salon.nico-michon37.workers.dev/sonos/retour';
+const SONOS_API = 'https://api.ws.sonos.com/control/api/v1';
+const ETATS_SONOS = { PLAYBACK_STATE_PLAYING: 'playing', PLAYBACK_STATE_BUFFERING: 'playing', PLAYBACK_STATE_PAUSED: 'paused', PLAYBACK_STATE_IDLE: 'idle' };
+async function jetonSonos(env) {
+  if (!env.SONOS_ID || !env.SONOS_SECRET || !env.REGLAGES) return null;
+  const m = E(env).SONOS_JETON;
+  if (m && m.exp > Date.now() + 60000) return m.acces;
+  const k = await env.REGLAGES.get(cleKV(env, 'sonos'), 'json').catch(() => null);
+  if (!k) return null;
+  if (k.exp > Date.now() + 60000) { E(env).SONOS_JETON = k; return k.acces; }
+  const r = await fetch('https://api.sonos.com/login/v3/oauth/access', {
+    method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded', Authorization: 'Basic ' + btoa(env.SONOS_ID + ':' + env.SONOS_SECRET) },
+    body: 'grant_type=refresh_token&refresh_token=' + encodeURIComponent(k.refresh)
+  });
+  if (!r.ok) return null;
+  const j = await r.json();
+  const n = { refresh: j.refresh_token || k.refresh, acces: j.access_token, exp: Date.now() + (j.expires_in || 86400) * 1000, foyer: k.foyer };
+  await env.REGLAGES.put(cleKV(env, 'sonos'), JSON.stringify(n));
+  E(env).SONOS_JETON = n;
+  return n.acces;
+}
+async function sonos(env, chemin, options) {
+  const jeton = await jetonSonos(env);
+  if (!jeton) throw new Error('Sonos n\'est pas connecté');
+  const o = options || {};
+  const r = await fetch(SONOS_API + chemin, { method: o.method || 'GET', headers: { Authorization: 'Bearer ' + jeton, 'Content-Type': 'application/json' }, body: o.body ? JSON.stringify(o.body) : undefined });
+  if (!r.ok) throw new Error('Sonos ' + r.status + ' : ' + (await r.text()).slice(0, 120));
+  const t = await r.text();
+  return t ? JSON.parse(t) : {};
+}
+async function foyerSonos(env) {
+  if (E(env).SONOS_FOYER) return E(env).SONOS_FOYER;
+  const j = await sonos(env, '/households');
+  const h = j.households && j.households[0];
+  if (!h) throw new Error('Aucun système Sonos sur ce compte');
+  return (E(env).SONOS_FOYER = h.id);
+}
+async function construireSonos(env) {
+  if (E(env).MUSIQUE_MEMO && Date.now() - E(env).MUSIQUE_MEMO.t < 4000) return E(env).MUSIQUE_MEMO.res;
+  const R = await lireReglages(env), hh = await foyerSonos(env);
+  const g = await sonos(env, '/households/' + hh + '/groups');
+  const lecteurs = await Promise.all((g.groups || []).map(async x => {
+    const [meta, vol, lec] = await Promise.all([
+      sonos(env, '/groups/' + x.id + '/playbackMetadata').catch(() => ({})),
+      sonos(env, '/groups/' + x.id + '/groupVolume').catch(() => ({})),
+      sonos(env, '/groups/' + x.id + '/playback').catch(() => ({}))]);
+    const it = meta.currentItem || {}, tr = it.track || {}, id = 'sonos:' + x.id;
+    let image = null;
+    const img = tr.imageUrl || (meta.container && meta.container.imageUrl);
+    if (img && /^https:/.test(img)) { E(env).IMAGES_MUSIQUE[id] = img; image = String(tr.name || '').length + '-' + (tr.name || ''); }
+    return { id, nom: x.name, etat: ETATS_SONOS[lec.playbackState || x.playbackState] || 'idle', titre: tr.name || (meta.streamInfo || ''), artiste: (tr.artist && tr.artist.name) || '',
+      app: (meta.container && meta.container.service && meta.container.service.name) || (tr.service && tr.service.name) || 'Sonos',
+      volume: typeof vol.volume === 'number' ? vol.volume : null, image, duree: tr.durationMillis ? tr.durationMillis / 1000 : 0,
+      position: lec.positionMillis ? lec.positionMillis / 1000 : 0, majPos: Date.now() };
+  }));
+  lecteurs.sort((a, b) => a.nom.localeCompare(b.nom, 'fr'));
+  // Favoris et listes de lecture Sonos (relus toutes les 10 min)
+  if (!E(env).SONOS_LISTES || Date.now() - E(env).SONOS_LISTES.t > 600000) {
+    const [f, p] = await Promise.all([sonos(env, '/households/' + hh + '/favorites').catch(() => ({})), sonos(env, '/households/' + hh + '/playlists').catch(() => ({}))]);
+    E(env).SONOS_LISTES = { t: Date.now(), favoris: (f.items || []).map(x => ({ id: x.id, nom: x.name, image: x.imageUrl || '' })), playlists: (p.playlists || []).map(x => ({ id: x.id, nom: x.name })) };
+  }
+  const L = E(env).SONOS_LISTES;
+  const comptes = L.playlists.length ? [{ id: 'sonos', nom: 'Sonos', playlists: L.playlists.map(x => ({ nom: x.nom, image: '' })) }] : [];
+  const res = { maj: Date.now(), source: 'sonos', lecteurs, favoris: L.favoris.map(x => x.nom), spotify: false, spotifyConfigure: false, comptes, playlists: comptes.length ? comptes[0].playlists : [] };
+  E(env).MUSIQUE_MEMO = { t: Date.now(), res };
+  return res;
+}
+async function actionSonos(env, c) {
+  const id = String(c.id || '');
+  if (!/^sonos:[\w:.-]+$/.test(id)) return { ok: false, erreur: 'Enceinte inconnue' };
+  const g = '/groups/' + id.slice(6);
+  E(env).MUSIQUE_MEMO = null;
+  const ok = p => p.then(() => ({ ok: true }), e => ({ ok: false, erreur: String(e.message || e) }));
+  if (c.action === 'lecture') return ok(sonos(env, g + '/playback/togglePlayPause', { method: 'POST' }));
+  if (c.action === 'suivant') return ok(sonos(env, g + '/playback/skipToNextTrack', { method: 'POST' }));
+  if (c.action === 'precedent') return ok(sonos(env, g + '/playback/skipToPreviousTrack', { method: 'POST' }));
+  if (c.action === 'stop') return ok(sonos(env, g + '/playback/pause', { method: 'POST' }));
+  if (c.action === 'volume') return ok(sonos(env, g + '/groupVolume', { method: 'POST', body: { volume: Math.min(100, Math.max(0, Math.round(Number(c.valeur) || 0))) } }));
+  const L = E(env).SONOS_LISTES || { favoris: [], playlists: [] };
+  if (c.action === 'lancer') {
+    const f = L.favoris[parseInt(c.favori, 10)];
+    if (!f) return { ok: false, erreur: 'Favori inconnu' };
+    return ok(sonos(env, g + '/favorites', { method: 'POST', body: { favoriteId: f.id, playOnCompletion: true, action: 'REPLACE' } }));
+  }
+  if (c.action === 'playlist') {
+    const p = L.playlists[parseInt(c.index, 10)];
+    if (!p) return { ok: false, erreur: 'Liste inconnue' };
+    return ok(sonos(env, g + '/playlists', { method: 'POST', body: { playlistId: p.id, playOnCompletion: true, action: 'REPLACE' } }));
+  }
+  return { ok: false, erreur: 'Action inconnue' };
+}
+async function connexionSonos(env) {
+  if (!env.SONOS_ID) return new Response('SONOS_ID manquant dans les réglages du Worker', { status: 503 });
+  const etat = (env.CADRE || 'principal') + '.' + crypto.randomUUID();
+  await env.REGLAGES.put('sonos-etat', etat, { expirationTtl: 900 });
+  const q = new URLSearchParams({ client_id: env.SONOS_ID, response_type: 'code', redirect_uri: SONOS_RETOUR, scope: 'playback-control-all', state: etat });
+  return Response.redirect('https://api.sonos.com/login/v3/oauth?' + q.toString(), 302);
+}
+async function retourSonos(envBase, url) {
+  const page = (titre, texte) => new Response('<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width"><body style="font-family:system-ui;padding:40px;background:#16100D;color:#F6EDE4"><h1>' + titre + '</h1><p>' + texte + '</p></body>', { headers: { 'Content-Type': 'text/html; charset=utf-8' } });
+  const attendu = await envBase.REGLAGES.get('sonos-etat');
+  if (!attendu || url.searchParams.get('state') !== attendu) return page('Lien expiré', 'Recommence la connexion depuis la page admin.');
+  if (url.searchParams.get('error')) return page('Connexion refusée', 'Sonos a répondu : ' + String(url.searchParams.get('error')).replace(/[<>]/g, ''));
+  const r = await fetch('https://api.sonos.com/login/v3/oauth/access', {
+    method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded', Authorization: 'Basic ' + btoa(envBase.SONOS_ID + ':' + envBase.SONOS_SECRET) },
+    body: 'grant_type=authorization_code&code=' + encodeURIComponent(url.searchParams.get('code') || '') + '&redirect_uri=' + encodeURIComponent(SONOS_RETOUR)
+  });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok || !j.refresh_token) return page('Échec', 'Sonos n\'a pas donné de jeton (' + String(j.error_description || j.error || r.status).replace(/[<>]/g, '') + ').');
+  const idCadre = attendu.split('.')[0], env = await envCadre(envBase, idCadre);
+  if (!env) return page('Cadre introuvable', 'Ce cadre a été supprimé.');
+  await env.REGLAGES.put(cleKV(env, 'sonos'), JSON.stringify({ refresh: j.refresh_token, acces: j.access_token, exp: Date.now() + (j.expires_in || 86400) * 1000 }));
+  await env.REGLAGES.delete('sonos-etat');
+  // le cadre sait désormais que sa musique passe par Sonos
+  if (idCadre !== 'principal') {
+    const L = (await lireCadres(envBase)).slice(), c = L.find(x => x.id === idCadre);
+    if (c) { c.config = c.config || {}; c.config.sonos = true; c.config.modules = Object.assign({}, c.config.modules, { musique: true }); await ecrireCadres(envBase, L); }
+  } else await envBase.REGLAGES.put('sonos-principal', '1');
+  delete ETATS[idCadre];
+  return page('Sonos est connecté ✓', 'Les enceintes Sonos vont apparaître sur l\'écran (onglet et tuile Musique). Tu peux fermer cette page.');
+}
+async function deconnexionSonos(env) {
+  await env.REGLAGES.delete(cleKV(env, 'sonos'));
+  if (env.CADRE && env.CADRE !== 'principal') {
+    const L = (await lireCadres(env)).slice(), c = L.find(x => x.id === env.CADRE);
+    if (c && c.config) { delete c.config.sonos; await ecrireCadres(env, L); }
+  } else await env.REGLAGES.delete('sonos-principal');
+  delete ETATS[env.CADRE || 'principal'];
+  return { ok: true };
+}
+const avecSonos = env => !!(env.CADRE_INFO && env.CADRE_INFO.sonos);
+
 /* ---------- Spotify : mes playlists (connexion OAuth faite une fois, jeton gardé dans le KV) ---------- */
 // Secrets du Worker : SPOTIFY_ID et SPOTIFY_SECRET (application créée sur developer.spotify.com)
 const SPOTIFY_RETOUR = 'https://ecran-salon.nico-michon37.workers.dev/spotify/retour';
@@ -1364,7 +1504,10 @@ function egalite(a, b) {   // comparaison à temps constant
 const LIEU_PRINCIPAL = { nom: 'Tours Nord', lat: 47.418, lon: 0.688 };
 // L'environnement d'un cadre : celui du Worker pour le principal, sinon reconstruit depuis le registre
 async function envCadre(env, id) {
-  if (!id || id === 'principal') return Object.assign({}, env, { CADRE: 'principal', CADRE_INFO: { id: 'principal', nom: env.NOM_CADRE || 'Écran du salon', lieu: LIEU_PRINCIPAL, modules: { maison: true, musique: true, transports: true, travail: true } } });
+  if (!id || id === 'principal') {
+    const sonosP = env.REGLAGES ? !!(await env.REGLAGES.get('sonos-principal').catch(() => null)) : false;
+    return Object.assign({}, env, { CADRE: 'principal', CADRE_INFO: { id: 'principal', nom: env.NOM_CADRE || 'Écran du salon', lieu: LIEU_PRINCIPAL, modules: { maison: true, musique: true, transports: true, travail: true }, sonos: sonosP } });
+  }
   const c = (await lireCadres(env)).find(x => x.id === id);
   if (!c) return null;
   const e = {};
@@ -1373,7 +1516,7 @@ async function envCadre(env, id) {
   (cfg.agendas || []).forEach((a, i) => { if (a && a.url) e['GOOGLE_ICS' + (i + 1)] = a.url; });
   if (cfg.ha && cfg.ha.url && cfg.ha.token) { e.HA_URL = cfg.ha.url; e.HA_TOKEN = cfg.ha.token; if (cfg.ha.alerte) e.HA_ALERTE = cfg.ha.alerte; }
   e.CADRE = c.id;
-  e.CADRE_INFO = { id: c.id, nom: c.nom, lieu: cfg.lieu || LIEU_PRINCIPAL, modules: Object.assign({ maison: false, musique: false, transports: false, travail: false }, cfg.modules || {}) };
+  e.CADRE_INFO = { id: c.id, nom: c.nom, lieu: cfg.lieu || LIEU_PRINCIPAL, modules: Object.assign({ maison: false, musique: false, transports: false, travail: false }, cfg.modules || {}), sonos: !!cfg.sonos };
   return e;
 }
 // Qui appelle ? super-admin (toi), admin d'une famille, ou un écran
@@ -1396,7 +1539,7 @@ function vueCadre(c, avecCles) {
   const v = { id: c.id, nom: c.nom, cree: c.cree, lieu: cfg.lieu || null, modules: cfg.modules || {},
     agendas: (cfg.agendas || []).map((a, i) => ({ cle: 'GOOGLE_ICS' + (i + 1), nom: a.nom || '', url: masquer(a.url) })),
     ha: cfg.ha && cfg.ha.url ? { url: cfg.ha.url, token: masquer(cfg.ha.token), alerte: cfg.ha.alerte || '' } : null,
-    transports: cfg.transports || [] };
+    transports: cfg.transports || [], sonos: !!cfg.sonos };
   v.cle = c.cle;   // code de l'écran : visible par l'admin de la famille (il en a besoin pour brancher son cadre)
   if (avecCles) v.cleAdmin = c.cleAdmin;
   return v;
@@ -1489,6 +1632,7 @@ export default {
     if (request.method === 'OPTIONS') return new Response(null, { headers: entetes });
     try {
       if (chemin === '/spotify/retour') return await retourSpotify(env, url);
+      if (chemin === '/sonos/retour') return await retourSonos(env, url);
       if (chemin === '/transports') {
         // sans code : le cadre principal ; avec le code d'un cadre : ses propres arrêts
         const c = url.searchParams.get('cle'), qui = c ? await identifier(envBase, c, url.searchParams.get('cadre')) : null;
@@ -1548,19 +1692,21 @@ export default {
       }
       // Modules désactivés pour ce cadre
       if ((chemin === '/maison' || chemin === '/maison/action' || chemin === '/maison/catalogue' || chemin === '/vigilance') && !env.HA_URL) return repondre({ erreur: 'Home Assistant n\'est pas configuré pour ce cadre', absent: true }, 200, entetes);
-      if (chemin.indexOf('/musique') === 0 && !env.HA_URL) return repondre({ erreur: 'Home Assistant n\'est pas configuré pour ce cadre', absent: true, lecteurs: [], favoris: [], comptes: [] }, 200, entetes);
+      if (chemin.indexOf('/musique') === 0 && !env.HA_URL && !avecSonos(env)) return repondre({ erreur: 'Home Assistant n\'est pas configuré pour ce cadre', absent: true, lecteurs: [], favoris: [], comptes: [] }, 200, entetes);
       if (chemin === '/trajet' && !MOD.travail) return repondre({ trouve: false, erreur: 'Module travail désactivé' }, 200, entetes);
 
       if (chemin === '/trajet') return repondre(await construireTrajet(url.searchParams.get('lieu') || '', url.searchParams.get('adresse') || '', url.searchParams.get('arrivee') || '', env).catch(e => ({ trouve: false, erreur: String(e.message || e) })), 200, entetes);
       if (chemin === '/agenda') return await avecCache('agenda-' + env.CADRE, 600, () => construireAgenda(env), entetes, ctx);
       if (chemin === '/maison') return repondre(await construireMaison(env), 200, entetes);
       if (chemin === '/spotify/connexion') return estAdmin ? await connexionSpotify(env, url) : repondre({ erreur: 'Clé admin requise' }, 403, entetes);
-      if (chemin === '/musique') return repondre(await construireMusique(env), 200, entetes);
+      if (chemin === '/sonos/connexion') return estAdmin ? await connexionSonos(env) : repondre({ erreur: 'Clé admin requise' }, 403, entetes);
+      if (chemin === '/sonos/deconnexion' && request.method === 'POST') return repondre(estAdmin ? await deconnexionSonos(env) : { erreur: 'Clé admin requise' }, estAdmin ? 200 : 403, entetes);
+      if (chemin === '/musique') return repondre(await (avecSonos(env) ? construireSonos(env) : construireMusique(env)), 200, entetes);
       if (chemin === '/musique/pochette') return await pochetteMusique(env, url.searchParams.get('id') || '');
       if (chemin === '/musique/action' && request.method === 'POST') {
         let corps = {};
         try { corps = JSON.parse(await request.text()); } catch (e) {}
-        return repondre(await actionMusique(env, corps), 200, entetes);
+        return repondre(await (avecSonos(env) && /^sonos:/.test(String(corps.id || '')) ? actionSonos(env, corps) : actionMusique(env, corps)), 200, entetes);
       }
       if (chemin === '/vigilance') return await avecCache('vigilance-' + env.CADRE, 300, () => construireVigilance(env), entetes, ctx);
       if (chemin === '/maison/action' && request.method === 'POST') {
@@ -1571,7 +1717,7 @@ export default {
       }
       if (chemin === '/reglages' && request.method === 'GET') {
         const R = await lireReglages(env);
-        return repondre({ reglages: R.reglages, maj: R.maj, stockage: R.stockage, admin: estAdmin, super: estSuper, cadre: { id: env.CADRE, nom: env.CADRE_INFO.nom, lieu: env.CADRE_INFO.lieu, modules: MOD, ha: !!env.HA_URL } }, 200, entetes);
+        return repondre({ reglages: R.reglages, maj: R.maj, stockage: R.stockage, admin: estAdmin, super: estSuper, cadre: { id: env.CADRE, nom: env.CADRE_INFO.nom, lieu: env.CADRE_INFO.lieu, modules: MOD, ha: !!env.HA_URL, sonos: avecSonos(env), sonosConfigure: !!env.SONOS_ID } }, 200, entetes);
       }
       // Réservé à l'admin
       if (chemin === '/reglages' && request.method === 'POST') {
