@@ -127,8 +127,19 @@ body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;fon
 /* Temps réel : le rond « scintille » (halo qui s'élargit + léger battement) */
 @-webkit-keyframes scintille{0%{box-shadow:0 0 0 0 currentColor;opacity:1}55%{opacity:.55}70%{box-shadow:0 0 0 11px rgba(0,0,0,0)}100%{box-shadow:0 0 0 0 rgba(0,0,0,0);opacity:1}}
 @keyframes scintille{0%{box-shadow:0 0 0 0 currentColor;opacity:1}55%{opacity:.55}70%{box-shadow:0 0 0 11px rgba(0,0,0,0)}100%{box-shadow:0 0 0 0 rgba(0,0,0,0);opacity:1}}
-.fr-dot.live,.dep i.live,.leg i.live{-webkit-animation:scintille 1.8s ease-out infinite;animation:scintille 1.8s ease-out infinite}
-.fr-dot.live.passe{-webkit-animation:none;animation:none}
+.fr-dot.live,.dep i.live,.leg i.live{-webkit-animation:battement 1.8s ease-out infinite;animation:battement 1.8s ease-out infinite}
+.dep i.live,.leg i.live{position:relative}
+.fr-dot.live:after,.dep i.live:after,.leg i.live:after{content:'';position:absolute;left:50%;top:50%;width:100%;height:100%;margin:-50% 0 0 -50%;border-radius:50%;background:currentColor;opacity:0;
+  -webkit-animation:halo-g 1.8s ease-out infinite;animation:halo-g 1.8s ease-out infinite;will-change:transform,opacity;pointer-events:none}
+.fr-dot.live:after{left:-4px;top:-4px;margin:0;width:24px;height:24px}
+.dep i.live:after,.leg i.live:after{-webkit-animation-name:halo-p;animation-name:halo-p}
+@-webkit-keyframes battement{0%,70%,100%{opacity:1}55%{opacity:.55}}
+@keyframes battement{0%,70%,100%{opacity:1}55%{opacity:.55}}
+@-webkit-keyframes halo-g{0%{-webkit-transform:scale(1);opacity:.6}70%,100%{-webkit-transform:scale(1.9);opacity:0}}
+@keyframes halo-g{0%{transform:scale(1);opacity:.6}70%,100%{transform:scale(1.9);opacity:0}}
+@-webkit-keyframes halo-p{0%{-webkit-transform:scale(1);opacity:.6}70%,100%{-webkit-transform:scale(3.3);opacity:0}}
+@keyframes halo-p{0%{transform:scale(1);opacity:.6}70%,100%{transform:scale(3.3);opacity:0}}
+.fr-dot.live.passe,.fr-dot.live.passe:after{-webkit-animation:none;animation:none}
 .dep i.live{color:var(--ok)}
 .leg i.live{color:var(--muted)}
 .fr-lab{position:absolute;top:60px;white-space:nowrap;font-size:18px;font-weight:600;color:var(--muted);-webkit-transform:translateX(-50%);transform:translateX(-50%)}

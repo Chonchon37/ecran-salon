@@ -124,17 +124,17 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:32px;heigh
 .cpt b{font-size:18px;padding:10px 22px}
 /* ---- Lecture en cours : ambiance tirée de la pochette, égaliseur animé ---- */
 .scene-lecture{position:relative;overflow:hidden}
-.ambiance{position:absolute;left:-60px;top:-60px;right:-60px;bottom:-60px;background-size:cover;background-position:center;-webkit-filter:blur(60px) saturate(1.5);filter:blur(60px) saturate(1.5);opacity:.55;-webkit-transition:opacity .8s;transition:opacity .8s;pointer-events:none}
+.ambiance{-webkit-transform:translateZ(0);transform:translateZ(0);will-change:transform;position:absolute;left:-60px;top:-60px;right:-60px;bottom:-60px;background-size:cover;background-position:center;-webkit-filter:blur(60px) saturate(1.5);filter:blur(60px) saturate(1.5);opacity:.55;-webkit-transition:opacity .8s;transition:opacity .8s;pointer-events:none}
 html.nuit .ambiance{opacity:.42}
 .ambiance.sans{-webkit-filter:none;filter:none;opacity:1;background:radial-gradient(circle at 18% 30%,rgba(224,168,106,.35),transparent 55%),radial-gradient(circle at 85% 80%,rgba(146,178,142,.28),transparent 50%)}
 .voile{position:absolute;left:0;top:0;right:0;bottom:0;background:linear-gradient(90deg,rgba(251,247,239,0) 0,rgba(251,247,239,.55) 48%,rgba(251,247,239,.7) 100%);pointer-events:none}
 html.nuit .voile{background:linear-gradient(90deg,rgba(43,32,25,0) 0,rgba(43,32,25,.55) 48%,rgba(43,32,25,.72) 100%)}
 .scene-lecture > .pochette,.scene-lecture > .infos{position:relative}
-.pochette.joue{-webkit-animation:respire 6s ease-in-out infinite;animation:respire 6s ease-in-out infinite;box-shadow:0 30px 60px -26px rgba(0,0,0,.65)}
+.pochette.joue{will-change:transform;-webkit-animation:respire 6s ease-in-out infinite;animation:respire 6s ease-in-out infinite;box-shadow:0 30px 60px -26px rgba(0,0,0,.65)}
 @-webkit-keyframes respire{0%,100%{-webkit-transform:scale(1)}50%{-webkit-transform:scale(1.018)}}
 @keyframes respire{0%,100%{transform:scale(1)}50%{transform:scale(1.018)}}
 .eq{display:inline-flex;align-items:flex-end;height:16px;margin-right:11px;vertical-align:-1px}
-.eq i{display:block;width:4px;height:100%;margin-right:3px;border-radius:2px;background:var(--ok);-webkit-transform-origin:bottom;transform-origin:bottom;-webkit-animation:eq 1s ease-in-out infinite;animation:eq 1s ease-in-out infinite}
+.eq i{will-change:transform;display:block;width:4px;height:100%;margin-right:3px;border-radius:2px;background:var(--ok);-webkit-transform-origin:bottom;transform-origin:bottom;-webkit-animation:eq 1s ease-in-out infinite;animation:eq 1s ease-in-out infinite}
 .eq i:nth-child(2){-webkit-animation-delay:-.4s;animation-delay:-.4s}
 .eq i:nth-child(3){-webkit-animation-delay:-.7s;animation-delay:-.7s}
 .eq i:nth-child(4){-webkit-animation-delay:-.2s;animation-delay:-.2s}
@@ -244,6 +244,7 @@ var DEMO = { lecteurs: [
 ], favoris: ['Titres likés', 'Daily Mix', 'Découvertes', 'FIP'], spotify: true,
   comptes: [{ id: 'moi', nom: 'Nico', playlists: [{ nom: 'Titres likés' }, { nom: 'Soirée chill' }, { nom: 'Running' }, { nom: 'Rap FR' }, { nom: 'Apéro terrasse' }] },
     { id: 'flo', nom: 'Flo', playlists: [{ nom: 'Titres likés' }, { nom: 'Dimanche matin' }, { nom: 'Années 2000' }] }] };
+var dernierHero = '', dernierConnexion = '';
 var donnees = null, choisi = null, compteChoisi = null, regleVolume = false, visible = false;
 function D(){ return enDemo() ? DEMO : donnees; }
 // Enceinte principale : « Maison » (toutes les enceintes) ; les autres sont secondaires
@@ -276,11 +277,12 @@ function position(A){ var p = A.position || 0; if (A.etat === 'playing' && A.maj
 function dessiner(){
   var M = D();
   $('demo').style.display = enDemo() ? '' : 'none';
-  if (!M) { $('hero').innerHTML = '<div class="vide"><div class="titre h">Chargement…</div></div>'; return; }
+  if (!M) { dernierHero = ''; $('hero').innerHTML = '<div class="vide"><div class="titre h">Chargement…</div></div>'; return; }
   var sansEnceinte = !M.lecteurs.length;
   $('ens').style.visibility = $('ouvrir').style.visibility = sansEnceinte ? 'hidden' : '';
   if (M.absent && M.connecter) { dessinerConnexion(M.connecter); return; }
   if (sansEnceinte) {
+    dernierHero = '';
     $('hero').innerHTML = '<div class="vide"><div class="titre h">Aucune enceinte</div><p>' + (M.source === 'spotify' ? 'Aucun appareil Spotify allumé. Ouvre Spotify sur ton téléphone ou allume une enceinte compatible : elle apparaîtra ici.'
       : M.source === 'sonos' ? 'Sonos ne voit aucune enceinte en ce moment.' : 'Home Assistant ne voit aucune enceinte Google en ce moment.') + '</p></div>';
     return;
@@ -302,7 +304,9 @@ function dessiner(){
       '<div class="texte-vide">Choisis une playlist pour la lancer sur cette enceinte, ou lance la musique depuis Spotify.</div>' +
       '<div class="grand-bouton" data-ouvrir="1">' + ic('liste') + 'Choisir une playlist</div>' + vol + '</div>';
   }
-  if (!regleVolume) $('hero').innerHTML = html;
+  // Économie : on ne reconstruit la scène (pochette, fond flouté) que si quelque chose d'affiché a changé
+  var cleHero = html.replace(/id="barre" style="width:[\d.]+%"/, '').replace(/<span id="pos">[^<]*<\/span>/, '');
+  if (!regleVolume && cleHero !== dernierHero) { $('hero').innerHTML = html; dernierHero = cleHero; }
   // enceintes : pastilles (point vert = en lecture), la principale en premier
   var e = '';
   for (var i = 0; i < M.lecteurs.length && i < 8; i++) {
@@ -368,6 +372,8 @@ function dessinerConnexion(C){
   var cartes = '';
   if (C.sonos) cartes += '<div class="qr"><div class="code">' + (liens && liens.sonos ? qrSvg(liens.sonos) : '') + '</div><b>Sonos</b><span>Pour des enceintes Sonos : scanne et connecte-toi à ton compte Sonos.</span></div>';
   if (C.spotify) cartes += '<div class="qr"><div class="code">' + (liens && liens.spotify ? qrSvg(liens.spotify) : '') + '</div><b>Spotify</b><span>Pour Spotify sur tes enceintes, box ou téléphone : scanne et connecte-toi à Spotify.</span></div>';
+  var cle = JSON.stringify([C, liens]); if (cle === dernierConnexion && $('hero').firstChild && $('hero').firstChild.className === 'connecter') return;
+  dernierConnexion = cle; dernierHero = '';
   $('hero').innerHTML = '<div class="connecter"><div class="titre h">Connecter la musique</div>' +
     '<div class="texte-vide">' + (cartes ? 'Scanne un des codes avec l\'appareil photo de ton téléphone. Une fois connecté, la musique apparaît ici toute seule.' : 'La musique n\'est pas encore disponible : l\'administrateur doit d\'abord activer Sonos ou Spotify.') + '</div>' +
     (cartes ? '<div class="qrs">' + cartes + '</div>' : '') + '</div>';

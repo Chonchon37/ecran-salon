@@ -478,25 +478,24 @@ function mesurerAnneau(){
   trait.style.strokeDasharray = perimetre + ' ' + perimetre;
 }
 // de « vide » à « plein » en `secondes` (sens = 1), ou de plein à vide (sens = -1, pause) ; 0 = anneau caché
+// Économie pour le cadre : le trait avance par petits pas (5 fois par seconde) au lieu d'être redessiné 60 fois par seconde
+var pasAnneau = null;
 function animerAnneau(secondes, sens){
   if (tabs[actuel] && anneau.parentNode !== tabs[actuel]) tabs[actuel].appendChild(anneau);
   anneau.setAttribute('class', sens < 0 ? 'pause' : '');
-  clearTimeout(minuteurAnneau);
-  trait.style.webkitTransition = trait.style.transition = 'none';
+  clearTimeout(minuteurAnneau); clearInterval(pasAnneau);
   mesurerAnneau();
   trait.style.strokeDashoffset = sens < 0 ? 0 : perimetre;
   if (secondes <= 0) return;
-  var debut = Date.now();
-  // on attend que le nom de l'onglet ait fini de s'afficher (l'onglet s'élargit), puis on mesure et on lance
-  minuteurAnneau = setTimeout(function(){
-    var reste = Math.max(0.1, secondes - (Date.now() - debut) / 1000), fait = 1 - reste / secondes;
-    trait.style.webkitTransition = trait.style.transition = 'none';
-    mesurerAnneau();
-    trait.style.strokeDashoffset = sens < 0 ? perimetre * fait : perimetre * (1 - fait);
-    trait.getBoundingClientRect();
-    trait.style.webkitTransition = trait.style.transition = 'stroke-dashoffset ' + reste + 's linear';
-    trait.style.strokeDashoffset = sens < 0 ? perimetre : 0;
-  }, 450);
+  var debut = Date.now(), duree = secondes * 1000, dernier = -1;
+  function pas(){
+    var f = Math.min(1, (Date.now() - debut) / duree);
+    var v = Math.round((sens < 0 ? perimetre * f : perimetre * (1 - f)) * 2) / 2;   // au demi-pixel près : rien à redessiner si rien n'a bougé
+    if (v !== dernier) { trait.style.strokeDashoffset = v; dernier = v; }
+    if (f >= 1) clearInterval(pasAnneau);
+  }
+  // on attend que le nom de l'onglet ait fini de s'afficher (l'onglet s'élargit), puis on mesure
+  minuteurAnneau = setTimeout(function(){ mesurerAnneau(); dernier = -1; pas(); pasAnneau = setInterval(pas, 200); }, 450);
 }
 function lancerBarre(secondes){ if (pauseJusqua <= Date.now()) animerAnneau(secondes, 1); }
 function dureeSlide(){ return (S[actuel].duree || CONFIG.DUREE_DEFAUT); }

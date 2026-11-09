@@ -214,7 +214,7 @@ body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;fon
 .tl-d{font-size:16px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .tl-m{margin-left:12px;text-align:right;flex:none}
 .l1 .tl-m{margin-left:auto}
-.tr-live{display:inline-block;width:24px;height:24px;margin-right:6px;vertical-align:5px;color:var(--ok);-webkit-animation:tr-clignote 1.8s ease-in-out infinite;animation:tr-clignote 1.8s ease-in-out infinite}
+.tr-live{will-change:opacity;display:inline-block;width:24px;height:24px;margin-right:6px;vertical-align:5px;color:var(--ok);-webkit-animation:tr-clignote 1.8s ease-in-out infinite;animation:tr-clignote 1.8s ease-in-out infinite}
 .tr-live svg{width:24px;height:24px;display:block}
 .tr-demi .tr-live{vertical-align:3px}
 @-webkit-keyframes tr-clignote{0%,100%{opacity:1}50%{opacity:.35}}
@@ -268,8 +268,15 @@ span.tl-dir{display:inline-block;max-width:100%;vertical-align:bottom}
 .tv-l{font-size:32px;font-weight:600;line-height:1.08;margin-top:6px;flex:none;color:var(--ink);overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;word-break:break-word;border-left:6px solid var(--p2);padding-left:12px}
 .tv-l.repos{color:var(--muted);border-left-color:var(--line)}
 .tm{display:inline-block;width:11px;height:11px;border-radius:50%;margin-left:8px;vertical-align:.13em;flex:none;font-style:normal}
-.tm-direct{background:#3FA35A;-webkit-animation:pouls-vert 1.8s ease-out infinite;animation:pouls-vert 1.8s ease-out infinite}
-.tm-direct.bouchons{background:#D93C3C;-webkit-animation:pouls-rouge 1.1s ease-out infinite;animation:pouls-rouge 1.1s ease-out infinite}
+.tm-direct{background:#3FA35A;position:relative}
+.tm-direct:after{content:'';position:absolute;left:0;top:0;width:100%;height:100%;border-radius:50%;background:inherit;opacity:0;will-change:transform,opacity;
+  -webkit-animation:halo-tm 1.8s ease-out infinite;animation:halo-tm 1.8s ease-out infinite}
+.tm-direct.bouchons{background:#D93C3C;-webkit-animation:clign-tm 1.1s ease-out infinite;animation:clign-tm 1.1s ease-out infinite}
+.tm-direct.bouchons:after{-webkit-animation-duration:1.1s;animation-duration:1.1s}
+@-webkit-keyframes halo-tm{0%{-webkit-transform:scale(1);opacity:.7}80%,100%{-webkit-transform:scale(2.7);opacity:0}}
+@keyframes halo-tm{0%{transform:scale(1);opacity:.7}80%,100%{transform:scale(2.7);opacity:0}}
+@-webkit-keyframes clign-tm{0%,80%,100%{opacity:1}50%{opacity:.55}}
+@keyframes clign-tm{0%,80%,100%{opacity:1}50%{opacity:.55}}
 @-webkit-keyframes pouls-vert{0%{box-shadow:0 0 0 0 rgba(63,163,90,.7)}80%,100%{box-shadow:0 0 0 9px rgba(63,163,90,0)}}
 @keyframes pouls-vert{0%{box-shadow:0 0 0 0 rgba(63,163,90,.7)}80%,100%{box-shadow:0 0 0 9px rgba(63,163,90,0)}}
 @-webkit-keyframes pouls-rouge{0%{box-shadow:0 0 0 0 rgba(217,60,60,.8);opacity:1}50%{opacity:.55}80%,100%{box-shadow:0 0 0 10px rgba(217,60,60,0);opacity:1}}
@@ -532,11 +539,22 @@ var sceneActive = 'soiree';
 /* ---------- Chargement des données ---------- */
 var CLE = param('cle');
 function prive(){ return !!(CONFIG.WORKER && CLE); }
-function lireJson(url, quandOk){
-  var xhr = new XMLHttpRequest();
+// Économie pour le cadre : si la réponse n'a pas changé depuis la dernière fois, on ne redessine pas l'accueil
+var DEJA_LU = {};
+function lireJson(url, quandOk, signature){
+  var xhr = new XMLHttpRequest(), cle = url.split('?')[0];
   xhr.open('GET', url, true);
   xhr.timeout = 25000;
-  xhr.onload = function(){ if (xhr.status === 200) { try { quandOk(JSON.parse(xhr.responseText)); } catch (e) {} } };
+  xhr.onload = function(){
+    if (xhr.status !== 200) return;
+    try {
+      var j = JSON.parse(xhr.responseText);
+      var sig = signature ? signature(j) : xhr.responseText.replace(/"maj":\d+,?/g, '');
+      if (DEJA_LU[cle] === sig) return;
+      DEJA_LU[cle] = sig;
+      quandOk(j);
+    } catch (e) {}
+  };
   xhr.send();
 }
 var meteo = null, transportsReels = null, agendaReel = null, maisonReelle = null, vigilance = null;
@@ -547,7 +565,7 @@ function chargerMeteo(){
     '&hourly=temperature_2m,weather_code,is_day,precipitation,precipitation_probability&forecast_hours=40' +
     '&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset&timezone=Europe%2FParis&forecast_days=7', function(j){ meteo = j; afficher(); });
 }
-function chargerTransports(){ if (CONFIG.WORKER_TRANSPORTS) lireJson(CONFIG.WORKER_TRANSPORTS + (CLE ? '?cle=' + encodeURIComponent(CLE) : ''), function(j){ transportsReels = j; if (j.config) LIGNES = lignesDepuis(j.config); afficher(); }); }
+function chargerTransports(){ if (CONFIG.WORKER_TRANSPORTS) lireJson(CONFIG.WORKER_TRANSPORTS + (CLE ? '?cle=' + encodeURIComponent(CLE) : ''), function(j){ transportsReels = j; if (j.config) LIGNES = lignesDepuis(j.config); afficher(); }, function(j){ return JSON.stringify([j.lignes, j.config]); }); }
 function chargerAgenda(){ if (prive()) lireJson(CONFIG.WORKER + '/agenda?cle=' + encodeURIComponent(CLE), function(j){ agendaReel = j; afficher(); }); }
 function chargerMaison(){ if (prive()) lireJson(CONFIG.WORKER + '/maison?cle=' + encodeURIComponent(CLE), function(j){ maisonReelle = j; afficher(); }); }
 function chargerVigi(){ if (prive() && (!CADRE || CADRE.ha)) lireJson(CONFIG.WORKER + '/vigilance?cle=' + encodeURIComponent(CLE), function(j){ vigilance = j && j.absent ? null : j; afficher(); }); }
