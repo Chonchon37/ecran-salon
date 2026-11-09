@@ -33,7 +33,7 @@ const FLUX_TR = 'https://data.filbleu.fr/ws-tr/gtfs-rt/opendata/trip-updates';
 const FLUX_ALERTES = 'https://data.filbleu.fr/ws-tr/gtfs-rt/opendata/service-alerts';
 const FLUX_INCIDENTS = 'https://www.filbleu.fr/rss-incident.xml';   // l'info trafic du site filbleu.fr (travaux, déviations…)
 const CACHE_SECONDES = 30;   // les écrans redemandent toutes les 30 s
-const VERSION = '40';   // à changer à chaque mise à jour du code : vide les caches
+const VERSION = '41';   // à changer à chaque mise à jour du code : vide les caches
 
 // Horaires prévus, format compact : "jours" = n° de grille pour chaque jour depuis "debut",
 // chaque ligne "g=" = minutes depuis minuit, écrites en écarts successifs.
@@ -70,7 +70,7 @@ async function chargerHoraires() {
   try {
     // une adresse par jour et par version : les horaires recalculés la nuit (nouveaux arrêts compris) arrivent le matin
     const q = partiesParis(Date.now());
-    const r = await fetch(URL_HORAIRES + '?j=' + q.year + q.month + q.day + '&v=' + VERSION, { cf: { cacheTtl: 3600, cacheEverything: true } });
+    const r = await fetch(URL_HORAIRES + '?j=' + q.year + q.month + q.day + q.hour + '&v=' + VERSION, { cf: { cacheTtl: 3600, cacheEverything: true } });
     if (!r.ok) return;
     const t = await r.text(), d = /^debut=(\d{8})$/m.exec(t), j = /^jusqua=(\d{8})$/m.exec(t);
     const p = partiesParis(Date.now()), auj = p.year + p.month + p.day;
