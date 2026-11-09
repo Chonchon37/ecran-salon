@@ -33,7 +33,7 @@ const FLUX_TR = 'https://data.filbleu.fr/ws-tr/gtfs-rt/opendata/trip-updates';
 const FLUX_ALERTES = 'https://data.filbleu.fr/ws-tr/gtfs-rt/opendata/service-alerts';
 const FLUX_INCIDENTS = 'https://www.filbleu.fr/rss-incident.xml';   // l'info trafic du site filbleu.fr (travaux, déviations…)
 const CACHE_SECONDES = 30;   // les écrans redemandent toutes les 30 s
-const VERSION = '46';   // à changer à chaque mise à jour du code : vide les caches
+const VERSION = '47';   // à changer à chaque mise à jour du code : vide les caches
 
 // Horaires prévus, format compact : "jours" = n° de grille pour chaque jour depuis "debut",
 // chaque ligne "g=" = minutes depuis minuit, écrites en écarts successifs.
@@ -1026,7 +1026,8 @@ const ALERTE_PAR_DEFAUT = 'sensor.37_weather_alert';
 async function construireVigilance(env) {
   const h = { Authorization: 'Bearer ' + env.HA_TOKEN };
   let e = null;
-  const r = await fetch(haUrl(env, '/api/states/' + (env.HA_ALERTE || ALERTE_PAR_DEFAUT)), { headers: h });
+  // capteur trouvé la dernière fois : on le relit directement (évite de parcourir toutes les entités)
+  const r = await fetch(haUrl(env, '/api/states/' + (E(env).VIGI_ENTITE || env.HA_ALERTE || ALERTE_PAR_DEFAUT)), { headers: h });
   if (r.ok) e = await r.json();
   else {
     // pas trouvé sous ce nom : on cherche le capteur d'alerte parmi toutes les entités
@@ -1035,6 +1036,7 @@ async function construireVigilance(env) {
         tous.find(x => x.entity_id.startsWith('sensor.') && COULEURS_VIGI[String(x.state).toLowerCase()] && x.attributes && /m[ée]t[ée]o.?france/i.test(x.attributes.attribution || '')) || null;
   }
   if (!e) return { maj: Date.now(), trouve: false };
+  E(env).VIGI_ENTITE = e.entity_id;
   const phenomenes = [];
   for (const k in e.attributes || {}) {
     const v = String(e.attributes[k]).toLowerCase();
@@ -1347,17 +1349,15 @@ async function bilanConnexions(env) {
       const r = await delai(haUrl(env, '/api/'), { headers: { Authorization: 'Bearer ' + env.HA_TOKEN } });
       return r.ok ? { etat: 'ok', detail: env.HA_URL.replace(/^https?:\/\//, '') } : { etat: 'erreur', detail: r.status === 401 ? 'Jeton refusé (401) : crée un nouveau jeton longue durée.' : 'Home Assistant a répondu ' + r.status };
     }));
-    const capteur = env.HA_ALERTE || 'sensor.37_weather_alert';
     ajoute('vigilance', 'Vigilance Météo-France', 'maison', await essai(async () => {
-      const r = await delai(haUrl(env, '/api/states/' + capteur), { headers: { Authorization: 'Bearer ' + env.HA_TOKEN } });
-      if (!r.ok) return { etat: 'erreur', detail: 'Capteur ' + capteur + ' introuvable dans Home Assistant.' };
-      const j = await r.json(); return { etat: 'ok', detail: capteur + ' : ' + j.state };
+      const v = await construireVigilance(env);
+      return v.trouve ? { etat: 'ok', detail: 'niveau ' + v.niveau + ' (' + v.entite + ')' } : { etat: 'absent', detail: 'Aucun capteur de vigilance : ajoute l\'intégration Météo-France dans Home Assistant.' };
     }));
   } else if (MOD.maison) ajoute('ha', 'Home Assistant', 'maison', { etat: 'absent', detail: 'Pas configuré : lumières et vigilance indisponibles.' });
   // Musique
   if (MOD.musique) {
     if (avecSonos(env)) ajoute('sonos', 'Sonos', 'maison', await essai(async () => { E(env).SONOS_FOYER = null; const hh = await foyerSonos(env); const g = await sonos(env, '/households/' + hh + '/groups'); return { etat: 'ok', detail: (g.groups || []).map(x => x.name).join(', ') || 'aucune enceinte' }; }));
-    else if (env.SONOS_ID && !env.HA_URL) ajoute('sonos', 'Sonos', 'maison', { etat: 'absent', detail: 'Compte Sonos pas encore connecté.' });
+    else if (!env.HA_URL) ajoute('sonos', 'Sonos', env.SONOS_ID ? 'maison' : 'apps', { etat: 'absent', detail: env.SONOS_ID ? 'Compte Sonos pas encore connecté (onglet Maison).' : 'Application Sonos pas encore créée (Mes cadres → Applications).' });
     if (env.HA_URL && !avecSonos(env)) for (const c of COMPTES_SPOTIFY) {
       if (!env.SPOTIFY_ID) { ajoute('spotify', 'Spotify', 'maison', { etat: 'absent', detail: 'Application Spotify pas encore créée.' }); break; }
       const R = await lireReglages(env), nom = R.reglages.agenda.personnes[c] || c;
