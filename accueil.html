@@ -251,6 +251,8 @@ span.tl-dir{display:inline-block;max-width:100%;vertical-align:bottom}
 .ag-col + .ag-col{margin-left:22px;padding-left:22px;border-left:2px solid var(--line)}
 .ev-sub{font-size:19px;font-weight:700;color:var(--ink);flex:none;font-family:Fraunces,"Bricolage Grotesque",Figtree,Arial,sans-serif}
 .ev-sub span{color:var(--muted);font-weight:700}
+.ev-sub .ev-ste{font-family:Figtree,Arial,sans-serif;font-size:14px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;margin-left:4px}
+.demo.perime{background:var(--card2);color:var(--muted)}
 .ag-bloc{flex:none}
 .ag-bloc + .ag-bloc .ev-sub{margin-top:14px}
 .ev{display:flex;align-items:baseline;margin-top:8px;flex:none;border-left:6px solid var(--accent);padding:3px 0 3px 12px;border-radius:2px}
@@ -546,19 +548,20 @@ var DEMO_AG = [
 var COULEURS = { moi: 'var(--accent)', flo: 'var(--p2)', nous: 'var(--nous)' };
 var DEMO_ANNIV = [{ nom: 'Lucie', jour: 22, mois: 10, annee: 1995 }, { nom: 'Papa', jour: 3, mois: 11, annee: 1962 }, { nom: 'Julien', jour: 14, mois: 11, annee: 1990 }, { nom: 'Mamie', jour: 28, mois: 11, annee: 1940 }];
 var DEMO_LUM = [{ id: 'l1', nom: 'Salon', allumee: true }, { id: 'l2', nom: 'Cuisine', allumee: true }, { id: 'l3', nom: 'Bureau', allumee: false }, { id: 'l4', nom: 'Entrée', allumee: true }];
-var DEMO_SCENES = [{ id: 'soiree', nom: 'Soirée' }, { id: 'film', nom: 'Film' }, { id: 'diner', nom: 'Dîner' }, { id: 'eteindre', nom: 'Tout éteindre' }];
+var DEMO_SCENES = [{ id: 'soiree', nom: 'Soirée cosy' }, { id: 'film', nom: 'Film' }, { id: 'diner', nom: 'Dîner' }, { id: 'eteindre', nom: 'Tout éteindre' }];
 var sceneActive = 'soiree';
 
 /* ---------- Chargement des données ---------- */
 var CLE = param('cle');
 function prive(){ return !!(CONFIG.WORKER && CLE); }
 // Économie pour le cadre : si la réponse n'a pas changé depuis la dernière fois, on ne redessine pas l'accueil
-var DEJA_LU = {};
+var DEJA_LU = {}, LU_A = {}, PAGE_DEPUIS = Date.now();
 function lireJson(url, quandOk, signature){
   var xhr = new XMLHttpRequest(), cle = url.split('?')[0];
   xhr.open('GET', url, true);
   xhr.timeout = 25000;
   xhr.onload = function(){
+    LU_A[cle] = Date.now();   // le serveur a répondu (même par une erreur) : on n'est pas hors ligne
     if (xhr.status !== 200) return;
     try {
       var j = JSON.parse(xhr.responseText);
@@ -622,6 +625,29 @@ function moduleActif(id){
 function tuileVisible(id, now){ if (!moduleActif(id)) return false; var M = momentActif(now); return !M || !M.tuiles || M.tuiles[id] !== false; }
 function demainDabord(now){ var M = momentActif(now); return !!(M && M.demain); }
 
+// Données trop anciennes (réseau coupé, serveur injoignable) : petite mention sous la date, avec l'heure des dernières données
+function mentionPerime(){
+  var S = [];
+  if (CONFIG.WORKER_TRANSPORTS && VISIBLES.transports) S.push([CONFIG.WORKER_TRANSPORTS, 4]);
+  if (prive()) S.push([CONFIG.WORKER + '/agenda', 20]);
+  if (CONFIG.METEO_REELLE) S.push(['https://api.open-meteo.com/v1/forecast', 50]);
+  var pire = null, t = Date.now();
+  for (var i = 0; i < S.length; i++) {
+    var lu = LU_A[S[i][0]] || 0, limite = S[i][1] * 60000;
+    if (t - (lu || PAGE_DEPUIS) < limite) continue;
+    if (pire === null || lu < pire) pire = lu;
+  }
+  if (pire === null) return '';
+  return ' <span class="demo perime">hors ligne' + (pire ? ' · données de ' + hhmm(pire) : '') + '</span>';
+}
+// Réduit la taille du texte (jusqu'à un minimum) pour qu'il tienne sur sa ligne sans être coupé
+function ajuster(el, min){
+  if (!el) return;
+  var t = parseFloat(window.getComputedStyle(el).fontSize) || 20;
+  while (el.scrollWidth > el.clientWidth + 1 && t > min) { t -= 1; el.style.fontSize = t + 'px'; }
+}
+function tropLarge(el){ return !!el && el.scrollWidth > el.clientWidth + 1; }
+
 /* ---------- Ajustement : on retire ce qui dépasse de la tuile ---------- */
 function deborde(el){ return el.scrollHeight > el.clientHeight + 1; }
 // Retire des éléments (du dernier au premier) tant que la boîte déborde ; renvoie le nombre retiré
@@ -663,7 +689,7 @@ function tuileDate(T, now){
   T.className += ' nu';
   // L'heure est ici (la barre du bas la masque tant que l'accueil l'affiche)
   T.innerHTML = '<div class="heure h" id="heureAcc">' + pad(h) + '<span class="dp">:</span>' + pad(now.getMinutes()) + '</div>' +
-    '<div class="date">' + majuscule(JOURS[now.getDay()]) + ' ' + now.getDate() + ' ' + MOIS[now.getMonth()] + (prive() ? '' : ' <span class="demo">exemple</span>') + '</div>' +
+    '<div class="date">' + majuscule(JOURS[now.getDay()]) + ' ' + now.getDate() + ' ' + MOIS[now.getMonth()] + (prive() ? mentionPerime() : ' <span class="demo">exemple</span>') + '</div>' +
     annivDuJour(now) + rappelDechets(now) +
     (VISIBLES.meteo ? '' : meteoActuelle(now)) +   // pas de doublon si la tuile Météo est déjà à l'écran
     (MESSAGE ? '<div class="msg" data-p="3">' + echapper(MESSAGE) + '</div>' : '');
@@ -1061,13 +1087,18 @@ function tuileAnniversaires(T, now, l, h, A){
   }
   var P = AN[0];
   var html = '<div class="bd-q h">' + echapper(P.nom) + '</div>' +
-    '<div class="bd-j">' + dans(P.date) + '<span class="bd-d"> · ' + P.date.getDate() + ' ' + MOIS_C[P.date.getMonth()] + (P.age ? ' · ' + P.age + ' ans' : '') + '</span></div>';
+    '<div class="bd-j">' + dans(P.date) + '<span class="bd-d"> · ' + P.date.getDate() + ' ' + MOIS_C[P.date.getMonth()] + (P.age ? '<span class="bd-age"> · ' + P.age + ' ans</span>' : '') + '</span></div>';
   if (AN.length > 1) {
     html += '<div class="bd-suite">';
     for (var k = 1; k < AN.length; k++) html += '<div class="bd-l"><span class="bd-n">' + echapper(AN[k].nom) + (l >= 2 && AN[k].age ? ' <span class="bd-d">· ' + AN[k].age + ' ans</span>' : '') + '</span><span class="bd-w">' + JOURS_C[AN[k].date.getDay()].toLowerCase() + ' ' + AN[k].date.getDate() + ' ' + MOIS_C[AN[k].date.getMonth()] + '</span></div>';
     html += '</div>';
   }
   T.innerHTML = html;
+  var bj = T.querySelector('.bd-j'), bq = T.querySelector('.bd-q'), ba = T.querySelector('.bd-age');
+  ajuster(bq, 22);
+  if (tropLarge(bj)) ajuster(bj, 17);
+  if (tropLarge(bj) && ba) ba.style.display = 'none';
+  if (tropLarge(bj)) { var bdd = bj.querySelector('.bd-d'); if (bdd) bdd.style.display = 'none'; }
   var lignes = T.querySelectorAll('.bd-l'), suiteEl = T.querySelector('.bd-suite');
   // on retire les noms qui ne tiennent pas entièrement dans la liste
   var caches = 0;
@@ -1134,29 +1165,54 @@ function tuileAgenda(T, now, l, h){
       // Trait de couleur de la personne ; l'heure seulement si l'événement en a une (sinon tout le titre a la place)
       var x = L[r], coul = COULEURS[x.qui] || COULEURS.moi;
       var enCours = k === 0 && x.debut && enMinutes(x.debut) <= minNow;
-      var heure = x.debut ? (enCours ? '<div class="ev-h enc">En cours</div>' : '<div class="ev-h">' + x.debut.replace(':', 'H') + '</div>') : '';
+      var heure = x.debut ? (enCours ? '<div class="ev-h enc">En cours</div>' : '<div class="ev-h">' + x.debut.replace(':', '\u00a0h\u00a0') + '</div>') : '';
       var ligne = '<div class="ev' + (x.debut ? '' : ' jour') + '" style="border-left-color:' + coul + ';--c:' + coul + '">' + (demi ? '<div class="ev-j">' + jourCourt(k) + '</div>' : '') + heure + '<div class="ev-n">' + echapper(x.titre) + '</div></div>';
       blocs.push({ tete: demi ? '' : tete, corps: ligne, premier: r === 0 });
     }
   }
-  // Remplissage des colonnes les unes après les autres, comme un journal
-  var nb = Math.min(3, l), html = '<div class="ag-cols">';
-  for (var c = 0; c < nb; c++) html += '<div class="ag-col"></div>';
-  T.innerHTML = html + '</div>';
-  var cols = T.querySelectorAll('.ag-col'), ci = 0, restants = 0;
-  function poser(z, avecTete){
+  // Remplissage : un jour par colonne quand tout tient ainsi, sinon les colonnes se suivent comme un journal
+  // (le jour est rappelé avec « suite » en haut de colonne) ; une colonne restée vide est retirée
+  var cols, ci, restants;
+  function monter(nb){
+    var html = '<div class="ag-cols">';
+    for (var c = 0; c < nb; c++) html += '<div class="ag-col"></div>';
+    T.innerHTML = html + '</div>';
+    cols = T.querySelectorAll('.ag-col'); ci = 0; restants = 0;
+  }
+  function poser(z, tete){
     var div = document.createElement('div'); div.className = 'ag-bloc';
-    div.innerHTML = (avecTete ? blocs[z].tete : '') + blocs[z].corps;
+    div.innerHTML = tete + blocs[z].corps;
     cols[ci].appendChild(div);
     if (deborde(cols[ci])) { cols[ci].removeChild(div); return false; }
     return true;
   }
-  for (var z = 0; z < blocs.length; z++) {
-    if (ci >= cols.length) { restants++; continue; }
-    if (poser(z, blocs[z].premier)) continue;
-    // colonne pleine : on passe à la suivante, en rappelant le jour en haut
-    ci++;
-    if (ci >= cols.length || !poser(z, true)) { ci = cols.length; restants++; }
+  function teteSuite(z){ return blocs[z].premier || !blocs[z].tete ? blocs[z].tete : blocs[z].tete.replace('</div>', ' <span class="ev-ste">suite</span></div>'); }
+  function parJour(nb){
+    var nj = 0, z;
+    for (z = 0; z < blocs.length; z++) if (blocs[z].premier) nj++;
+    if (demi || nb < 2 || nj < 2 || nj > nb) return false;
+    monter(nj); ci = -1;
+    for (z = 0; z < blocs.length; z++) {
+      if (blocs[z].premier) ci++;
+      if (!poser(z, blocs[z].premier ? blocs[z].tete : '')) return false;
+    }
+    return true;
+  }
+  function journal(nb){
+    monter(nb);
+    for (var z = 0; z < blocs.length; z++) {
+      if (ci >= cols.length) { restants++; continue; }
+      if (poser(z, blocs[z].premier ? blocs[z].tete : '')) continue;
+      // colonne pleine : on passe à la suivante, en rappelant le jour en haut
+      ci++;
+      if (ci >= cols.length || !poser(z, teteSuite(z))) { ci = cols.length; restants++; }
+    }
+    return Math.min(ci + 1, cols.length);   // colonnes réellement utilisées
+  }
+  var nbCols = Math.min(3, l);
+  if (!parJour(nbCols)) {
+    var utilisees = journal(nbCols);
+    while (utilisees < nbCols && utilisees >= 1) { nbCols = utilisees; utilisees = journal(nbCols); }
   }
   if (restants) {
     var der = cols[cols.length - 1], plus = document.createElement('div'); plus.className = 'plus'; plus.innerHTML = '+ ' + restants + ' autre' + (restants > 1 ? 's' : '');
@@ -1244,15 +1300,25 @@ function tuileTravail(T, now, l, h){
   if (h < 1) {
     var html = '<span class="tv-c p"><b>' + (lieu ? lieuHtml(lieu) : 'Repos') + '</b></span>';
     for (var u = k0 + 1; u < 14; u++) if (J[u].liste.length) html += '<span class="tv-c">' + court(u) + ' ' + (lieuxDu(J[u]) ? '<b>' + lieuHtml(lieuxDu(J[u])) + '</b>' : 'repos') + '</span>';
-    T.innerHTML = '<div class="tv-ligne">' + html + '</div><div class="tv-h tv-q">' + majuscule(quand) + (depart ? ' · d' + depart.html.slice(1) : (heures ? ' · ' + heures : '')) + '</div>';
+    var detail = depart ? 'd' + depart.html.slice(1) : heures;
+    T.innerHTML = '<div class="tv-ligne">' + html + '</div><div class="tv-h tv-q">' + majuscule(quand) + (detail ? ' · ' + detail : '') + '</div>';
     var LG = T.querySelector('.tv-ligne'), cs = LG.querySelectorAll('.tv-c'), suite = [];
+    // le lieu rétrécit pour tenir en entier ; l'heure passe avant le nom du jour si la place manque
+    ajuster(T.querySelector('.tv-c.p > b'), 17);
+    var TH = T.querySelector('.tv-h');
+    if (tropLarge(TH) && detail) {
+      var qc = k0 === 0 ? 'Auj.' : court(k0);
+      TH.innerHTML = qc + ' · ' + detail;
+      if (tropLarge(TH)) ajuster(TH, 13);
+      if (tropLarge(TH)) { TH.style.fontSize = ''; TH.innerHTML = majuscule(detail); ajuster(TH, 13); }
+    }
     for (var v = 1; v < cs.length; v++) suite.push(cs[v]);
     // on ne garde que ce qui tient sur la ligne
     for (var z = suite.length - 1; z >= 0 && LG.scrollHeight > 38; z--) suite[z].style.display = 'none';
     return;
   }
   var hero = '<div class="tv-l h' + (lieu ? '' : ' repos') + '">' + (lieu ? lieuHtml(lieu) : 'Repos') + '</div>' +
-    '<div class="tv-h"><span class="tv-q">' + majuscule(quand) + '</span>' + (heures ? ' · ' + heures : '') + '</div>' +
+    '<div class="tv-h tv-hh"><span class="tv-q">' + majuscule(quand) + '</span>' + (heures ? ' · ' + heures : '') + '</div>' +
     (depart ? '<div class="tv-dep">' + VOITURE_TV + '<span>' + depart.html + '</span></div>' + (depart.bouchons ? '<div class="tv-bou">+' + depart.bouchons + ' min de bouchons</div>' : '') : '');
   var rows = '';
   for (var k = k0 + 1; k < 14; k++) {
@@ -1262,6 +1328,7 @@ function tuileTravail(T, now, l, h){
   }
   if (l >= 2) T.className += ' tv-large';
   T.innerHTML = (l >= 2 ? '<div class="tv-hero">' + hero + '</div>' : hero) + '<div class="tv-suite">' + rows + '</div>';
+  ajuster(T.querySelector('.tv-hh'), 15);
   var S = T.querySelector('.tv-suite'), R = S.querySelectorAll('.tv-r');
   var y = R.length - 1;
   for (; y >= 0 && S.scrollHeight > S.clientHeight + 1; y--) R[y].style.display = 'none';

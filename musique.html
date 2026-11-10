@@ -130,6 +130,11 @@ html.nuit .ambiance{opacity:.42}
 .voile{position:absolute;left:0;top:0;right:0;bottom:0;background:linear-gradient(90deg,rgba(251,247,239,0) 0,rgba(251,247,239,.55) 48%,rgba(251,247,239,.7) 100%);pointer-events:none}
 html.nuit .voile{background:linear-gradient(90deg,rgba(43,32,25,0) 0,rgba(43,32,25,.55) 48%,rgba(43,32,25,.72) 100%)}
 .scene-lecture > .pochette,.scene-lecture > .infos{position:relative}
+/* pas de pochette : un dégradé léger aux couleurs du thème plutôt qu'un carré gris */
+.pochette.nue{background:var(--accent);background:linear-gradient(140deg,#E0A86A 0%,var(--accent) 58%,#3F5F4A 100%);color:rgba(255,255,255,.92);position:relative}
+.pochette.nue:before{content:'';position:absolute;left:-18%;top:-22%;width:70%;height:70%;border-radius:50%;background:rgba(255,255,255,.16)}
+.pochette.nue:after{content:'';position:absolute;right:-24%;bottom:-28%;width:80%;height:80%;border-radius:50%;background:rgba(0,0,0,.10)}
+.pochette.nue svg{position:relative;z-index:1;width:30%;height:30%}
 .pochette.joue{will-change:transform;-webkit-animation:respire 6s ease-in-out infinite;animation:respire 6s ease-in-out infinite;box-shadow:0 30px 60px -26px rgba(0,0,0,.65)}
 @-webkit-keyframes respire{0%,100%{-webkit-transform:scale(1)}50%{-webkit-transform:scale(1.018)}}
 @keyframes respire{0%,100%{transform:scale(1)}50%{transform:scale(1.018)}}
@@ -307,13 +312,13 @@ function dessiner(){
     var p = position(A), pc = A.duree ? p / A.duree * 100 : 0;
     var url = A.image && !enDemo() ? CONFIG.WORKER + '/musique/pochette?cle=' + encodeURIComponent(CLE) + '&id=' + encodeURIComponent(A.id) + '&v=' + encodeURIComponent(A.image) : '';
     html = '<div class="ambiance' + (url ? '' : ' sans') + '"' + (url ? ' style="background-image:url(\'' + url + '\')"' : '') + '></div><div class="voile"></div>' +
-      '<div class="pochette' + (A.etat === 'playing' ? ' joue' : '') + '">' + img + '</div><div class="infos">' +
+      '<div class="pochette' + (A.etat === 'playing' ? ' joue' : '') + (url ? '' : ' nue') + '">' + img + '</div><div class="infos">' +
       '<div class="src"><span class="eq' + (A.etat === 'playing' ? '' : ' arret') + '"><i></i><i></i><i></i><i></i></span>' + echapper(A.nom) + (A.app ? ' · ' + echapper(A.app) : '') + '</div>' +
       '<div class="titre h">' + echapper(A.titre) + '</div>' + (A.artiste ? '<div class="artiste">' + echapper(A.artiste) + '</div>' : '') +
       (A.duree ? '<div class="prog"><div class="barre"><i id="barre" style="width:' + pc.toFixed(1) + '%"></i></div><div class="temps"><span id="pos">' + mmss(p) + '</span><span>' + mmss(A.duree) + '</span></div></div>' : '') +
       '<div class="ctl"><div class="bt" data-a="precedent">' + ic('precedent') + '</div><div class="bt pp" data-a="lecture">' + ic(A.etat === 'playing' ? 'pause' : 'lecture') + '</div><div class="bt" data-a="suivant">' + ic('suivant') + '</div></div>' + vol + '</div>';
   } else {
-    html = '<div class="pochette">' + ic('note') + '</div><div class="infos"><div class="src">' + echapper(A.nom) + '</div><div class="titre h">Rien en cours</div>' +
+    html = '<div class="pochette nue">' + ic('note') + '</div><div class="infos"><div class="src">' + echapper(A.nom) + '</div><div class="titre h">Rien en cours</div>' +
       '<div class="texte-vide">Choisis une playlist pour la lancer sur cette enceinte, ou lance la musique depuis Spotify.</div>' +
       '<div class="grand-bouton" data-ouvrir="1">' + ic('liste') + 'Choisir une playlist</div>' + vol + '</div>';
   }

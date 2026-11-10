@@ -26,6 +26,15 @@ body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;fon
 .hero{flex:1;margin-right:16px;display:flex;flex-direction:column}
 .cake{width:96px;height:96px;border-radius:28px;background:var(--fete-soft);color:var(--fete);display:flex;align-items:center;justify-content:center}
 .cake svg{width:56px;height:56px}
+.h-top{display:flex;justify-content:space-between;align-items:flex-start;flex:none}
+.h-date{text-align:right;line-height:1}
+.h-date b{display:block;font-size:132px;font-weight:600;letter-spacing:-.04em;line-height:.82;color:var(--fete)}
+.h-date span{display:block;font-size:27px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-top:12px}
+.qui{white-space:nowrap;overflow:hidden}
+.rows.peu{justify-content:flex-start}
+.rows.peu .row{padding:20px 0}
+.rows.peu .r-n{font-size:31px}
+.rows.peu .r-a,.rows.peu .r-j{font-size:23px}
 .qui{font-size:104px;font-weight:600;line-height:.95;letter-spacing:-.03em;margin-top:auto}
 .quand{font-size:46px;font-weight:600;color:var(--fete);margin-top:14px;line-height:1.05}
 .detail{font-size:24px;color:var(--muted);margin-top:12px}
@@ -154,19 +163,26 @@ function afficher(){
   var L = prochains(listeReelle || CONFIG.PERSONNES), p = L[0];
   if (!p) { $('hero').innerHTML = '<div class="detail">Aucun anniversaire trouvé. Crée dans ton agenda un événement annuel qui commence par 🎂.</div>'; $('rows').innerHTML = ''; return; }
   $('hero').innerHTML =
-    '<div class="cake">' + GATEAU + '</div>' +
-    '<div class="qui h">' + echapper(p.nom) + '</div>' +
+    '<div class="h-top"><div class="cake">' + GATEAU + '</div><div class="h-date h"><b>' + p.date.getDate() + '</b><span>' + MOIS[p.date.getMonth()] + '</span></div></div>' +
+    '<div class="qui h" id="qui">' + echapper(p.nom) + '</div>' +
     '<div class="quand h">' + dans(p.jours) + '</div>' +
     '<div class="detail">' + JOURS[p.date.getDay()] + ' ' + p.date.getDate() + ' ' + MOIS[p.date.getMonth()] + (p.age ? ' · ' + p.age + ' ans' : '') + '</div>' +
     (p.jours === 0 ? '<div class="tag">Pense à appeler !</div>' : (p.jours <= 7 ? '<div class="tag">Cette semaine</div>' : ''));
-  var html = '';
-  for (var i = 1; i < Math.min(L.length, 7); i++) {
+  // le prénom rétrécit s'il est long, plutôt que d'être coupé
+  var Q = $('qui'), tq = 104;
+  while (Q && Q.scrollWidth > Q.clientWidth + 1 && tq > 54) { tq -= 4; Q.style.fontSize = tq + 'px'; }
+  // Ensuite : les 3 prochains mois (au moins 3 noms pour ne pas laisser la carte vide, 6 au plus)
+  var html = '', nb = 0;
+  for (var i = 1; i < L.length && nb < 6; i++) {
     var q = L[i];
+    if (q.jours > 92 && nb >= 3) break;
+    nb++;
     html += '<div class="row' + (q.jours <= 14 ? ' proche' : '') + '"><div class="cal"><b>' + q.date.getDate() + '</b><span>' + MOIS_COURTS[q.date.getMonth()] + '</span></div>' +
       '<div><div class="r-n">' + echapper(q.nom) + '</div><div class="r-a">' + JOURS[q.date.getDay()] + (q.age ? ' · ' + q.age + ' ans' : '') + '</div></div>' +
-      '<div class="r-j">' + (q.jours === 1 ? 'demain' : 'dans ' + q.jours + ' j') + '</div></div>';
+      '<div class="r-j">' + (q.jours === 1 ? 'demain' : (q.jours <= 60 ? 'dans ' + q.jours + ' j' : 'dans ' + Math.round(q.jours / 30.4) + ' mois')) + '</div></div>';
   }
   $('rows').innerHTML = html;
+  $('rows').className = 'rows' + (nb <= 4 ? ' peu' : '');
   $('demo').style.display = enDemo() ? '' : 'none';
 }
 function charger(){

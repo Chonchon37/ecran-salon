@@ -44,7 +44,21 @@ body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;fon
 .ev.passe{opacity:.45}
 .ev-t{font-size:15px;font-weight:700;color:var(--muted)}
 .ev-n{font-size:18px;font-weight:600;line-height:1.2;margin-top:1px;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
-.plus{font-size:15px;font-weight:700;color:var(--muted);padding:2px 4px}
+.plus{font-size:15px;font-weight:700;color:var(--accent);padding:2px 4px}
+.day.touche{cursor:pointer}
+.day.touche:active{-webkit-transform:scale(.98);transform:scale(.98)}
+/* détail d'un jour (toucher une case) */
+#detail{position:fixed;left:0;top:0;right:0;bottom:0;background:rgba(20,16,12,.45);display:none;align-items:center;justify-content:center;z-index:20}
+#detail.ouvert{display:flex}
+.dt-boite{width:760px;max-height:640px;box-sizing:border-box;background:var(--card);border-radius:28px;padding:28px 34px;display:flex;flex-direction:column;box-shadow:0 18px 60px rgba(0,0,0,.3)}
+.dt-tete{display:flex;align-items:baseline;flex:none;margin-bottom:14px}
+.dt-titre{font-size:38px;font-weight:600;flex:1}
+.dt-fermer{font-size:19px;font-weight:700;color:var(--muted);padding:8px 0 8px 20px}
+.dt-liste{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.dt-ev{display:flex;align-items:baseline;border-left:7px solid var(--accent);padding:8px 0 8px 16px;margin-top:10px;border-radius:3px}
+.dt-h{font-size:24px;font-weight:700;width:130px;flex:none;color:var(--muted)}
+.dt-n{font-size:27px;font-weight:600;line-height:1.2;min-width:0;word-break:break-word}
+.dt-q{font-size:18px;color:var(--muted);font-weight:400;margin-left:10px;white-space:nowrap}
 .vide{font-size:17px;color:var(--line);padding:2px 4px;font-weight:700}
 
 /* =====================================================================
@@ -92,6 +106,7 @@ html.cachee *,html.cachee *:before,html.cachee *:after{-webkit-animation-play-st
     <div class="legend" id="legend"></div>
   </div>
   <div class="week" id="week"></div>
+  <div id="detail"></div>
 </div>
 
 <script>
@@ -173,7 +188,25 @@ function donneesDemo(){
 }
 
 /* ---------- Affichage ---------- */
+var evtsAffiches = [], minuteurDetail = null;
+var JOURS_LONGS = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'], MOIS_LONGS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
+// Toucher un jour : tous ses rendez-vous en grand (se referme seul après 45 s)
+function ouvrirJour(j){
+  var now = new Date(), d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + j);
+  var L = evtsAffiches.filter(function(e){ return e.j === j; });
+  if (!L.length) return;
+  L.sort(function(a, b){ return (a.debut || '00:00') < (b.debut || '00:00') ? -1 : 1; });
+  var h = '<div class="dt-boite"><div class="dt-tete"><div class="dt-titre h">' + (j === 0 ? 'Aujourd\'hui · ' + JOURS_LONGS[d.getDay()].toLowerCase() : (j === 1 ? 'Demain · ' + JOURS_LONGS[d.getDay()].toLowerCase() : JOURS_LONGS[d.getDay()])) + ' ' + d.getDate() + ' ' + MOIS_LONGS[d.getMonth()] + '</div><div class="dt-fermer">Fermer ✕</div></div><div class="dt-liste">';
+  for (var k = 0; k < L.length; k++) {
+    var e = L[k], p = CONFIG.PERSONNES[e.qui] || CONFIG.PERSONNES.moi;
+    h += '<div class="dt-ev" style="border-left-color:' + p.couleur + '"><div class="dt-h">' + (e.debut ? e.debut.replace(':', ' h ') : 'Journée') + '</div><div class="dt-n">' + echapper(e.titre) + '<span class="dt-q">' + echapper(p.nom) + '</span></div></div>';
+  }
+  var D = $('detail'); D.innerHTML = h + '</div></div>'; D.className = 'ouvert';
+  clearTimeout(minuteurDetail); minuteurDetail = setTimeout(fermerJour, 45000);
+}
+function fermerJour(){ $('detail').className = ''; clearTimeout(minuteurDetail); }
 function afficher(evts){
+  evtsAffiches = evts;
   var now = new Date(), minNow = now.getHours() * 60 + now.getMinutes(), html = '';
   for (var j = 0; j < NB_JOURS; j++) {
     if (j % 7 === 0) html += '<div class="sem">';
@@ -181,7 +214,7 @@ function afficher(evts){
     var jour = evts.filter(function(e){ return e.j === j; });
     jour.sort(function(a, b){ return (a.debut || '00:00') < (b.debut || '00:00') ? -1 : 1; });
     var we = d.getDay() === 0 || d.getDay() === 6;
-    html += '<div class="day' + (j === 0 ? ' today' : '') + (we ? ' we' : '') + (j >= 7 ? ' loin' : '') + '">' +
+    html += '<div class="day' + (j === 0 ? ' today' : '') + (we ? ' we' : '') + (j >= 7 ? ' loin' : '') + (jour.length ? ' touche' : '') + '" data-j="' + j + '">' +
       '<div class="day-h"><span class="day-n">' + (j === 0 ? 'Auj.' : (j === 1 ? 'Dem.' : JOURS_COURTS[d.getDay()])) + '</span>' +
       '<span class="day-d h">' + d.getDate() + '</span>' + (d.getDate() === 1 || j === 0 ? '<span class="day-m">' + MOIS_COURTS[d.getMonth()] + '</span>' : '') + '</div>';
     if (!jour.length) html += '<div class="vide">—</div>';
@@ -215,6 +248,17 @@ function afficher(evts){
   $('demo').style.display = enDemo() ? '' : 'none';
 }
 function enDemo(){ return !CONFIG.WORKER || !CLE; }
+$('week').addEventListener('click', function(e){
+  var el = e.target;
+  while (el && el !== this && !(el.getAttribute && el.getAttribute('data-j') !== null && /\bday\b/.test(el.className))) el = el.parentNode;
+  if (el && el !== this) ouvrirJour(parseInt(el.getAttribute('data-j'), 10));
+});
+$('detail').addEventListener('click', function(e){
+  // un appui en dehors de la liste (ou sur Fermer) referme ; dans la liste, on peut faire défiler
+  var el = e.target;
+  while (el && el !== this) { if (/\bdt-liste\b/.test(el.className)) return; el = el.parentNode; }
+  fermerJour();
+});
 var dernieres = null;
 function charger(){
   if (enDemo()) { afficher(donneesDemo()); return; }

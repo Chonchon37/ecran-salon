@@ -170,6 +170,14 @@ body.en-veille #slides iframe.on{visibility:hidden}
 #cxCases i.cur{border-color:var(--accent)}
 #cxMsg{min-height:30px;font-size:19px;font-weight:600;color:var(--warn)}
 #cxMsg.ok{color:var(--accent)}
+#cxConf{display:none;margin-top:6px}
+#cxConf.on{display:block}
+#cxConf .cf-n{font:600 34px/1.15 Figtree,Arial,sans-serif;color:var(--ink)}
+#cxConf .cf-l{font-size:19px;color:var(--muted);margin-top:4px}
+#cxConf .cf-b{margin-top:18px}
+#cxConf b{display:inline-block;padding:16px 24px;border-radius:18px;font:700 21px Figtree,Arial,sans-serif;cursor:pointer;margin:0 10px 10px 0;background:var(--card)}
+#cxConf b.oui{background:var(--accent);color:var(--card)}
+#cxClavier.fige{opacity:.3;pointer-events:none}
 #cxClavier{-webkit-box-flex:1;flex:1;display:-webkit-box;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;-webkit-align-content:center;align-content:center;padding-left:20px}
 #cxClavier b{width:74px;height:74px;margin:0 8px 8px 0;border-radius:18px;background:var(--card);font:700 30px/74px Figtree,Arial,sans-serif;text-align:center;cursor:pointer}
 #cxClavier b:active{background:var(--card2)}
@@ -207,6 +215,7 @@ body.en-veille #slides iframe.on{visibility:hidden}
       <p>Il suffit de le faire une seule fois.</p>
       <div id="cxCases"><i></i><i></i><i></i><i></i><i></i></div>
       <div id="cxMsg"></div>
+      <div id="cxConf"></div>
       <div id="cxAnnuler">Annuler</div>
     </div>
     <div id="cxClavier"></div>
@@ -311,9 +320,29 @@ function cxDessiner(){
 function afficherConnexion(annulable){
   cxCode = ''; cxEnCours = false; cxDessiner();
   document.getElementById('cxMsg').innerHTML = ''; document.getElementById('cxMsg').className = '';
+  cxFermerConf();
   document.getElementById('cxAnnuler').style.display = annulable ? '' : 'none';
   document.getElementById('connexion').className = 'on';
 }
+// Code reconnu : on montre le nom du cadre trouvé, et on ne branche qu'après confirmation
+var cxTrouve = '';
+function cxEch(t){ return String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;'); }
+function cxFermerConf(){ cxTrouve = ''; document.getElementById('cxConf').className = ''; document.getElementById('cxClavier').className = ''; }
+function cxBrancher(){
+  var code = cxTrouve; if (!code) return;
+  var msg = document.getElementById('cxMsg'); msg.className = 'ok'; msg.innerHTML = 'Connecté ✓';
+  document.getElementById('cxConf').className = '';
+  ecrireCookie(code);
+  var base = location.href.split('?')[0].split('#')[0];
+  // Fully Kiosk : la page de démarrage garde aussi le code (au cas où les cookies seraient effacés)
+  try { if (typeof fully !== 'undefined' && fully.setStartUrl) fully.setStartUrl(base + '?cle=' + code); } catch (e) {}
+  setTimeout(function(){ location.replace(base + '?cle=' + code); }, 600);
+}
+document.getElementById('cxConf').addEventListener('click', function(e){
+  var k = e.target.getAttribute('data-c');
+  if (k === 'oui') cxBrancher();
+  else if (k === 'non') { cxFermerConf(); cxCode = ''; cxEnCours = false; document.getElementById('cxMsg').innerHTML = ''; cxDessiner(); }
+});
 function cxValider(){
   if (cxCode.length !== 5 || cxEnCours) return;
   cxEnCours = true; cxDessiner();
@@ -323,13 +352,12 @@ function cxValider(){
   x.timeout = 12000;
   x.onload = function(){
     if (x.status === 200) {
-      var nom = ''; try { nom = JSON.parse(x.responseText).cadre.nom; } catch (e) {}
-      msg.innerHTML = 'Connecté' + (nom ? ' à « ' + nom + ' »' : '') + ' ✓';
-      ecrireCookie(code);
-      var base = location.href.split('?')[0].split('#')[0];
-      // Fully Kiosk : la page de démarrage garde aussi le code (au cas où les cookies seraient effacés)
-      try { if (typeof fully !== 'undefined' && fully.setStartUrl) fully.setStartUrl(base + '?cle=' + code); } catch (e) {}
-      setTimeout(function(){ location.replace(base + '?cle=' + code); }, 900);
+      var nom = '', lieu = ''; try { var C = JSON.parse(x.responseText).cadre; nom = C.nom || ''; lieu = C.lieu && C.lieu.nom ? C.lieu.nom : ''; } catch (e) {}
+      cxTrouve = code; msg.innerHTML = 'Cadre trouvé';
+      document.getElementById('cxConf').innerHTML = '<div class="cf-n">' + cxEch(nom || 'Cadre ' + code) + '</div>' + (lieu && lieu !== nom ? '<div class="cf-l">' + cxEch(lieu) + '</div>' : '') +
+        '<div class="cf-b"><b class="oui" data-c="oui">Oui, c\'est ce cadre</b><b data-c="non">Non, autre code</b></div>';
+      document.getElementById('cxConf').className = 'on';
+      document.getElementById('cxClavier').className = 'fige';
       return;
     }
     cxEnCours = false; msg.className = '';

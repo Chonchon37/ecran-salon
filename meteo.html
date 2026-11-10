@@ -52,6 +52,12 @@ body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;fon
 .fleche.g{left:-10px}
 .fleche.d{right:-10px}
 .fleche.cache{display:none}
+/* tant qu'aucune donnée n'est arrivée : pas de cartes vides, juste le message */
+html.attente .rain,html.attente .hourly,html.attente .daily{visibility:hidden}
+html.attente .now-temp{display:none}
+html.attente .now-cond{font-size:30px;margin-top:22px}
+.essai{font-size:19px;color:var(--muted);margin-top:8px;font-weight:400}
+.demo.vieux{background:var(--card2);color:var(--muted)}
 .jour-vu{position:absolute;top:-15px;left:50%;-webkit-transform:translateX(-50%);transform:translateX(-50%);padding:5px 16px;border-radius:14px;background:var(--ink);color:var(--card);font-size:16px;font-weight:700;white-space:nowrap;display:none}
 .hr{flex:none;width:89px;display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding:4px 0}
 .hr-t{font-size:18px;color:var(--muted);font-weight:600}
@@ -124,7 +130,7 @@ html.cachee *,html.cachee *:before,html.cachee *:after{-webkit-animation-play-st
     <div class="card now">
       <div class="now-top">
         <div>
-          <div class="label"><span>Météo ·&nbsp;</span><span id="lieu">Tours Nord</span><span class="demo" id="demo">exemple</span><span id="vigi"></span></div>
+          <div class="label"><span>Météo ·&nbsp;</span><span id="lieu">Tours Nord</span><span class="demo" id="demo" style="display:none">exemple</span><span class="demo vieux" id="vieux" style="display:none"></span><span id="vigi"></span></div>
           <div class="now-temp h" id="nowTemp">--°</div>
           <div class="now-cond" id="nowCond"></div>
           <div class="now-hl" id="nowHL"></div>
@@ -276,7 +282,7 @@ function estJour(date, D){
   return m >= minutesDe(D.lever) && m < minutesDe(D.coucher);
 }
 function afficher(D){
-  dejaAffiche = true;
+  dejaAffiche = true; derniereMeteo = Date.now(); majAttente(); majVieux();
   var now = new Date(), jourMaintenant = estJour(now, D), a = D.actuel;
   $('lieu').innerHTML = CONFIG.NOM;
   $('demo').style.display = CONFIG.DEMO ? '' : 'none';
@@ -442,12 +448,26 @@ function charger(){
   xhr.onerror = xhr.ontimeout = erreur;
   xhr.send();
 }
-var dejaAffiche = false;
+var dejaAffiche = false, derniereMeteo = 0;
+function hmTxt(ms){ var d = new Date(ms), m = d.getMinutes(); return d.getHours() + ' h ' + (m < 10 ? '0' : '') + m; }
+function majAttente(){
+  var c = document.documentElement.className.replace(/\s*\battente\b/g, '');
+  document.documentElement.className = dejaAffiche ? c : c + ' attente';
+}
+// Données gardées à l'écran alors que la mise à jour échoue : on dit de quand elles datent
+function majVieux(){
+  var v = $('vieux'), vieux = derniereMeteo && Date.now() - derniereMeteo > 50 * 60000;
+  v.style.display = vieux ? '' : 'none';
+  if (vieux) v.innerHTML = 'données de ' + hmTxt(derniereMeteo);
+}
 function erreur(){
   // On garde l'affichage précédent ; sinon on prévient et on réessaie dans 2 min
-  if (!dejaAffiche) $('nowCond').innerHTML = 'Météo indisponible, nouvel essai…';
+  if (!dejaAffiche) $('nowCond').innerHTML = 'Météo indisponible<div class="essai">Nouvel essai à ' + hmTxt(Date.now() + 120000) + '</div>';
+  majVieux();
   setTimeout(charger, 120000);
 }
+majAttente(); $('nowCond').innerHTML = 'Chargement de la météo…';
+setInterval(majVieux, 60000);
 charger();
 setInterval(charger, CONFIG.RAFRAICHIR_MIN * 60000);
 

@@ -202,7 +202,7 @@ function heures(L, court){
   var a = null, b = null;
   for (var i = 0; i < L.length; i++) { if (L[i].journee) continue; if (a === null || L[i].debut < a) a = L[i].debut; if (b === null || L[i].fin > b) b = L[i].fin; }
   if (a === null) return '';
-  function f(t){ var x = new Date(t); return court ? x.getHours() + 'h' + (x.getMinutes() ? pad(x.getMinutes()) : '') : pad(x.getHours()) + ' h ' + pad(x.getMinutes()); }
+  function f(t){ var x = new Date(t); return court ? x.getHours() + ' h' + (x.getMinutes() ? ' ' + pad(x.getMinutes()) : '') : pad(x.getHours()) + ' h ' + pad(x.getMinutes()); }
   return f(a) + (court ? '–' : ' – ') + f(b);
 }
 
