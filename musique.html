@@ -368,6 +368,7 @@ function signalerMaison(){
   var L = donnees ? donnees.lecteurs : [], joue = false;
   for (var i = 0; i < L.length; i++) if (L[i].id === PRINCIPALE && L[i].etat === 'playing' && L[i].titre) joue = true;
   if (joue !== maisonJoue && window.parent !== window) { try { window.parent.postMessage({ type: 'musiqueMaison', value: joue }, '*'); } catch (err) {} }
+  if (maisonJoue && !joue) setTimeout(charger, 2000);   // arrêt vu : on revérifie vite, l'écran attend 5 s avant de quitter la musique
   maisonJoue = joue;
 }
 /* ---------- Pas encore de musique : deux QR codes (Sonos, Spotify) à scanner avec un téléphone ---------- */

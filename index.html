@@ -544,7 +544,14 @@ function suivanteEnRotation(){
   for (var n = 1; n <= S.length; n++) { var k = (actuel + n) % S.length; if (!S[k].horsRotation) return k; }
   return actuel;
 }
-var musiqueMaison = false;
+var musiqueMaison = false, finMusique = null;
+function changerMusique(joue){
+  if (joue === musiqueMaison) return;
+  musiqueMaison = joue;
+  if (!joue && S[actuel] && S[actuel].id === 'musique') { pauseJusqua = 0; majPause(); afficher(0); }   // fin de la musique : retour à l'accueil
+  else if (pauseJusqua <= Date.now()) programmer();
+  majVeille();
+}
 function indexSlide(id){ for (var i = 0; S && i < S.length; i++) if (S[i].id === id) return i; return -1; }
 function programmer(){
   clearTimeout(minuteur);
@@ -593,13 +600,9 @@ window.addEventListener('message', function(e){
   if (!e.data) return;
   if (e.data.type === 'interaction') mettreEnPause();
   if (e.data.type === 'musiqueMaison') {               // la page Musique signale que « Maison » joue (ou s'est arrêtée)
-    var avant = musiqueMaison;
-    musiqueMaison = !!e.data.value;
-    if (musiqueMaison !== avant) {
-      if (!musiqueMaison && S[actuel] && S[actuel].id === 'musique') { pauseJusqua = 0; majPause(); afficher(0); }   // fin de la musique : retour à l'accueil
-      else if (pauseJusqua <= Date.now()) programmer();
-      majVeille();
-    }
+    if (e.data.value) { clearTimeout(finMusique); finMusique = null; changerMusique(true); }
+    // arrêt : on attend 5 s sans musique (changement de morceau, coupure passagère…) avant de revenir à l'accueil
+    else if (musiqueMaison && !finMusique) finMusique = setTimeout(function(){ finMusique = null; changerMusique(false); }, 5000);
   }
   if (e.data.type === 'aller') {                       // une carte de l'accueil demande sa page détaillée
     for (var k = 0; k < S.length; k++) if (S[k].id === e.data.page) {
