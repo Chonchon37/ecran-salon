@@ -82,6 +82,8 @@ body,body *{font-variation-settings:"SOFT" 100,"WONK" 0}
 .day{border-radius:22px 18px 24px 18px / 18px 22px 18px 22px}
 .day.loin{background:rgba(251,247,239,.55);border-color:transparent}
 html.nuit .day.loin{background:rgba(43,32,25,.6)}
+/* Page cachée (autre onglet ou veille) : animations en pause, rien à recalculer */
+html.cachee *,html.cachee *:before,html.cachee *:after{-webkit-animation-play-state:paused!important;animation-play-state:paused!important}
 </style>
 </head>
 <body>
@@ -100,6 +102,17 @@ html.nuit .day.loin{background:rgba(43,32,25,.6)}
 </div>
 
 <script>
+// Économie : quand la page n'est pas à l'écran, ses animations sont en pause
+var PAGE_ID = (location.pathname.split('/').pop() || '').replace('.html', '');
+var PAGE_VISIBLE = true, PAGE_A_REDESSINER = false;
+window.addEventListener('message', function(e){
+  if (!e.data || e.data.type !== 'actif') return;
+  PAGE_VISIBLE = e.data.value === PAGE_ID;
+  var c = document.documentElement.className.replace(/\s*\bcachee\b/g, '');
+  document.documentElement.className = PAGE_VISIBLE ? c : c + ' cachee';
+  if (PAGE_VISIBLE && PAGE_A_REDESSINER && typeof redessinerSiBesoin === 'function') redessinerSiBesoin();
+});
+
 /* ===================== RÉGLAGES ===================== */
 var CONFIG = {
   WORKER: 'https://ecran-salon.nico-michon37.workers.dev',

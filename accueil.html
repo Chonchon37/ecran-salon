@@ -411,12 +411,25 @@ html.organique .wg-j{border-radius:999px;border:0;background:rgba(255,255,255,.5
 html.organique.nuit .wg-j{background:rgba(255,255,255,.05)}
 html.organique .badge.bus{border-radius:16px 12px 16px 12px}
 html.organique .demo{border-radius:999px}
+/* Page cachée (autre onglet ou veille) : animations en pause, rien à recalculer */
+html.cachee *,html.cachee *:before,html.cachee *:after{-webkit-animation-play-state:paused!important;animation-play-state:paused!important}
 </style>
 </head>
 <body>
 <div class="grille" id="grille"></div>
 
 <script>
+// Économie : quand la page n'est pas à l'écran, ses animations sont en pause
+var PAGE_ID = (location.pathname.split('/').pop() || '').replace('.html', '');
+var PAGE_VISIBLE = true, PAGE_A_REDESSINER = false;
+window.addEventListener('message', function(e){
+  if (!e.data || e.data.type !== 'actif') return;
+  PAGE_VISIBLE = e.data.value === PAGE_ID;
+  var c = document.documentElement.className.replace(/\s*\bcachee\b/g, '');
+  document.documentElement.className = PAGE_VISIBLE ? c : c + ' cachee';
+  if (PAGE_VISIBLE && PAGE_A_REDESSINER && typeof redessinerSiBesoin === 'function') redessinerSiBesoin();
+});
+
 /* ===================== RÉGLAGES ===================== */
 var CONFIG = {
   // Sans clé (?cle=… dans l'adresse), agenda, maison et anniversaires restent en exemple
@@ -1571,7 +1584,15 @@ chargerMaison(); setInterval(chargerMaison, 30000);
 // musique : toutes les 10 s quand la tuile est à l'écran (une lecture change vite), sinon toutes les minutes
 chargerMusique(); setInterval(function(){ if (VISIBLES.musique || Date.now() % 60000 < 10000) chargerMusique(); }, 10000);
 chargerVigi(); setInterval(chargerVigi, 5 * 60000);
-setInterval(afficher, 20000);
+// redessin périodique (« pars dans… », moments de la journée) : une fois par minute, et seulement à l'écran ;
+// une page cachée attend d'être réaffichée pour se mettre à jour
+var derniereMinute = -1;
+function redessinerSiBesoin(){ PAGE_A_REDESSINER = false; derniereMinute = Math.floor(Date.now() / 60000); afficher(); }
+setInterval(function(){
+  if (Math.floor(Date.now() / 60000) === derniereMinute) return;
+  if (!PAGE_VISIBLE) { PAGE_A_REDESSINER = true; return; }
+  redessinerSiBesoin();
+}, 5000);
 // Une fois les polices chargées, les textes changent de taille : on recalcule ce qui tient
 if (document.fonts && document.fonts.ready) document.fonts.ready.then(function(){ afficher(); });
 </script>

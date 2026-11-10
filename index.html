@@ -106,6 +106,9 @@ body{
 /* Veille : écran noir, réveil au toucher */
 #veille{position:fixed;left:0;top:0;right:0;bottom:0;background:#000;z-index:100;display:none;cursor:pointer}
 #veille.on{display:block}
+/* sous l'écran de veille (opaque) : on ne dessine plus les pages ni la barre */
+body.en-veille #slides,body.en-veille #nav{visibility:hidden}
+body.en-veille #slides iframe.on{visibility:hidden}
 /* Horloge en mots (veille) : les mots de l'heure s'allument dans une grille de lettres */
 #mots{position:absolute;left:4vw;right:4vw;top:4vh;bottom:11vh;font-family:Figtree,Roboto,Arial,sans-serif;display:none;-webkit-box-orient:vertical;-webkit-flex-direction:column;flex-direction:column;-webkit-justify-content:space-between;justify-content:space-between}
 #veille.mots #mots{display:-webkit-flex;display:flex}
@@ -674,6 +677,9 @@ function majVeille(){
   enVeille = doit;
   var mots = styleVeille() === 'mots';
   zoneVeille.className = doit ? 'on' + (mots ? ' mots' : '') : '';
+  document.body.className = doit ? 'en-veille' : '';
+  // les pages mettent leurs animations en pause pendant la veille, et reprennent au réveil
+  for (var q = 0; q < frames.length; q++) { try { frames[q].contentWindow.postMessage({ type: 'actif', value: doit ? '' : (S[actuel] ? S[actuel].id : '') }, '*'); } catch (err) {} }
   if (doit && mots) majMots();
   luminosite(doit ? (mots ? (heureDeVeille() ? 25 : 70) : 0) : null);   // horloge en mots : rétroéclairage bas (très bas la nuit), pas éteint
 }
