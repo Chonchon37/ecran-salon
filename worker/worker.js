@@ -33,7 +33,7 @@ const FLUX_TR = 'https://data.filbleu.fr/ws-tr/gtfs-rt/opendata/trip-updates';
 const FLUX_ALERTES = 'https://data.filbleu.fr/ws-tr/gtfs-rt/opendata/service-alerts';
 const FLUX_INCIDENTS = 'https://www.filbleu.fr/rss-incident.xml';   // l'info trafic du site filbleu.fr (travaux, déviations…)
 const CACHE_SECONDES = 30;   // les écrans redemandent toutes les 30 s
-const VERSION = '51';   // à changer à chaque mise à jour du code : vide les caches
+const VERSION = '52';   // à changer à chaque mise à jour du code : vide les caches
 
 // Horaires prévus, format compact : "jours" = n° de grille pour chaque jour depuis "debut",
 // chaque ligne "g=" = minutes depuis minuit, écrites en écarts successifs.
@@ -1577,28 +1577,36 @@ async function lancerPlaylist(env, compte, lecteurId, nomEnceinte, p) {
     const idMemo = memo[noms[0]] || memo[noms[1]];
     if (idMemo) { if (await jouer(idMemo)) return { ok: true, par: 'spotify-memoire' }; essais.push('memoire:refus'); }
   }
-  // 3. Home Assistant avec Spotcast (HACS) : il réveille Spotify sur l'enceinte Google, puis on lance la playlist
+  // 3. Home Assistant avec Spotcast (HACS) : il réveille Spotify sur l'enceinte Google et lance la playlist
+  //    (version actuelle : spotcast.play_media / play_liked_songs ; ancienne : spotcast.start)
   if (env.HA_URL && env.HA_TOKEN) {
-    const r = await fetch(haUrl(env, '/api/services/spotcast/start'), {
-      method: 'POST', headers: { Authorization: 'Bearer ' + env.HA_TOKEN, 'Content-Type': 'application/json' },
-      body: JSON.stringify(ctx ? { entity_id: lecteurId, uri: ctx } : { entity_id: lecteurId })
+    const ha = (service, donnees) => fetch(haUrl(env, '/api/services/' + service), {
+      method: 'POST', headers: { Authorization: 'Bearer ' + env.HA_TOKEN, 'Content-Type': 'application/json' }, body: JSON.stringify(donnees)
     }).catch(() => null);
+    let r = ctx ? await ha('spotcast/play_media', { media_player: { entity_id: lecteurId }, spotify_uri: ctx })
+                : await ha('spotcast/play_liked_songs', { media_player: { entity_id: lecteurId } });
+    if (r && r.ok) return { ok: true, par: 'spotcast' };
+    essais.push('spotcast:' + (r ? r.status : 'injoignable'));
+    r = await ha('spotcast/start', ctx ? { entity_id: lecteurId, uri: ctx } : { entity_id: lecteurId });
     if (r && r.ok) {
-      if (ctx) return { ok: true, par: 'spotcast' };
+      if (ctx) return { ok: true, par: 'spotcast-ancien' };
       for (let k = 0; k < 3; k++) { await attendre(2500); cible = await chercher(); if (cible && await jouer(cible.id)) return { ok: true, par: 'spotcast+spotify' }; }
-      essais.push('spotcast:sans-appareil');
-    } else essais.push('spotcast:' + (r ? r.status : 'injoignable'));
+      essais.push('spotcast-ancien:sans-appareil');
+    } else essais.push('spotcast-ancien:' + (r ? r.status : 'injoignable'));
   }
   // 4. dernier recours : demander à l'Assistant Google
   const commande = p.uri === 'aimes' ? 'Joue mes titres likés sur Spotify sur ' + nomEnceinte : 'Joue la playlist ' + p.nom + ' sur Spotify sur ' + nomEnceinte;
   const r = await fetch(haUrl(env, '/api/services/google_assistant_sdk/send_text_command'), {
     method: 'POST', headers: { Authorization: 'Bearer ' + env.HA_TOKEN, 'Content-Type': 'application/json' }, body: JSON.stringify({ command: commande })
   });
-  // vérification : l'enceinte joue-t-elle quelque chose quelques secondes après ?
-  await attendre(5000);
-  const e = await fetch(haUrl(env, '/api/states/' + lecteurId), { headers: { Authorization: 'Bearer ' + env.HA_TOKEN } }).then(x => x.ok ? x.json() : null).catch(() => null);
-  const joue = !!(e && e.state === 'playing');
-  return { ok: r.ok && joue, par: 'assistant', commande, essais, erreur: joue ? undefined : 'Spotify ne voit pas l\'enceinte « ' + nomEnceinte + ' » au repos' };
+  // vérification : l'enceinte joue-t-elle quelque chose ? (un groupe Google met parfois 10 s à démarrer)
+  let joue = false;
+  for (let k = 0; k < 6 && !joue; k++) {
+    await attendre(2500);
+    const e = await fetch(haUrl(env, '/api/states/' + lecteurId), { headers: { Authorization: 'Bearer ' + env.HA_TOKEN } }).then(x => x.ok ? x.json() : null).catch(() => null);
+    joue = !!(e && e.state === 'playing');
+  }
+  return { ok: r.ok && joue, par: 'assistant', commande, essais, erreur: joue ? undefined : (essais.join(' ').indexOf('spotcast:4') >= 0 ? 'Spotify ne voit pas « ' + nomEnceinte + ' » au repos (Spotcast à installer)' : 'Spotify ne voit pas « ' + nomEnceinte + ' » au repos') };
 }
 async function actionMusique(env, c) {
   const id = String(c.id || '');
