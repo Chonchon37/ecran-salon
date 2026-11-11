@@ -33,7 +33,7 @@ const FLUX_TR = 'https://data.filbleu.fr/ws-tr/gtfs-rt/opendata/trip-updates';
 const FLUX_ALERTES = 'https://data.filbleu.fr/ws-tr/gtfs-rt/opendata/service-alerts';
 const FLUX_INCIDENTS = 'https://www.filbleu.fr/rss-incident.xml';   // l'info trafic du site filbleu.fr (travaux, déviations…)
 const CACHE_SECONDES = 30;   // les écrans redemandent toutes les 30 s
-const VERSION = '52';   // à changer à chaque mise à jour du code : vide les caches
+const VERSION = '53';   // à changer à chaque mise à jour du code : vide les caches
 
 // Horaires prévus, format compact : "jours" = n° de grille pour chaque jour depuis "debut",
 // chaque ligne "g=" = minutes depuis minuit, écrites en écarts successifs.
@@ -1109,7 +1109,8 @@ async function construireMusique(env) {
   const r = await fetch(haUrl(env, '/api/template'), { method: 'POST', headers: { Authorization: 'Bearer ' + env.HA_TOKEN, 'Content-Type': 'application/json' }, body: JSON.stringify({ template: TPL_MUSIQUE }) });
   const t = await r.text();
   if (!r.ok) throw new Error('Home Assistant : ' + t.slice(0, 160));
-  const TOUS = JSON.parse(t);
+  // Les lecteurs créés par Spotcast ou l'intégration Spotify (appareils Spotify Connect, pas des enceintes) sont ignorés
+  const TOUS = JSON.parse(t).filter(x => !/spotcast|^media_player\.spotify/i.test(x.id) && !/^spotcast\b/i.test(String(x.nom || '')));
   // Toutes les enceintes Google (Hub compris) : pour régler le volume du groupe « Maison » enceinte par enceinte
   E(env).ENCEINTES = TOUS.map(x => x.id).filter(i => !/freebox/.test(i));
   const L = TOUS.filter(x => masques.indexOf(x.id) < 0 && !/freebox|^media_player\.hub/.test(x.id));
