@@ -127,6 +127,23 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:32px;heigh
 /* fond = pochette réduite à quelques pixels puis agrandie (dégradé doux, sans filtre « blur » que le cadre n'affiche pas) */
 .ambiance{position:absolute;left:0;top:0;right:0;bottom:0;background-size:100% 100%;background-repeat:no-repeat;opacity:0;-webkit-transition:opacity .8s;transition:opacity .8s;pointer-events:none}
 .ambiance.pret{opacity:.6}
+/* Immersion : pendant la lecture, toute la page (et la barre du bas, via l'écran principal) prend les couleurs de la pochette */
+#fondPage{position:fixed;left:0;top:0;width:1280px;height:728px;background-size:100% 100%;display:none;pointer-events:none}
+#fondPage i{position:absolute;left:0;top:0;right:0;bottom:0}
+body.immersif{background:transparent!important}
+body.immersif.seul #fondPage{display:block}
+body.immersif .scene-lecture{background:rgba(255,255,255,.2);box-shadow:none;transition:background .8s}
+html.nuit body.immersif .scene-lecture{background:rgba(0,0,0,.16)}
+body.immersif .ambiance,body.immersif .voile{display:none}
+body.immersif .en{background:rgba(255,255,255,.38)}
+html.nuit body.immersif .en{background:rgba(255,255,255,.1)}
+body.immersif .en.on,html.nuit body.immersif .en.on{background:var(--ink)}
+body.immersif .bt{background:rgba(255,255,255,.42)}
+html.nuit body.immersif .bt{background:rgba(255,255,255,.12)}
+body.immersif .bt.pp,html.nuit body.immersif .bt.pp{background:var(--accent)}
+body.immersif .barre,body.immersif input[type=range]::-webkit-slider-runnable-track{background:rgba(255,255,255,.45)}
+html.nuit body.immersif .barre,html.nuit body.immersif input[type=range]::-webkit-slider-runnable-track{background:rgba(255,255,255,.14)}
+body.immersif .src,body.immersif .artiste,body.immersif .temps,body.immersif .vol b,body.immersif .vol svg,body.immersif .label{color:var(--ink);opacity:.72}
 html.nuit .ambiance.pret{opacity:.45}
 .ambiance.sans{-webkit-filter:none;filter:none;opacity:1;background:radial-gradient(circle at 18% 30%,rgba(224,168,106,.35),transparent 55%),radial-gradient(circle at 85% 80%,rgba(146,178,142,.28),transparent 50%)}
 .voile{position:absolute;left:0;top:0;right:0;bottom:0;background:linear-gradient(90deg,rgba(251,247,239,0) 0,rgba(251,247,239,.55) 48%,rgba(251,247,239,.7) 100%);pointer-events:none}
@@ -204,6 +221,7 @@ html.cachee *,html.cachee *:before,html.cachee *:after{-webkit-animation-play-st
 </style>
 </head>
 <body>
+<div id="fondPage"><i></i></div>
 <div class="wrap">
   <div class="tete"><div class="label">Musique<span class="demo" id="demo">exemple</span></div><div class="ens" id="ens"></div><div id="ouvrir"></div></div>
   <div class="card scene-lecture" id="hero"></div>
@@ -268,7 +286,7 @@ window.addEventListener('message', function(e){
 var CONFIG = { WORKER: 'https://ecran-salon.nico-michon37.workers.dev' };
 function param(n){ var m = new RegExp('[?&]' + n + '=([^&#]*)').exec(location.search); return m ? decodeURIComponent(m[1]) : null; }
 function themeAuto(){ var h = new Date().getHours(); return (h >= 19 || h < 7) ? 'nuit' : 'jour'; }
-function appliquerTheme(t){ if (!t || t === 'auto') t = themeAuto(); document.documentElement.className = t === 'nuit' ? 'nuit' : ''; }
+function appliquerTheme(t){ if (!t || t === 'auto') t = themeAuto(); document.documentElement.className = t === 'nuit' ? 'nuit' : ''; if (typeof majTeinte === 'function' && document.body) majTeinte(); }
 appliquerTheme(param('theme'));
 function signalerToucher(){ if (window.parent !== window) { try { window.parent.postMessage({ type: 'interaction' }, '*'); } catch (err) {} } }
 document.addEventListener('touchstart', signalerToucher, true);
@@ -302,20 +320,71 @@ var dernierHero = '', dernierConnexion = '';
 // Couleurs de la pochette : réduite à 6×6 pixels dans un canvas, l'agrandissement du navigateur fait le flou.
 // Calculé une fois par pochette (rien d'animé, rien de lourd pour la carte graphique).
 var FONDS = {};
+function hsl(r, g, b){
+  r /= 255; g /= 255; b /= 255;
+  var mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2, h = 0, s = 0, d = mx - mn;
+  if (d) { s = d / (1 - Math.abs(2 * l - 1)); h = mx === r ? ((g - b) / d) % 6 : (mx === g ? (b - r) / d + 2 : (r - g) / d + 4); h *= 60; if (h < 0) h += 360; }
+  return [h, s, l];
+}
+// Pochette 6×6 : couleurs un peu plus franches, luminosité moyenne (pour doser le voile clair ou sombre) et couleur d'accent
+function analyser(g){
+  var D = g.getImageData(0, 0, 6, 6), p = D.data, i, lum = 0, meilleur = null, ms = -1;
+  for (i = 0; i < p.length; i += 4) {
+    var m = (p[i] + p[i + 1] + p[i + 2]) / 3;
+    for (var k = 0; k < 3; k++) p[i + k] = Math.max(0, Math.min(255, Math.round(m + (p[i + k] - m) * 1.35)));
+    var x = hsl(p[i], p[i + 1], p[i + 2]);
+    lum += (0.2126 * p[i] + 0.7152 * p[i + 1] + 0.0722 * p[i + 2]) / 255;
+    var poids = x[1] * (1 - Math.abs(x[2] - 0.5) * 1.6);   // couleur vive, ni presque noire ni presque blanche
+    if (poids > ms) { ms = poids; meilleur = x; }
+  }
+  g.putImageData(D, 0, 0);
+  lum /= p.length / 4;
+  var h = Math.round(meilleur[0]), s = Math.round(Math.max(0.3, Math.min(0.65, meilleur[1])) * 100);
+  function bornes(v, a, b){ return Math.max(a, Math.min(b, v)); }
+  return {
+    jour: bornes((0.74 - lum) / (1 - lum), 0.3, 0.85),            // voile blanc pour atteindre un fond clair
+    nuit: bornes(1 - 0.13 / Math.max(lum, 0.01), 0.3, 0.85),       // voile noir pour atteindre un fond sombre
+    accentJour: 'hsl(' + h + ',' + s + '%,34%)', accentNuit: 'hsl(' + h + ',' + s + '%,68%)'
+  };
+}
+var teinteActuelle = '';
+function majTeinte(){
+  var M = D(), f = null;
+  if (M && !M.absent && M.lecteurs && M.lecteurs.length && !enDemo()) {
+    var A = actif();
+    if (A && A.titre && (A.etat === 'playing' || A.etat === 'paused') && A.image) f = FONDS[urlPochette(A)] || null;
+  }
+  var nuit = /(^|\s)nuit(\s|$)/.test(document.documentElement.className), cle = f ? f.image + nuit : '';
+  if (cle === teinteActuelle) return;
+  teinteActuelle = cle;
+  var dansEcran = window.parent !== window, h = document.documentElement;
+  document.body.className = f ? 'immersif' + (dansEcran ? '' : ' seul') : '';
+  h.style.background = f ? 'transparent' : '';
+  if (f) {
+    $('fondPage').style.backgroundImage = 'url(' + f.image + ')';
+    $('fondPage').firstChild.style.background = nuit ? 'rgba(10,8,6,' + f.nuit + ')' : 'rgba(255,255,255,' + f.jour + ')';
+    h.style.setProperty('--accent', nuit ? f.accentNuit : f.accentJour);
+  } else h.style.removeProperty('--accent');
+  if (dansEcran) { try { window.parent.postMessage({ type: 'teinte', value: f }, '*'); } catch (e) {} }
+}
+function urlPochette(A){ return CONFIG.WORKER + '/musique/pochette?cle=' + encodeURIComponent(CLE) + '&id=' + encodeURIComponent(A.id) + '&v=' + encodeURIComponent(A.image); }
 function preparerFond(url){
   var im = new Image();
   im.crossOrigin = 'anonymous';
   im.onload = function(){
     var fond = '';
+    var info = null;
     try {
       var c = document.createElement('canvas'); c.width = 6; c.height = 6;
       var g = c.getContext('2d'); g.drawImage(im, 0, 0, 6, 6);
-      fond = c.toDataURL('image/png');
+      info = analyser(g);
+      info.image = c.toDataURL('image/png');
     } catch (e) {}
-    if (!fond) { im.onerror(); return; }
-    FONDS[url] = fond;
+    if (!info) { im.onerror(); return; }
+    FONDS[url] = info; fond = info.image;
     var a = $('ambiance');
     if (a && a.className.indexOf('sans') < 0) { a.style.backgroundImage = 'url(' + fond + ')'; a.className = 'ambiance pret'; }
+    majTeinte();
   };
   // pochette illisible : dégradé doux aux couleurs du thème plutôt qu'un fond vide
   im.onerror = function(){ var a = $('ambiance'); if (a) a.className = 'ambiance sans'; };
@@ -350,7 +419,8 @@ function compteActif(M){
 }
 function mmss(s){ s = Math.max(0, Math.round(s)); return Math.floor(s / 60) + ':' + pad(s % 60); }
 function position(A){ var p = A.position || 0; if (A.etat === 'playing' && A.majPos) p += (Date.now() - A.majPos) / 1000; return A.duree ? Math.min(p, A.duree) : p; }
-function dessiner(){
+function dessiner(){ dessinerScene(); majTeinte(); }
+function dessinerScene(){
   var M = D();
   $('demo').style.display = enDemo() ? '' : 'none';
   if (!M) { dernierHero = ''; $('hero').innerHTML = '<div class="vide"><div class="titre h">Chargement…</div></div>'; return; }

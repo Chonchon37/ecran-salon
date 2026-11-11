@@ -49,6 +49,12 @@ body{
   transition:background-color .8s;
 }
 #slides{position:relative;width:1280px;height:728px}
+/* Musique en cours : tout l'écran (page et barre du bas) prend les couleurs de la pochette */
+#teinte{position:absolute;left:0;top:0;width:1280px;height:800px;background-size:100% 100%;opacity:0;transition:opacity .8s;pointer-events:none}
+#teinte i{position:absolute;left:0;top:0;right:0;bottom:0}
+#stage.teinte #teinte{opacity:1}
+#stage.teinte .tab.on{background:rgba(255,255,255,.5)}
+html.nuit #stage.teinte .tab.on{background:rgba(255,255,255,.13)}
 #slides iframe{
   position:absolute;left:0;top:0;width:1280px;height:728px;border:0;
   opacity:0;visibility:hidden;transition:opacity .6s ease,visibility 0s linear .6s;
@@ -222,6 +228,7 @@ body.en-veille #slides iframe.on{visibility:hidden}
   </div>
 </div>
 <div id="stage">
+  <div id="teinte"><i></i></div>
   <div id="slides"></div>
   <div id="nav">
     <div id="bar"><div id="barFill"></div></div>
@@ -495,7 +502,7 @@ var zoneTabs = document.getElementById('tabs');
 function construire(){
   themeForce = param('theme') || CONFIG.THEME;
   theme = calculerTheme();
-  document.documentElement.className = (theme === 'nuit' ? 'nuit' : '') + classeOrga();
+  document.documentElement.className = (theme === 'nuit' ? 'nuit' : '') + classeOrga(); if (typeof majTeinte === 'function') majTeinte();
   S = CONFIG.SLIDES;
   for (var i = 0; i < S.length; i++) {
     var f = document.createElement('iframe');
@@ -565,6 +572,21 @@ function animerAnneau(secondes, sens){
 function lancerBarre(secondes){ if (pauseJusqua <= Date.now()) animerAnneau(secondes, 1); }
 function dureeSlide(){ return (S[actuel].duree || CONFIG.DUREE_DEFAUT); }
 
+var TEINTE = null, teinteVue = '';
+// la teinte de la pochette ne s'applique que lorsque l'onglet Musique est à l'écran
+function majTeinte(){
+  var st = document.getElementById('stage'), f = TEINTE && S[actuel] && S[actuel].id === 'musique' ? TEINTE : null;
+  var nuit = /(^|\s)nuit(\s|$)/.test(document.documentElement.className), cle = f ? f.image + nuit : '';
+  if (cle === teinteVue) return;
+  teinteVue = cle;
+  if (f) {
+    var T = document.getElementById('teinte');
+    T.style.backgroundImage = 'url(' + f.image + ')';
+    T.firstChild.style.background = nuit ? 'rgba(10,8,6,' + f.nuit + ')' : 'rgba(255,255,255,' + f.jour + ')';
+    st.style.setProperty('--accent', nuit ? f.accentNuit : f.accentJour);
+    st.className = 'teinte';
+  } else { st.className = ''; st.style.removeProperty('--accent'); }
+}
 function afficher(index){
   if (index === actuel) return;
   for (var j = 0; j < frames.length; j++) {
@@ -575,6 +597,7 @@ function afficher(index){
   // chaque page sait si elle est à l'écran (la page Musique se met à jour plus souvent quand on la regarde)
   for (var q = 0; q < frames.length; q++) { try { frames[q].contentWindow.postMessage({ type: 'actif', value: S[index].id }, '*'); } catch (err) {} }
   document.documentElement.className = (theme === 'nuit' ? 'nuit' : '') + classeOrga();
+  majTeinte();
   majHorloge();
   programmer();
 }
@@ -661,6 +684,7 @@ zonePause.addEventListener('click', function(){ pauseJusqua = 0; majPause(); pro
 window.addEventListener('message', function(e){
   if (!e.data) return;
   if (e.data.type === 'interaction') mettreEnPause();
+  if (e.data.type === 'teinte') { TEINTE = e.data.value || null; majTeinte(); }
   if (e.data.type === 'musiqueMaison') {               // la page Musique signale que « Maison » joue (ou s'est arrêtée)
     if (e.data.value) { clearTimeout(finMusique); finMusique = null; changerMusique(true); }
     // arrêt : on attend 5 s sans musique (changement de morceau, coupure passagère…) avant de revenir à l'accueil
@@ -845,7 +869,7 @@ function tic(){
   var nouveau = calculerTheme();
   if (nouveau !== theme) {
     theme = nouveau;
-    document.documentElement.className = (theme === 'nuit' ? 'nuit' : '') + classeOrga();
+    document.documentElement.className = (theme === 'nuit' ? 'nuit' : '') + classeOrga(); if (typeof majTeinte === 'function') majTeinte();
     for (var k = 0; k < frames.length; k++) {
       try { frames[k].contentWindow.postMessage({ type: 'theme', value: theme }, '*'); } catch (err) {}
     }
