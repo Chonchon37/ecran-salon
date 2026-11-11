@@ -156,6 +156,40 @@ html.cachee *,html.cachee *:before,html.cachee *:after{-webkit-animation-play-st
 </div>
 
 <script>
+/* Heure de Paris quel que soit le fuseau réglé sur l'appareil (le cadre peut se croire à New York…).
+   Si le fuseau de l'appareil n'est pas celui de Paris, les méthodes « locales » de Date sont recalculées
+   pour Paris (heure d'été : du dernier dimanche de mars au dernier dimanche d'octobre, à 1 h UTC). */
+(function(){
+  var D = Date, P0 = D.prototype, MIN = 60000;
+  function dimanche(y, m){ var d = new D(D.UTC(y, m + 1, 0, 1)); return d.getTime() - d.getUTCDay() * 86400000; }
+  function off(t){ var y = new D(t).getUTCFullYear(); return t >= dimanche(y, 2) && t < dimanche(y, 9) ? 120 : 60; }
+  var now = D.now();
+  if (new D(now).getTimezoneOffset() === -off(now) && new D(now + 182 * 86400000).getTimezoneOffset() === -off(now + 182 * 86400000)) return;
+  var uGet = {}, n = ['FullYear', 'Month', 'Date', 'Day', 'Hours', 'Minutes', 'Seconds', 'Milliseconds'], i;
+  for (i = 0; i < n.length; i++) uGet[n[i]] = P0['getUTC' + n[i]];
+  function loc(t){ return new D(t + off(t) * MIN); }                        // « heure de Paris » rangée dans les champs UTC
+  function reel(l){ return l - off(l - off(l) * MIN) * MIN; }              // et retour à l'instant réel
+  function getter(k){ return function(){ var t = this.getTime(); return isNaN(t) ? NaN : uGet[k].call(loc(t)); }; }
+  function setter(k){ var s = P0['setUTC' + k]; return function(){ var t = this.getTime(); if (isNaN(t)) return NaN; var v = loc(t); s.apply(v, arguments); return this.setTime(reel(v.getTime())); }; }
+  for (i = 0; i < n.length; i++) { P0['get' + n[i]] = getter(n[i]); if (n[i] !== 'Day') P0['set' + n[i]] = setter(n[i]); }
+  P0.getTimezoneOffset = function(){ var t = this.getTime(); return isNaN(t) ? NaN : -off(t); };
+  function depuis(y, m, d, h, mi, s, ms){ return reel(D.UTC(y, m, d === undefined ? 1 : d, h || 0, mi || 0, s || 0, ms || 0)); }
+  function lire(s){
+    var m = /^(\d{4})-(\d\d)-(\d\d)[T ](\d\d):(\d\d)(?::(\d\d)(?:\.(\d+))?)?$/.exec(s);   // date-heure sans fuseau = heure locale
+    return m ? depuis(+m[1], m[2] - 1, +m[3], +m[4], +m[5], +(m[6] || 0), +((m[7] || '0') + '00').slice(0, 3)) : D.parse(s);
+  }
+  function Paris(a, b, c, d, e, f, g){
+    if (!(this instanceof Paris)) return new D().toString();
+    var k = arguments.length;
+    if (k === 0) return new D();
+    if (k === 1) return new D(typeof a === 'string' ? lire(a) : (a instanceof D ? a.getTime() : a));
+    return new D(depuis(a, b, c, d, e, f, g));
+  }
+  Paris.prototype = P0; Paris.now = D.now; Paris.UTC = D.UTC; Paris.parse = lire;
+  window.Date = Paris;
+})();
+</script>
+<script>
 // Économie : quand la page n'est pas à l'écran, ses animations sont en pause
 var PAGE_ID = (location.pathname.split('/').pop() || '').replace('.html', '');
 var PAGE_VISIBLE = true, PAGE_A_REDESSINER = false;
