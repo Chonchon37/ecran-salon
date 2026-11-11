@@ -43,6 +43,14 @@ body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;fon
 .vol{display:flex;align-items:center;margin-top:24px}
 .vol svg{width:26px;height:26px;color:var(--muted);flex:none}
 .vol b{font-size:18px;font-weight:700;width:52px;text-align:right;color:var(--muted);flex:none}
+/* boutons − / + : volume de 5 en 5 */
+.vol .vb{width:54px;height:54px;border-radius:50%;background:var(--card2);color:var(--ink);font:600 30px/54px Figtree,Arial,sans-serif;text-align:center;flex:none;cursor:pointer;-webkit-user-select:none;user-select:none;margin-left:12px}
+.vol .vb.moins{margin-left:14px}
+.vol .vb:active{-webkit-transform:scale(.9);transform:scale(.9)}
+.vol .vb.inactif{opacity:.35}
+body.immersif .vol .vb{background:rgba(255,255,255,.42);color:var(--ink);opacity:1}
+html.nuit body.immersif .vol .vb{background:rgba(255,255,255,.12)}
+body.immersif .vol .vb.inactif{opacity:.35}
 input[type=range]{-webkit-appearance:none;appearance:none;flex:1;height:44px;background:transparent;margin:0 14px;cursor:pointer}
 input[type=range]::-webkit-slider-runnable-track{height:10px;border-radius:5px;background:var(--card2)}
 input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:32px;height:32px;border-radius:50%;margin-top:-11px;background:var(--accent);border:4px solid var(--card);box-shadow:0 3px 10px -3px rgba(0,0,0,.5)}
@@ -469,7 +477,7 @@ function dessinerScene(){
     return;
   }
   var A = actif(), joue = A.titre && (A.etat === 'playing' || A.etat === 'paused'), html;
-  var vol = A.volume !== null && A.volume !== undefined ? '<div class="vol">' + ic('volume') + '<input type="range" id="vol" min="0" max="100" step="1" value="' + A.volume + '"><b id="volv">' + A.volume + '</b></div>' : '';
+  var vol = A.volume !== null && A.volume !== undefined ? '<div class="vol">' + ic('volume') + '<span class="vb moins' + (A.volume <= 0 ? ' inactif' : '') + '" data-pas="-5">−</span><input type="range" id="vol" min="0" max="100" step="1" value="' + A.volume + '"><span class="vb plus' + (A.volume >= 100 ? ' inactif' : '') + '" data-pas="5">+</span><b id="volv">' + A.volume + '</b></div>' : '';
   if (joue) {
     var img = A.image && !enDemo() ? '<img src="' + CONFIG.WORKER + '/musique/pochette?cle=' + encodeURIComponent(CLE) + '&id=' + encodeURIComponent(A.id) + '&v=' + encodeURIComponent(A.image) + '" alt="">' : ic('note');
     var p = position(A), pc = A.duree ? p / A.duree * 100 : 0;
@@ -597,6 +605,30 @@ document.addEventListener('change', function(e){
     if (A.id === PRINCIPALE) { var L = D().lecteurs; for (var i = 0; i < L.length; i++) L[i].volume = A.volume; }
     envoyer({ action: 'volume', id: A.id, valeur: A.volume }); dessiner();
   }
+});
+// Boutons − / + : de 5 en 5 (arrondi au multiple de 5), affichage immédiat, envoi groupé 0,4 s après le dernier appui
+var minuteurVol = null;
+document.addEventListener('click', function(e){
+  var el = e.target;
+  if (!el || !el.getAttribute || el.getAttribute('data-pas') === null) return;
+  var A = actif(); if (!A || A.volume === null || A.volume === undefined) return;
+  var pas = parseInt(el.getAttribute('data-pas'), 10), v = A.volume;
+  v = pas > 0 ? Math.floor(v / 5) * 5 + 5 : Math.ceil(v / 5) * 5 - 5;
+  v = Math.max(0, Math.min(100, v));
+  if (v === A.volume) return;
+  A.volume = v;
+  if (A.id === PRINCIPALE) { var L = D().lecteurs; for (var i = 0; i < L.length; i++) L[i].volume = v; }
+  regleVolume = true;   // pas de redessin complet pendant les appuis
+  if ($('vol')) $('vol').value = v;
+  if ($('volv')) $('volv').innerHTML = v;
+  var bs = document.querySelectorAll('.vol .vb');
+  for (var k = 0; k < bs.length; k++) bs[k].className = 'vb ' + (k === 0 ? 'moins' : 'plus') + ((k === 0 ? v <= 0 : v >= 100) ? ' inactif' : '');
+  clearTimeout(minuteurVol);
+  minuteurVol = setTimeout(function(){
+    regleVolume = false;
+    var B = actif(); if (!B) return;
+    envoyer({ action: 'volume', id: B.id, valeur: B.volume }); dessiner();
+  }, 400);
 });
 // Progression du morceau, chaque seconde
 setInterval(function(){
