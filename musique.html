@@ -134,7 +134,7 @@ body.immersif{background:transparent!important}
 body.immersif.seul #fondPage{display:block}
 body.immersif .scene-lecture{background:rgba(255,255,255,.2);box-shadow:none;transition:background .8s}
 html.nuit body.immersif .scene-lecture{background:rgba(0,0,0,.16)}
-body.immersif .ambiance,body.immersif .voile{display:none}
+body.immersif .ambiance.pret,html.nuit body.immersif .ambiance.pret{opacity:1;background-size:cover;background-position:center}
 body.immersif .en{background:rgba(255,255,255,.38)}
 html.nuit body.immersif .en{background:rgba(255,255,255,.1)}
 body.immersif .en.on,html.nuit body.immersif .en.on{background:var(--ink)}
@@ -355,6 +355,14 @@ function majTeinte(){
     if (A && A.titre && (A.etat === 'playing' || A.etat === 'paused') && A.image) f = FONDS[urlPochette(A)] || null;
   }
   var nuit = /(^|\s)nuit(\s|$)/.test(document.documentElement.className), cle = f ? f.image + nuit : '';
+  // voile du centre (refait à chaque nouvelle scène) : léger côté pochette, plus marqué côté texte
+  var v = document.querySelector('.voile');
+  if (v) {
+    var vs = '';
+    if (f) { var a = nuit ? f.nuit : f.jour, coul = nuit ? '10,8,6,' : '255,255,255,';
+      vs = 'linear-gradient(90deg,rgba(' + coul + Math.max(0.1, a - 0.35).toFixed(2) + ') 0,rgba(' + coul + Math.min(0.85, a + 0.05).toFixed(2) + ') 52%,rgba(' + coul + Math.min(0.9, a + 0.15).toFixed(2) + ') 100%)'; }
+    if (v.getAttribute('data-v') !== vs) { v.style.background = vs; v.setAttribute('data-v', vs); }
+  }
   if (cle === teinteActuelle) return;
   teinteActuelle = cle;
   var dansEcran = window.parent !== window, h = document.documentElement;
@@ -366,6 +374,32 @@ function majTeinte(){
     h.style.setProperty('--accent', nuit ? f.accentNuit : f.accentJour);
   } else h.style.removeProperty('--accent');
   if (dansEcran) { try { window.parent.postMessage({ type: 'teinte', value: f }, '*'); } catch (e) {} }
+}
+// Pochette floutée pour le centre : réduite à 40×40, flou « boîte » fait à la main (3 passes),
+// puis agrandie par le navigateur. Aucun filtre CSS : le cadre ne les affiche pas.
+function flouter(im){
+  var N = 40, R = 3, c = document.createElement('canvas'); c.width = N; c.height = N;
+  var g = c.getContext('2d'); g.drawImage(im, 0, 0, N, N);
+  var D = g.getImageData(0, 0, N, N), p = D.data, t = new Array(p.length), passe, x, y, k, i, j, sum, n;
+  for (passe = 0; passe < 3; passe++) {
+    for (y = 0; y < N; y++) for (x = 0; x < N; x++) for (k = 0; k < 3; k++) {       // horizontal
+      sum = 0; n = 0;
+      for (i = -R; i <= R; i++) { j = Math.max(0, Math.min(N - 1, x + i)); sum += p[(y * N + j) * 4 + k]; n++; }
+      t[(y * N + x) * 4 + k] = sum / n;
+    }
+    for (y = 0; y < N; y++) for (x = 0; x < N; x++) for (k = 0; k < 3; k++) {       // vertical
+      sum = 0; n = 0;
+      for (i = -R; i <= R; i++) { j = Math.max(0, Math.min(N - 1, y + i)); sum += t[(j * N + x) * 4 + k]; n++; }
+      p[(y * N + x) * 4 + k] = sum / n;
+    }
+  }
+  for (i = 0; i < p.length; i += 4) {                                             // couleurs un peu plus franches
+    var m = (p[i] + p[i + 1] + p[i + 2]) / 3;
+    for (k = 0; k < 3; k++) p[i + k] = Math.max(0, Math.min(255, Math.round(m + (p[i + k] - m) * 1.25)));
+    p[i + 3] = 255;
+  }
+  g.putImageData(D, 0, 0);
+  return c.toDataURL('image/png');
 }
 function urlPochette(A){ return CONFIG.WORKER + '/musique/pochette?cle=' + encodeURIComponent(CLE) + '&id=' + encodeURIComponent(A.id) + '&v=' + encodeURIComponent(A.image); }
 function preparerFond(url){
@@ -379,9 +413,10 @@ function preparerFond(url){
       var g = c.getContext('2d'); g.drawImage(im, 0, 0, 6, 6);
       info = analyser(g);
       info.image = c.toDataURL('image/png');
+      info.flou = flouter(im);
     } catch (e) {}
     if (!info) { im.onerror(); return; }
-    FONDS[url] = info; fond = info.image;
+    FONDS[url] = info; fond = info.flou;
     var a = $('ambiance');
     if (a && a.className.indexOf('sans') < 0) { a.style.backgroundImage = 'url(' + fond + ')'; a.className = 'ambiance pret'; }
     majTeinte();
@@ -439,7 +474,7 @@ function dessinerScene(){
     var img = A.image && !enDemo() ? '<img src="' + CONFIG.WORKER + '/musique/pochette?cle=' + encodeURIComponent(CLE) + '&id=' + encodeURIComponent(A.id) + '&v=' + encodeURIComponent(A.image) + '" alt="">' : ic('note');
     var p = position(A), pc = A.duree ? p / A.duree * 100 : 0;
     var url = A.image && !enDemo() ? CONFIG.WORKER + '/musique/pochette?cle=' + encodeURIComponent(CLE) + '&id=' + encodeURIComponent(A.id) + '&v=' + encodeURIComponent(A.image) : '';
-    html = '<div class="ambiance' + (url ? (FONDS[url] ? ' pret' : '') : ' sans') + '" id="ambiance"' + (url && FONDS[url] ? ' style="background-image:url(' + FONDS[url] + ')"' : '') + '></div><div class="voile"></div>' +
+    html = '<div class="ambiance' + (url ? (FONDS[url] ? ' pret' : '') : ' sans') + '" id="ambiance"' + (url && FONDS[url] ? ' style="background-image:url(' + FONDS[url].flou + ')"' : '') + '></div><div class="voile"></div>' +
       '<div class="pochette' + (A.etat === 'playing' ? ' joue' : '') + (url ? '' : ' nue') + '">' + img + '</div><div class="infos">' +
       '<div class="src"><span class="eq' + (A.etat === 'playing' ? '' : ' arret') + '"><i></i><i></i><i></i><i></i></span>' + echapper(A.nom) + (A.app ? ' · ' + echapper(A.app) : '') + '</div>' +
       '<div class="titre h">' + echapper(A.titre) + '</div>' + (A.artiste ? '<div class="artiste">' + echapper(A.artiste) + '</div>' : '') +
