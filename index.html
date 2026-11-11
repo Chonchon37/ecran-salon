@@ -525,6 +525,9 @@ function construire(){
       });
     })(i);
     zoneTabs.appendChild(t);
+    // l'onglet s'élargit (son nom apparaît) : on remesure l'anneau quand l'élargissement est fini
+    t.addEventListener('transitionend', function(){ if (this === tabs[actuel]) verifierAnneau(); });
+    t.addEventListener('webkitTransitionEnd', function(){ if (this === tabs[actuel]) verifierAnneau(); });
     tabs.push(t);
   }
 }
@@ -543,6 +546,7 @@ var perimetre = 0, minuteurAnneau = null;
 function mesurerAnneau(){
   var t = tabs[actuel]; if (!t) return;
   var w = t.offsetWidth, h = t.offsetHeight, l = Math.max(0, w - 3), H = Math.max(0, h - 3), r = H / 2;
+  tailleAnneau = w + 'x' + h;
   anneau.setAttribute('width', w); anneau.setAttribute('height', h);
   var R = [fondAnneau, trait];
   for (var i = 0; i < 2; i++) { R[i].setAttribute('x', 1.5); R[i].setAttribute('y', 1.5); R[i].setAttribute('width', l); R[i].setAttribute('height', H); R[i].setAttribute('rx', r); R[i].setAttribute('ry', r); }
@@ -551,8 +555,20 @@ function mesurerAnneau(){
 }
 // de « vide » à « plein » en `secondes` (sens = 1), ou de plein à vide (sens = -1, pause) ; 0 = anneau caché
 // Économie pour le cadre : le trait avance par petits pas (5 fois par seconde) au lieu d'être redessiné 60 fois par seconde
-var pasAnneau = null;
+var pasAnneau = null, pasCourant = null, tailleAnneau = '', verifs = [];
+// Remesure si l'onglet n'a plus la taille mesurée (cadre lent : l'élargissement peut finir après la première mesure)
+function verifierAnneau(){
+  var t = tabs[actuel]; if (!t || anneau.parentNode !== t) return;
+  if (t.offsetWidth + 'x' + t.offsetHeight === tailleAnneau) return;
+  var avant = perimetre, off = parseFloat(trait.style.strokeDashoffset) || 0;
+  mesurerAnneau();
+  if (pasCourant) pasCourant(true);
+  else trait.style.strokeDashoffset = avant ? off / avant * perimetre : 0;   // même proportion sur le nouveau tour
+}
 function animerAnneau(secondes, sens){
+  for (var q = 0; q < verifs.length; q++) clearTimeout(verifs[q]);
+  verifs = [setTimeout(verifierAnneau, 450), setTimeout(verifierAnneau, 1000), setTimeout(verifierAnneau, 2000)];
+  pasCourant = null;
   if (tabs[actuel] && anneau.parentNode !== tabs[actuel]) tabs[actuel].appendChild(anneau);
   anneau.setAttribute('class', sens < 0 ? 'pause' : '');
   clearTimeout(minuteurAnneau); clearInterval(pasAnneau);
@@ -560,13 +576,15 @@ function animerAnneau(secondes, sens){
   trait.style.strokeDashoffset = sens < 0 ? 0 : perimetre;
   if (secondes <= 0) return;
   var debut = Date.now(), duree = secondes * 1000, dernier = -1;
-  function pas(){
+  function pas(force){
+    if (force) dernier = -1;
     var f = Math.min(1, (Date.now() - debut) / duree);
     var v = Math.round((sens < 0 ? perimetre * f : perimetre * (1 - f)) * 2) / 2;   // au demi-pixel près : rien à redessiner si rien n'a bougé
     if (v !== dernier) { trait.style.strokeDashoffset = v; dernier = v; }
     if (f >= 1) clearInterval(pasAnneau);
   }
   // on attend que le nom de l'onglet ait fini de s'afficher (l'onglet s'élargit), puis on mesure
+  pasCourant = pas;
   minuteurAnneau = setTimeout(function(){ mesurerAnneau(); dernier = -1; pas(); pasAnneau = setInterval(pas, 200); }, 450);
 }
 function lancerBarre(secondes){ if (pauseJusqua <= Date.now()) animerAnneau(secondes, 1); }
