@@ -157,6 +157,7 @@ window.addEventListener('message', function(e){
   var c = document.documentElement.className.replace(/\s*\bcachee\b/g, '');
   document.documentElement.className = PAGE_VISIBLE ? c : c + ' cachee';
   if (PAGE_VISIBLE && PAGE_A_REDESSINER && typeof redessinerSiBesoin === 'function') redessinerSiBesoin();
+  if (PAGE_VISIBLE && typeof surAffichage === 'function') surAffichage();
 });
 
 /* ===================== RÉGLAGES ===================== */
@@ -340,7 +341,11 @@ $('scenes').addEventListener('click', function(e){
 });
 
 charger();
-setInterval(function(){ if (!enDemo()) charger(); }, CONFIG.RAFRAICHIR_SEC * 1000);
+// page cachée : pas de relevé (économie) ; elle se met à jour dès qu'on l'affiche
+var dernierReleve = Date.now();
+function releverMaison(){ dernierReleve = Date.now(); if (!enDemo()) charger(); }
+function surAffichage(){ if (Date.now() - dernierReleve > 5000) releverMaison(); }
+setInterval(function(){ if (PAGE_VISIBLE) releverMaison(); }, CONFIG.RAFRAICHIR_SEC * 1000);
 </script>
 </body>
 </html>

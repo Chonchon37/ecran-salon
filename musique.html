@@ -48,6 +48,8 @@ body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;fon
 .vol b{font-size:18px;font-weight:700;width:52px;text-align:right;color:var(--muted);flex:none}
 #toast{position:fixed;left:50%;bottom:22px;-webkit-transform:translate(-50%,90px);transform:translate(-50%,90px);background:var(--ink);color:var(--card);font-size:19px;font-weight:600;padding:12px 22px;border-radius:999px;opacity:0;transition:transform .3s,opacity .3s;-webkit-transition:-webkit-transform .3s,opacity .3s;max-width:1100px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;z-index:30}
 #toast.vu{opacity:1;-webkit-transform:translate(-50%,0);transform:translate(-50%,0)}
+/* la barre de progression bouge chaque seconde : sa mise en page reste confinée (le reste de la scène n'est pas recalculé) */
+.prog{contain:layout style}
 /* boutons − / + : volume de 5 en 5 */
 .vol .vb{width:54px;height:54px;border-radius:50%;background:var(--card2);color:var(--ink);font:600 30px/54px Figtree,Arial,sans-serif;text-align:center;flex:none;cursor:pointer;-webkit-user-select:none;user-select:none;margin-left:12px}
 .vol .vb.moins{margin-left:14px}

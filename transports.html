@@ -256,6 +256,7 @@ window.addEventListener('message', function(e){
   var c = document.documentElement.className.replace(/\s*\bcachee\b/g, '');
   document.documentElement.className = PAGE_VISIBLE ? c : c + ' cachee';
   if (PAGE_VISIBLE && PAGE_A_REDESSINER && typeof redessinerSiBesoin === 'function') redessinerSiBesoin();
+  if (PAGE_VISIBLE && typeof surAffichage === 'function') surAffichage();
 });
 
 /* ===================== RÉGLAGES ===================== */
@@ -518,7 +519,11 @@ $('panneau').addEventListener('click', function(e){
   while (el && el !== this) { if (el.className === 'pn-fermer') { fermerPanneau(); return; } el = el.parentNode; }
   if (e.target === this || e.target.className === 'pn-pied') fermerPanneau();
 });
-setInterval(charger, CONFIG.RAFRAICHIR_SEC * 1000);
+// page cachée : pas de relevé (économie) ; elle se met à jour dès qu'on l'affiche
+var dernierReleve = Date.now();
+function releverTransports(){ dernierReleve = Date.now(); charger(); }
+function surAffichage(){ if (Date.now() - dernierReleve > 5000) releverTransports(); }
+setInterval(function(){ if (PAGE_VISIBLE) releverTransports(); }, CONFIG.RAFRAICHIR_SEC * 1000);
 // Entre deux chargements, on recalcule les minutes restantes chaque 10 s
 // rafraîchissement de l'affichage : seulement à l'écran (une page cachée se met à jour quand on la réaffiche)
 function redessinerSiBesoin(){ PAGE_A_REDESSINER = false; if (dernieresDonnees) afficher(dernieresDonnees); majTexte(); }
