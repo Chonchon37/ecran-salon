@@ -124,8 +124,10 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:32px;heigh
 .cpt b{font-size:18px;padding:10px 22px}
 /* ---- Lecture en cours : ambiance tirée de la pochette, égaliseur animé ---- */
 .scene-lecture{position:relative;overflow:hidden}
-.ambiance{-webkit-transform:translateZ(0);transform:translateZ(0);will-change:transform;position:absolute;left:-60px;top:-60px;right:-60px;bottom:-60px;background-size:cover;background-position:center;-webkit-filter:blur(60px) saturate(1.5);filter:blur(60px) saturate(1.5);opacity:.55;-webkit-transition:opacity .8s;transition:opacity .8s;pointer-events:none}
-html.nuit .ambiance{opacity:.42}
+/* fond = pochette réduite à quelques pixels puis agrandie (dégradé doux, sans filtre « blur » que le cadre n'affiche pas) */
+.ambiance{position:absolute;left:0;top:0;right:0;bottom:0;background-size:100% 100%;background-repeat:no-repeat;opacity:0;-webkit-transition:opacity .8s;transition:opacity .8s;pointer-events:none}
+.ambiance.pret{opacity:.6}
+html.nuit .ambiance.pret{opacity:.45}
 .ambiance.sans{-webkit-filter:none;filter:none;opacity:1;background:radial-gradient(circle at 18% 30%,rgba(224,168,106,.35),transparent 55%),radial-gradient(circle at 85% 80%,rgba(146,178,142,.28),transparent 50%)}
 .voile{position:absolute;left:0;top:0;right:0;bottom:0;background:linear-gradient(90deg,rgba(251,247,239,0) 0,rgba(251,247,239,.55) 48%,rgba(251,247,239,.7) 100%);pointer-events:none}
 html.nuit .voile{background:linear-gradient(90deg,rgba(43,32,25,0) 0,rgba(43,32,25,.55) 48%,rgba(43,32,25,.72) 100%)}
@@ -297,6 +299,28 @@ var DEMO = { lecteurs: [
   comptes: [{ id: 'moi', nom: 'Nico', playlists: [{ nom: 'Titres likés' }, { nom: 'Soirée chill' }, { nom: 'Running' }, { nom: 'Rap FR' }, { nom: 'Apéro terrasse' }] },
     { id: 'flo', nom: 'Flo', playlists: [{ nom: 'Titres likés' }, { nom: 'Dimanche matin' }, { nom: 'Années 2000' }] }] };
 var dernierHero = '', dernierConnexion = '';
+// Couleurs de la pochette : réduite à 6×6 pixels dans un canvas, l'agrandissement du navigateur fait le flou.
+// Calculé une fois par pochette (rien d'animé, rien de lourd pour la carte graphique).
+var FONDS = {};
+function preparerFond(url){
+  var im = new Image();
+  im.crossOrigin = 'anonymous';
+  im.onload = function(){
+    var fond = '';
+    try {
+      var c = document.createElement('canvas'); c.width = 6; c.height = 6;
+      var g = c.getContext('2d'); g.drawImage(im, 0, 0, 6, 6);
+      fond = c.toDataURL('image/png');
+    } catch (e) {}
+    if (!fond) { im.onerror(); return; }
+    FONDS[url] = fond;
+    var a = $('ambiance');
+    if (a && a.className.indexOf('sans') < 0) { a.style.backgroundImage = 'url(' + fond + ')'; a.className = 'ambiance pret'; }
+  };
+  // pochette illisible : dégradé doux aux couleurs du thème plutôt qu'un fond vide
+  im.onerror = function(){ var a = $('ambiance'); if (a) a.className = 'ambiance sans'; };
+  im.src = url;
+}
 var donnees = null, choisi = null, compteChoisi = null, regleVolume = false, visible = false;
 function D(){ return enDemo() ? DEMO : donnees; }
 // Enceinte principale : « Maison » (toutes les enceintes) ; les autres sont secondaires
@@ -345,7 +369,7 @@ function dessiner(){
     var img = A.image && !enDemo() ? '<img src="' + CONFIG.WORKER + '/musique/pochette?cle=' + encodeURIComponent(CLE) + '&id=' + encodeURIComponent(A.id) + '&v=' + encodeURIComponent(A.image) + '" alt="">' : ic('note');
     var p = position(A), pc = A.duree ? p / A.duree * 100 : 0;
     var url = A.image && !enDemo() ? CONFIG.WORKER + '/musique/pochette?cle=' + encodeURIComponent(CLE) + '&id=' + encodeURIComponent(A.id) + '&v=' + encodeURIComponent(A.image) : '';
-    html = '<div class="ambiance' + (url ? '' : ' sans') + '"' + (url ? ' style="background-image:url(\'' + url + '\')"' : '') + '></div><div class="voile"></div>' +
+    html = '<div class="ambiance' + (url ? (FONDS[url] ? ' pret' : '') : ' sans') + '" id="ambiance"' + (url && FONDS[url] ? ' style="background-image:url(' + FONDS[url] + ')"' : '') + '></div><div class="voile"></div>' +
       '<div class="pochette' + (A.etat === 'playing' ? ' joue' : '') + (url ? '' : ' nue') + '">' + img + '</div><div class="infos">' +
       '<div class="src"><span class="eq' + (A.etat === 'playing' ? '' : ' arret') + '"><i></i><i></i><i></i><i></i></span>' + echapper(A.nom) + (A.app ? ' · ' + echapper(A.app) : '') + '</div>' +
       '<div class="titre h">' + echapper(A.titre) + '</div>' + (A.artiste ? '<div class="artiste">' + echapper(A.artiste) + '</div>' : '') +
@@ -358,7 +382,7 @@ function dessiner(){
   }
   // Économie : on ne reconstruit la scène (pochette, fond flouté) que si quelque chose d'affiché a changé
   var cleHero = html.replace(/id="barre" style="width:[\d.]+%"/, '').replace(/<span id="pos">[^<]*<\/span>/, '');
-  if (!regleVolume && cleHero !== dernierHero) { $('hero').innerHTML = html; dernierHero = cleHero; }
+  if (!regleVolume && cleHero !== dernierHero) { $('hero').innerHTML = html; dernierHero = cleHero; if (joue && url && !FONDS[url]) preparerFond(url); }
   // enceintes : pastilles (point vert = en lecture), la principale en premier
   var e = '';
   for (var i = 0; i < M.lecteurs.length && i < 8; i++) {
