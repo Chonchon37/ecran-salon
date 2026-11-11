@@ -6,6 +6,9 @@
 <title>Écran du salon</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700&family=Figtree:wght@400;500;600;700&family=Fraunces:opsz,wght,SOFT,WONK@9..144,500..700,0..100,0..1&display=swap">
 <style>
+/* pas de carré de surbrillance au toucher (Android) */
+*{-webkit-tap-highlight-color:rgba(0,0,0,0);-webkit-tap-highlight-color:transparent;outline:none}
+
 /* ============================================================
    COQUILLE (shell) : affiche les slides en plein écran,
    barre d'onglets tactile, rotation auto, horloge, mode nuit.
