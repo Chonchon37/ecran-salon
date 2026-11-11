@@ -1143,7 +1143,8 @@ function tuileAnniversaires(T, now, l, h, A){
 /* ---------- Tuile Agenda ---------- */
 function tuileAgenda(T, now, l, h){
   T.className += ' ag lien'; T.setAttribute('data-page', 'agenda');
-  var hr = now.getHours(), minNow = hr * 60 + now.getMinutes(), NBJ = 14, jours = [], d;
+  // 14 jours, puis jusqu'à 6 semaines pour remplir la tuile quand les deux semaines sont calmes
+  var hr = now.getHours(), minNow = hr * 60 + now.getMinutes(), NBJ = 45, PROCHE = 14, jours = [], d;
   for (d = 0; d < NBJ; d++) jours.push([]);
   var j0 = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
   function debutJour(k){ return new Date(now.getFullYear(), now.getMonth(), now.getDate() + k).getTime(); }
@@ -1191,7 +1192,7 @@ function tuileAgenda(T, now, l, h){
     var tete = '<div class="ev-sub">' + nomJour(k) + '</div>';
     if (!L.length) {
       if (demi) continue;
-      blocs.push({ tete: tete, corps: '<div class="vide">' + (prive() && !agendaReel ? 'Chargement…' : (k === 0 ? 'Plus rien de prévu' : 'Rien de prévu')) + '</div>', premier: true });
+      blocs.push({ loin: false, tete: tete, corps: '<div class="vide">' + (prive() && !agendaReel ? 'Chargement…' : (k === 0 ? 'Plus rien de prévu' : 'Rien de prévu')) + '</div>', premier: true });
       continue;
     }
     L.sort(function(p, q){ return (p.debut || '00:00') < (q.debut || '00:00') ? -1 : 1; });
@@ -1201,7 +1202,7 @@ function tuileAgenda(T, now, l, h){
       var enCours = k === 0 && x.debut && enMinutes(x.debut) <= minNow;
       var heure = x.debut ? (enCours ? '<div class="ev-h enc">En cours</div>' : '<div class="ev-h">' + x.debut.replace(':', '\u00a0h\u00a0') + '</div>') : '';
       var ligne = '<div class="ev' + (x.debut ? '' : ' jour') + '" style="border-left-color:' + coul + ';--c:' + coul + '">' + (demi ? '<div class="ev-j">' + jourCourt(k) + '</div>' : '') + heure + '<div class="ev-n">' + echapper(x.titre) + '</div></div>';
-      blocs.push({ tete: demi ? '' : tete, corps: ligne, premier: r === 0 });
+      blocs.push({ loin: k >= PROCHE, tete: demi ? '' : tete, corps: ligne, premier: r === 0 });
     }
   }
   // Remplissage : un jour par colonne quand tout tient ainsi, sinon les colonnes se suivent comme un journal
@@ -1235,11 +1236,11 @@ function tuileAgenda(T, now, l, h){
   function journal(nb){
     monter(nb);
     for (var z = 0; z < blocs.length; z++) {
-      if (ci >= cols.length) { restants++; continue; }
+      if (ci >= cols.length) { if (!blocs[z].loin) restants++; continue; }   // au-delà de 2 semaines : en bonus, pas compté
       if (poser(z, blocs[z].premier ? blocs[z].tete : '')) continue;
       // colonne pleine : on passe à la suivante, en rappelant le jour en haut
       ci++;
-      if (ci >= cols.length || !poser(z, teteSuite(z))) { ci = cols.length; restants++; }
+      if (ci >= cols.length || !poser(z, teteSuite(z))) { ci = cols.length; if (!blocs[z].loin) restants++; }
     }
     return Math.min(ci + 1, cols.length);   // colonnes réellement utilisées
   }

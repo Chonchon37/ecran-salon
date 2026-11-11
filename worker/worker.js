@@ -33,7 +33,7 @@ const FLUX_TR = 'https://data.filbleu.fr/ws-tr/gtfs-rt/opendata/trip-updates';
 const FLUX_ALERTES = 'https://data.filbleu.fr/ws-tr/gtfs-rt/opendata/service-alerts';
 const FLUX_INCIDENTS = 'https://www.filbleu.fr/rss-incident.xml';   // l'info trafic du site filbleu.fr (travaux, déviations…)
 const CACHE_SECONDES = 30;   // les écrans redemandent toutes les 30 s
-const VERSION = '49';   // à changer à chaque mise à jour du code : vide les caches
+const VERSION = '50';   // à changer à chaque mise à jour du code : vide les caches
 
 // Horaires prévus, format compact : "jours" = n° de grille pour chaque jour depuis "debut",
 // chaque ligne "g=" = minutes depuis minuit, écrites en écarts successifs.
@@ -572,7 +572,8 @@ async function construireAgenda(env) {
   if (!sources.length) throw new Error(String(reponses[0].reason && reponses[0].reason.message || 'agendas illisibles'));
   const agendasEnErreur = reponses.length - sources.length;
   const maintenant = Date.now(), aujourdhui = minuitParis(maintenant);
-  const finAgenda = aujourdhui + 15 * 86400000, finAnniv = aujourdhui + 367 * 86400000;
+  const finAgenda = aujourdhui + 46 * 86400000,   // 6 semaines : l'accueil complète avec les événements suivants quand les 2 semaines sont calmes
+        finAnniv = aujourdhui + 367 * 86400000;
   let evts = [];
   for (const src of sources) {
     // fichier identique au dernier appel : on réutilise la lecture (le découpage du fichier iCal coûte cher)
