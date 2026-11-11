@@ -43,6 +43,8 @@ body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;fon
 .vol{display:flex;align-items:center;margin-top:24px}
 .vol svg{width:26px;height:26px;color:var(--muted);flex:none}
 .vol b{font-size:18px;font-weight:700;width:52px;text-align:right;color:var(--muted);flex:none}
+#toast{position:fixed;left:50%;bottom:22px;-webkit-transform:translate(-50%,90px);transform:translate(-50%,90px);background:var(--ink);color:var(--card);font-size:19px;font-weight:600;padding:12px 22px;border-radius:999px;opacity:0;transition:transform .3s,opacity .3s;-webkit-transition:-webkit-transform .3s,opacity .3s;max-width:1100px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;z-index:30}
+#toast.vu{opacity:1;-webkit-transform:translate(-50%,0);transform:translate(-50%,0)}
 /* boutons − / + : volume de 5 en 5 */
 .vol .vb{width:54px;height:54px;border-radius:50%;background:var(--card2);color:var(--ink);font:600 30px/54px Figtree,Arial,sans-serif;text-align:center;flex:none;cursor:pointer;-webkit-user-select:none;user-select:none;margin-left:12px}
 .vol .vb.moins{margin-left:14px}
@@ -569,12 +571,22 @@ function dessinerConnexion(C){
     '<div class="texte-vide">' + (cartes ? 'Scanne un des codes avec l\'appareil photo de ton téléphone. Une fois connecté, la musique apparaît ici toute seule.' : 'La musique n\'est pas encore disponible : l\'administrateur doit d\'abord activer Sonos ou Spotify.') + '</div>' +
     (cartes ? '<div class="qrs">' + cartes + '</div>' : '') + '</div>';
 }
-function envoyer(corps){
+var minuteurToast = null;
+function toast(msg){
+  var t = $('toast'); if (!t) { t = document.createElement('div'); t.id = 'toast'; document.body.appendChild(t); }
+  t.innerHTML = echapper(msg); t.className = 'vu';
+  clearTimeout(minuteurToast); minuteurToast = setTimeout(function(){ t.className = ''; }, 6000);
+}
+function envoyer(corps, apres){
   if (enDemo()) return;
   var xhr = new XMLHttpRequest();
   xhr.open('POST', CONFIG.WORKER + '/musique/action?cle=' + encodeURIComponent(CLE), true);
   xhr.setRequestHeader('Content-Type', 'text/plain');
-  xhr.onload = function(){ setTimeout(charger, 1000); setTimeout(charger, 3500); };
+  xhr.onload = function(){
+    setTimeout(charger, 1000); setTimeout(charger, 3500);
+    if (apres) { var j = null; try { j = JSON.parse(xhr.responseText); } catch (e) {} apres(xhr.status === 200 && j && j.ok !== false, j); }
+  };
+  xhr.onerror = xhr.ontimeout = function(){ if (apres) apres(false, null); };
   xhr.send(JSON.stringify(corps));
 }
 function tiroir(ouvert){ $('tiroir').className = ouvert ? 'on' : ''; }
@@ -589,7 +601,12 @@ document.addEventListener('click', function(e){
   var A = actif(); if (!A) return;
   if (el.getAttribute('data-l') !== null) { choisi = el.getAttribute('data-l'); dessiner(); return; }
   if (el.getAttribute('data-c') !== null) { compteChoisi = el.getAttribute('data-c'); $('pls').scrollTop = 0; dessiner(); return; }
-  if (el.getAttribute('data-p') !== null) { el.className = 'pl envoye'; envoyer({ action: 'playlist', id: A.id, compte: compteActif(D()).id, index: parseInt(el.getAttribute('data-p'), 10) }); setTimeout(function(){ tiroir(false); }, 700); setTimeout(charger, 5000); setTimeout(charger, 10000); return; }
+  if (el.getAttribute('data-p') !== null) { el.className = 'pl envoye'; toast('Lancement sur ' + A.nom + '…');
+    envoyer({ action: 'playlist', id: A.id, compte: compteActif(D()).id, index: parseInt(el.getAttribute('data-p'), 10) }, function(ok, j){
+      // (un ancien serveur répond « ok » dès que l'Assistant a reçu la demande, sans vérifier : message prudent)
+      var verifie = j && (j.par !== 'assistant' || j.essais);
+      toast(ok ? (verifie ? 'C\'est parti sur ' + A.nom : 'Demande envoyée à l\'Assistant Google') : 'La musique n\'a pas démarré' + (j && j.erreur ? ' : ' + j.erreur : ''));
+    }); setTimeout(function(){ tiroir(false); }, 700); setTimeout(charger, 5000); setTimeout(charger, 10000); return; }
   if (el.getAttribute('data-f') !== null) { el.className = 'envoye'; envoyer({ action: 'lancer', id: A.id, favori: parseInt(el.getAttribute('data-f'), 10) }); setTimeout(charger, 6000); setTimeout(charger, 12000); return; }
   var a = el.getAttribute('data-a');
   if (a === 'lecture') A.etat = A.etat === 'playing' ? 'paused' : 'playing';

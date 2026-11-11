@@ -33,7 +33,7 @@ const FLUX_TR = 'https://data.filbleu.fr/ws-tr/gtfs-rt/opendata/trip-updates';
 const FLUX_ALERTES = 'https://data.filbleu.fr/ws-tr/gtfs-rt/opendata/service-alerts';
 const FLUX_INCIDENTS = 'https://www.filbleu.fr/rss-incident.xml';   // l'info trafic du site filbleu.fr (travaux, déviations…)
 const CACHE_SECONDES = 30;   // les écrans redemandent toutes les 30 s
-const VERSION = '50';   // à changer à chaque mise à jour du code : vide les caches
+const VERSION = '51';   // à changer à chaque mise à jour du code : vide les caches
 
 // Horaires prévus, format compact : "jours" = n° de grille pour chaque jour depuis "debut",
 // chaque ligne "g=" = minutes depuis minuit, écrites en écarts successifs.
@@ -1539,24 +1539,66 @@ async function retourSpotify(envBase, url) {
   return page('Spotify est connecté ✓', 'La musique va apparaître sur l\'écran d\'ici quelques secondes. Tu peux fermer cette page.');
 }
 // Lancer une playlist : directement par Spotify si l'enceinte est visible, sinon par l'Assistant Google
-async function lancerPlaylist(env, compte, lecteurId, nomEnceinte, p) {
-  const ctx = p.uri === 'aimes' ? null : p.uri;
+// Noms comparés sans accents, majuscules ni ponctuation (« Salle d'eau » = « salle d eau »)
+function nomSimple(s) { return String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim(); }
+const attendre = ms => new Promise(r => setTimeout(r, ms));
+// Appareils Spotify Connect visibles ; on mémorise l'identifiant de chaque enceinte vue (une enceinte Google
+// au repos disparaît souvent de cette liste, mais Spotify accepte parfois encore de jouer sur son identifiant)
+async function appareilsSpotify(env, compte) {
   const rd = await spotify(env, compte, '/me/player/devices');
-  if (rd && rd.ok) {
-    const d = await rd.json(), cible = (d.devices || []).find(x => String(x.name).toLowerCase() === nomEnceinte.toLowerCase());
-    if (cible) {
-      let corps;
-      if (ctx) corps = { context_uri: ctx };
-      else { const t = await spotify(env, compte, '/me/tracks?limit=50'); const tj = t && t.ok ? await t.json() : { items: [] }; corps = { uris: (tj.items || []).map(x => x.track && x.track.uri).filter(Boolean) }; }
-      const r = await spotify(env, compte, '/me/player/play?device_id=' + encodeURIComponent(cible.id), { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(corps) });
-      if (r && (r.ok || r.status === 204)) return { ok: true, par: 'spotify' };
-    }
+  const liste = rd && rd.ok ? ((await rd.json()).devices || []).filter(x => x.id) : [];
+  if (liste.length && env.REGLAGES) {
+    const cle = cleKV(env, 'spotify-appareils:' + compte);
+    let memo = {}; try { memo = (await env.REGLAGES.get(cle, 'json')) || {}; } catch (e) {}
+    let change = false;
+    for (const x of liste) { const n = nomSimple(x.name); if (memo[n] !== x.id) { memo[n] = x.id; change = true; } }
+    if (change) { try { await env.REGLAGES.put(cle, JSON.stringify(memo)); } catch (e) {} }
   }
+  return liste;
+}
+async function lancerPlaylist(env, compte, lecteurId, nomEnceinte, p) {
+  const ctx = p.uri === 'aimes' ? null : p.uri, essais = [];
+  const noms = [nomSimple(nomEnceinte), nomSimple(lecteurId.replace('media_player.', '').replace(/_/g, ' '))];
+  let corps;
+  if (ctx) corps = { context_uri: ctx };
+  else { const t = await spotify(env, compte, '/me/tracks?limit=50'); const tj = t && t.ok ? await t.json() : { items: [] }; corps = { uris: (tj.items || []).map(x => x.track && x.track.uri).filter(Boolean) }; }
+  const jouer = async idAppareil => {
+    const r = await spotify(env, compte, '/me/player/play?device_id=' + encodeURIComponent(idAppareil), { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(corps) });
+    return !!(r && (r.ok || r.status === 204));
+  };
+  const chercher = async () => (await appareilsSpotify(env, compte)).find(x => noms.indexOf(nomSimple(x.name)) >= 0);
+  // 1. l'enceinte est visible par Spotify (déjà allumée sur Spotify) : on joue directement
+  let cible = await chercher();
+  if (cible) { if (await jouer(cible.id)) return { ok: true, par: 'spotify' }; essais.push('spotify:refus'); }
+  else essais.push('spotify:absente');
+  // 2. enceinte au repos : on essaie son identifiant mémorisé
+  if (!cible && env.REGLAGES) {
+    let memo = {}; try { memo = (await env.REGLAGES.get(cleKV(env, 'spotify-appareils:' + compte), 'json')) || {}; } catch (e) {}
+    const idMemo = memo[noms[0]] || memo[noms[1]];
+    if (idMemo) { if (await jouer(idMemo)) return { ok: true, par: 'spotify-memoire' }; essais.push('memoire:refus'); }
+  }
+  // 3. Home Assistant avec Spotcast (HACS) : il réveille Spotify sur l'enceinte Google, puis on lance la playlist
+  if (env.HA_URL && env.HA_TOKEN) {
+    const r = await fetch(haUrl(env, '/api/services/spotcast/start'), {
+      method: 'POST', headers: { Authorization: 'Bearer ' + env.HA_TOKEN, 'Content-Type': 'application/json' },
+      body: JSON.stringify(ctx ? { entity_id: lecteurId, uri: ctx } : { entity_id: lecteurId })
+    }).catch(() => null);
+    if (r && r.ok) {
+      if (ctx) return { ok: true, par: 'spotcast' };
+      for (let k = 0; k < 3; k++) { await attendre(2500); cible = await chercher(); if (cible && await jouer(cible.id)) return { ok: true, par: 'spotcast+spotify' }; }
+      essais.push('spotcast:sans-appareil');
+    } else essais.push('spotcast:' + (r ? r.status : 'injoignable'));
+  }
+  // 4. dernier recours : demander à l'Assistant Google
   const commande = p.uri === 'aimes' ? 'Joue mes titres likés sur Spotify sur ' + nomEnceinte : 'Joue la playlist ' + p.nom + ' sur Spotify sur ' + nomEnceinte;
   const r = await fetch(haUrl(env, '/api/services/google_assistant_sdk/send_text_command'), {
     method: 'POST', headers: { Authorization: 'Bearer ' + env.HA_TOKEN, 'Content-Type': 'application/json' }, body: JSON.stringify({ command: commande })
   });
-  return { ok: r.ok, par: 'assistant', commande };
+  // vérification : l'enceinte joue-t-elle quelque chose quelques secondes après ?
+  await attendre(5000);
+  const e = await fetch(haUrl(env, '/api/states/' + lecteurId), { headers: { Authorization: 'Bearer ' + env.HA_TOKEN } }).then(x => x.ok ? x.json() : null).catch(() => null);
+  const joue = !!(e && e.state === 'playing');
+  return { ok: r.ok && joue, par: 'assistant', commande, essais, erreur: joue ? undefined : 'Spotify ne voit pas l\'enceinte « ' + nomEnceinte + ' » au repos' };
 }
 async function actionMusique(env, c) {
   const id = String(c.id || '');
