@@ -33,7 +33,7 @@ const FLUX_TR = 'https://data.filbleu.fr/ws-tr/gtfs-rt/opendata/trip-updates';
 const FLUX_ALERTES = 'https://data.filbleu.fr/ws-tr/gtfs-rt/opendata/service-alerts';
 const FLUX_INCIDENTS = 'https://www.filbleu.fr/rss-incident.xml';   // l'info trafic du site filbleu.fr (travaux, déviations…)
 const CACHE_SECONDES = 30;   // les écrans redemandent toutes les 30 s
-const VERSION = '53';   // à changer à chaque mise à jour du code : vide les caches
+const VERSION = '54';   // à changer à chaque mise à jour du code : vide les caches
 
 // Horaires prévus, format compact : "jours" = n° de grille pour chaque jour depuis "debut",
 // chaque ligne "g=" = minutes depuis minuit, écrites en écarts successifs.
@@ -604,7 +604,7 @@ async function construireAgenda(env) {
         anniversaires.push({ nom: nom, date: t, annee: an ? +an[1] : 0 });
       } else if (titre.indexOf('💼') >= 0) {
         // 💼 = lieu de travail (de Flo) : mis à part, n'apparaît pas dans l'agenda
-        const lieu = titre.replace(/💼\uFE0F?/g, '').replace(/\s{2,}/g, ' ').trim() || e.lieu || 'Travail';
+        const lieu = developperLieu(titre.replace(/💼\uFE0F?/g, '').replace(/\s{2,}/g, ' ').trim()) || e.lieu || 'Travail';
         travail.push({ debut: t, fin: t + e.dureeMs, journee: !!e.debut.jour, lieu: lieu, adresse: e.lieu || '' });
       } else {
         agenda.push({ debut: t, fin: t + e.dureeMs, journee: !!e.debut.jour, titre: titre, agenda: e.agenda });
@@ -627,6 +627,12 @@ async function construireAgenda(env) {
   const vus = new Set(), annivUniques = [];
   for (const a of anniversaires) { if (vus.has(a.nom)) continue; vus.add(a.nom); annivUniques.push(a); }
   return { maj: maintenant, aujourdhui: aujourdhui, agendas: sources.map(x => ({ cle: x.cle, nom: x.nom })), agendasEnErreur: agendasEnErreur, evenements: agenda.slice(0, 200), anniversaires: annivUniques.slice(0, 12), travail: travail.slice(0, 60) };
+}
+
+// Abréviations des lieux de travail 💼 écrites dans l'agenda → nom complet (affichage et recherche du centre)
+const ABREVIATIONS_LIEUX = { spdc: 'Saint-Pierre-des-Corps' };
+function developperLieu(t) {
+  return String(t || '').replace(/[A-Za-zÀ-ÿ]+/g, m => ABREVIATIONS_LIEUX[m.toLowerCase()] || m);
 }
 
 /* =====================================================================
