@@ -1482,6 +1482,22 @@ function tuileTravail(T, now, l, h){
   if (l >= 2) T.className += ' tv-large';
   T.innerHTML = (l >= 2 ? '<div class="tv-hero">' + hero + '</div>' : hero) + '<div class="tv-suite">' + rows + '</div>';
   ajuster(T.querySelector('.tv-hh'), 15);
+  // le lieu tient sur une seule ligne : le texte rétrécit (jusqu'à 18 px), puis « … » en dernier recours
+  var LV = T.querySelector('.tv-l');
+  if (LV) {
+    LV.style.display = 'block'; LV.style.whiteSpace = 'nowrap'; LV.style.textOverflow = 'ellipsis';
+    ajuster(LV, 24);
+    // trop long même en plus petit : le complément (« Léo », « solo »…) passe sur la ligne des horaires, la ville reste en grand
+    var LS = LV.querySelectorAll('.ls'), HH = T.querySelector('.tv-hh');
+    if (tropLarge(LV) && LS.length === 1 && HH && LV.innerHTML.indexOf(' puis ') < 0) {
+      var comp = LS[0].textContent.replace(/^\s+|\s+$/g, '');
+      LS[0].parentNode.removeChild(LS[0]);
+      LV.style.fontSize = ''; ajuster(LV, 24);
+      if (comp) HH.innerHTML += ' · ' + echapper(comp);
+      HH.style.fontSize = ''; ajuster(HH, 15);
+    }
+    if (tropLarge(LV)) ajuster(LV, 18);
+  }
   var S = T.querySelector('.tv-suite'), R = S.querySelectorAll('.tv-r');
   var y = R.length - 1;
   for (; y >= 0 && S.scrollHeight > S.clientHeight + 1; y--) R[y].style.display = 'none';
