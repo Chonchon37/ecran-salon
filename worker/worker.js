@@ -33,7 +33,7 @@ const FLUX_TR = 'https://data.filbleu.fr/ws-tr/gtfs-rt/opendata/trip-updates';
 const FLUX_ALERTES = 'https://data.filbleu.fr/ws-tr/gtfs-rt/opendata/service-alerts';
 const FLUX_INCIDENTS = 'https://www.filbleu.fr/rss-incident.xml';   // l'info trafic du site filbleu.fr (travaux, déviations…)
 const CACHE_SECONDES = 30;   // les écrans redemandent toutes les 30 s
-const VERSION = '55';   // à changer à chaque mise à jour du code : vide les caches
+const VERSION = '56';   // à changer à chaque mise à jour du code : vide les caches
 
 // Horaires prévus, format compact : "jours" = n° de grille pour chaque jour depuis "debut",
 // chaque ligne "g=" = minutes depuis minuit, écrites en écarts successifs.
@@ -1030,6 +1030,77 @@ async function construireMaisonFrais(env) {
 /* Vigilance Météo-France, lue dans Home Assistant (intégration Météo-France : capteur « … Weather alert ») */
 const COULEURS_VIGI = { vert: 1, jaune: 2, orange: 3, rouge: 4 };
 const ALERTE_PAR_DEFAUT = 'sensor.37_weather_alert';
+/* Vigilance officielle Météo-France (API « Bulletin Vigilance », clé MF_VIGILANCE_CLE) :
+   niveaux, horaires de chaque phénomène pour le département, et textes du bulletin départemental quand il existe */
+const MF_PHENOMENES = { 1: 'Vent violent', 2: 'Pluie-inondation', 3: 'Orages', 4: 'Crues', 5: 'Neige-verglas', 6: 'Canicule', 7: 'Grand froid', 8: 'Avalanches', 9: 'Vagues-submersion' };
+const MF_COULEURS = { 1: 'vert', 2: 'jaune', 3: 'orange', 4: 'rouge' };
+// Consigne officielle de Météo-France pour chaque couleur (guide de la vigilance)
+const MF_CONSIGNES = {
+  jaune: 'Soyez attentifs. Tenez-vous au courant de l\'évolution de la situation.',
+  orange: 'Soyez très vigilants. Tenez-vous au courant de l\'évolution de la situation et suivez les conseils de sécurité émis par les pouvoirs publics.',
+  rouge: 'Une vigilance absolue s\'impose. Respectez impérativement les consignes de sécurité émises par les pouvoirs publics.'
+};
+async function mfVigilance(env, chemin) {
+  const r = await fetch('https://public-api.meteofrance.fr/public/DPVigilance/v1/' + chemin, { headers: { apikey: env.MF_VIGILANCE_CLE, accept: 'application/json' } });
+  if (!r.ok) throw new Error('Météo-France ' + r.status + (r.status === 401 ? ' (clé expirée ou invalide)' : ''));
+  return r.json();
+}
+// « 23 h », « demain 6 h », « jeudi 14 h 30 » (heure de Paris)
+function heureParis(iso, maintenant) {
+  const fmt = d => { const p = new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit', weekday: 'long', hourCycle: 'h23' }).formatToParts(d), v = k => (p.find(x => x.type === k) || {}).value || '';
+    return { j: Date.UTC(+v('year'), +v('month') - 1, +v('day')) / 86400000, h: +v('hour'), m: v('minute'), wd: v('weekday') }; };
+  const d = fmt(new Date(iso)), n = fmt(maintenant || new Date()), ecart = d.j - n.j;
+  const heure = d.h + ' h' + (d.m && d.m !== '00' ? ' ' + d.m : '');
+  return (ecart === 0 ? '' : ecart === 1 ? 'demain ' : d.wd + ' ') + heure;
+}
+async function construireVigilanceMF(env) {
+  const dep = String(env.DEPARTEMENT || '37');
+  const carte = await mfVigilance(env, 'cartevigilance/encours');
+  const periodes = (carte.product && carte.product.periods) || [];
+  const parPh = {};
+  for (const per of periodes) {
+    const doms = (per.timelaps && per.timelaps.domain_ids) || [];
+    const d = doms.find(x => String(x.domain_id) === dep);
+    if (!d) continue;
+    for (const ph of d.phenomenon_items || []) {
+      const id = Number(ph.phenomenon_id), nom = MF_PHENOMENES[id] || ('Phénomène ' + id);
+      const P = parPh[id] || (parPh[id] = { nom, couleur: 1, debut: null, fin: null });
+      P.couleur = Math.max(P.couleur, Number(ph.phenomenon_max_color_id) || 1);
+      for (const t of ph.timelaps_items || []) {
+        if (Number(t.color_id) < 2) continue;
+        if (!P.debut || t.begin_time < P.debut) P.debut = t.begin_time;
+        if (!P.fin || t.end_time > P.fin) P.fin = t.end_time;
+      }
+    }
+  }
+  // textes officiels du bulletin départemental (publié en orange et rouge, parfois en jaune)
+  let textes = {};
+  try {
+    const tx = await mfVigilance(env, 'textesvigilance/encours');
+    const blocs = ((tx.product && tx.product.text_bloc_items) || []).filter(b => String(b.domain_id) === dep);
+    for (const b of blocs) for (const it of b.bloc_items || []) {
+      if (it.type_group !== 'QUALIFICATION') continue;
+      for (const ti of it.text_items || []) {
+        const lignes = [];
+        for (const st of ti.term_items || []) for (const sd of st.subdivision_text || []) for (const l of sd.text || []) lignes.push(l);
+        for (const sd of ti.subdivision_text || []) for (const l of sd.text || []) lignes.push(l);
+        if (lignes.length) textes[nomSimple(ti.hazard_name || '')] = lignes.join(' ').replace(/\s+/g, ' ').trim();
+      }
+    }
+  } catch (e) {}
+  const now = Date.now(), phenomenes = [];
+  for (const id in parPh) {
+    const P = parPh[id];
+    if (P.couleur < 2 || !P.fin || Date.parse(P.fin) < now) continue;
+    const debut = Date.parse(P.debut) <= now ? null : P.debut;
+    const periode = debut ? 'de ' + heureParis(debut) + ' à ' + heureParis(P.fin) : 'jusqu\'à ' + heureParis(P.fin);
+    const cle = Object.keys(textes).find(k => k && (nomSimple(P.nom).indexOf(k.split(' ')[0]) >= 0 || k.indexOf(nomSimple(P.nom).split(' ')[0]) >= 0));
+    phenomenes.push({ nom: P.nom, niveau: MF_COULEURS[P.couleur], periode, conseil: cle ? textes[cle] : '', aVenir: !!debut });
+  }
+  phenomenes.sort((a, b) => COULEURS_VIGI[b.niveau] - COULEURS_VIGI[a.niveau]);
+  const niveau = phenomenes.length ? phenomenes[0].niveau : 'vert';
+  return { maj: Date.now(), trouve: true, source: 'meteofrance', departement: dep, niveau, phenomenes, consigne: MF_CONSIGNES[niveau] || '', miseAJourMF: carte.product && carte.product.update_time };
+}
 async function construireVigilance(env) {
   const h = { Authorization: 'Bearer ' + env.HA_TOKEN };
   let e = null;
@@ -1969,7 +2040,7 @@ export default {
         return repondre(vueCadre(c, estSuper), 200, entetes);
       }
       // Modules désactivés pour ce cadre
-      if ((chemin === '/maison' || chemin === '/maison/action' || chemin === '/maison/catalogue' || chemin === '/vigilance') && !env.HA_URL) return repondre({ erreur: 'Home Assistant n\'est pas configuré pour ce cadre', absent: true }, 200, entetes);
+      if ((chemin === '/maison' || chemin === '/maison/action' || chemin === '/maison/catalogue' || (chemin === '/vigilance' && !env.MF_VIGILANCE_CLE)) && !env.HA_URL) return repondre({ erreur: 'Home Assistant n\'est pas configuré pour ce cadre', absent: true }, 200, entetes);
       if (chemin === '/musique/lien') return repondre(await lienConnexion(envBase, env.CADRE), 200, entetes);
       // pas encore de source de musique : l'écran affiche les QR codes pour connecter Sonos ou Spotify
       if (chemin.indexOf('/musique') === 0 && !sourceMusique(env)) return repondre({ erreur: 'Aucune musique connectée pour ce cadre', absent: true, connecter: { sonos: !!env.SONOS_ID, spotify: !!env.SPOTIFY_ID }, lecteurs: [], favoris: [], comptes: [] }, 200, entetes);
@@ -1989,7 +2060,11 @@ export default {
         const cible = String(corps.id || '');
         return repondre(await (/^sonos:/.test(cible) ? actionSonos(env, corps) : /^spotify:/.test(cible) ? actionSpotify(env, corps) : actionMusique(env, corps)), 200, entetes);
       }
-      if (chemin === '/vigilance') return await avecCache('vigilance-' + env.CADRE, 300, () => construireVigilance(env), entetes, ctx);
+      if (chemin === '/vigilance') return await avecCache('vigilance-' + env.CADRE, 300, async () => {
+        // Météo-France en direct si la clé est là (repli sur Home Assistant en cas d'échec)
+        if (env.MF_VIGILANCE_CLE) { try { return await construireVigilanceMF(env); } catch (e) { if (!env.HA_URL) return { maj: Date.now(), trouve: false, erreur: String(e.message || e) }; } }
+        return construireVigilance(env);
+      }, entetes, ctx);
       if (chemin === '/maison/action' && request.method === 'POST') {
         let corps = {};
         try { corps = JSON.parse(await request.text()); } catch (e) {}
@@ -1998,7 +2073,7 @@ export default {
       }
       if (chemin === '/reglages' && request.method === 'GET') {
         const R = await lireReglages(env);
-        return repondre({ reglages: R.reglages, maj: R.maj, stockage: R.stockage, admin: estAdmin, super: estSuper, cadre: { id: env.CADRE, nom: env.CADRE_INFO.nom, lieu: env.CADRE_INFO.lieu, modules: MOD, ha: !!env.HA_URL, sonos: avecSonos(env), sonosConfigure: !!env.SONOS_ID, musique: sourceMusique(env) } }, 200, entetes);
+        return repondre({ reglages: R.reglages, maj: R.maj, stockage: R.stockage, admin: estAdmin, super: estSuper, cadre: { id: env.CADRE, nom: env.CADRE_INFO.nom, lieu: env.CADRE_INFO.lieu, modules: MOD, ha: !!env.HA_URL, vigilance: !!(env.MF_VIGILANCE_CLE || env.HA_URL), sonos: avecSonos(env), sonosConfigure: !!env.SONOS_ID, musique: sourceMusique(env) } }, 200, entetes);
       }
       // Réservé à l'admin
       if (chemin === '/reglages' && request.method === 'POST') {
