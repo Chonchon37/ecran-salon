@@ -33,7 +33,7 @@ const FLUX_TR = 'https://data.filbleu.fr/ws-tr/gtfs-rt/opendata/trip-updates';
 const FLUX_ALERTES = 'https://data.filbleu.fr/ws-tr/gtfs-rt/opendata/service-alerts';
 const FLUX_INCIDENTS = 'https://www.filbleu.fr/rss-incident.xml';   // l'info trafic du site filbleu.fr (travaux, déviations…)
 const CACHE_SECONDES = 30;   // les écrans redemandent toutes les 30 s
-const VERSION = '59';   // à changer à chaque mise à jour du code : vide les caches
+const VERSION = '60';   // à changer à chaque mise à jour du code : vide les caches
 
 // Horaires prévus, format compact : "jours" = n° de grille pour chaque jour depuis "debut",
 // chaque ligne "g=" = minutes depuis minuit, écrites en écarts successifs.
@@ -1321,7 +1321,7 @@ async function actionSonos(env, c) {
   if (c.action === 'playlist') {
     const p = L.playlists[parseInt(c.index, 10)];
     if (!p) return { ok: false, erreur: 'Liste inconnue' };
-    return ok(sonos(env, g + '/playlists', { method: 'POST', body: { playlistId: p.id, playOnCompletion: true, action: 'REPLACE' } }));
+    return ok(sonos(env, g + '/playlists', { method: 'POST', body: { playlistId: p.id, playOnCompletion: true, action: 'REPLACE', playModes: { shuffle: c.aleatoire !== false } } }));
   }
   return { ok: false, erreur: 'Action inconnue' };
 }
@@ -1420,10 +1420,10 @@ async function actionSpotify(env, c) {
     const compte = COMPTES_SPOTIFY.indexOf(c.compte) >= 0 ? c.compte : k;
     const L = await playlistsSpotify(env, compte), pl = L && L[parseInt(c.index, 10)];
     if (!pl) return { ok: false, erreur: 'Playlist inconnue' };
-    let corps;
-    if (pl.uri !== 'aimes') corps = { context_uri: pl.uri };
-    else { const t = await spotify(env, compte, '/me/tracks?limit=50'); const tj = t && t.ok ? await t.json() : { items: [] }; corps = { uris: (tj.items || []).map(x => x.track && x.track.uri).filter(Boolean) }; }
-    return appel('PUT', '/me/player/play?device_id=' + dev, corps);
+    const corps = await corpsPlaylist(env, compte, pl, c.aleatoire !== false);
+    const res = await appel('PUT', '/me/player/play?device_id=' + dev, corps);
+    await melangeSpotify(env, compte, decodeURIComponent(dev), c.aleatoire !== false);
+    return res;
   }
   return { ok: false, erreur: 'Action inconnue' };
 }
@@ -1645,15 +1645,34 @@ async function appareilsSpotify(env, compte) {
   }
   return liste;
 }
-async function lancerPlaylist(env, compte, lecteurId, nomEnceinte, p) {
+// Corps de lecture Spotify ; en aléatoire : départ sur un titre au hasard (la lecture aléatoire est activée juste après)
+async function corpsPlaylist(env, compte, p, aleatoire) {
+  if (p.uri !== 'aimes') {
+    const corps = { context_uri: p.uri }, m = /^spotify:playlist:(\w+)/.exec(p.uri);
+    if (aleatoire && m) {
+      const r = await spotify(env, compte, '/playlists/' + m[1] + '?fields=tracks.total');
+      const n = r && r.ok ? ((await r.json()).tracks || {}).total || 0 : 0;
+      if (n > 1) corps.offset = { position: Math.floor(Math.random() * n) };
+    }
+    return corps;
+  }
+  const t = await spotify(env, compte, '/me/tracks?limit=50'); const tj = t && t.ok ? await t.json() : { items: [] };
+  const uris = (tj.items || []).map(x => x.track && x.track.uri).filter(Boolean);
+  if (aleatoire) for (let i = uris.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); const x = uris[i]; uris[i] = uris[j]; uris[j] = x; }
+  return { uris };
+}
+async function melangeSpotify(env, compte, idAppareil, aleatoire) {
+  await spotify(env, compte, '/me/player/shuffle?state=' + (aleatoire ? 'true' : 'false') + (idAppareil ? '&device_id=' + encodeURIComponent(idAppareil) : ''), { method: 'PUT' }).catch(() => null);
+}
+async function lancerPlaylist(env, compte, lecteurId, nomEnceinte, p, aleatoire) {
   const ctx = p.uri === 'aimes' ? null : p.uri, essais = [];
   const noms = [nomSimple(nomEnceinte), nomSimple(lecteurId.replace('media_player.', '').replace(/_/g, ' '))];
-  let corps;
-  if (ctx) corps = { context_uri: ctx };
-  else { const t = await spotify(env, compte, '/me/tracks?limit=50'); const tj = t && t.ok ? await t.json() : { items: [] }; corps = { uris: (tj.items || []).map(x => x.track && x.track.uri).filter(Boolean) }; }
+  const corps = await corpsPlaylist(env, compte, p, aleatoire);
   const jouer = async idAppareil => {
     const r = await spotify(env, compte, '/me/player/play?device_id=' + encodeURIComponent(idAppareil), { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(corps) });
-    return !!(r && (r.ok || r.status === 204));
+    const ok = !!(r && (r.ok || r.status === 204));
+    if (ok) await melangeSpotify(env, compte, idAppareil, aleatoire);
+    return ok;
   };
   const chercher = async () => (await appareilsSpotify(env, compte)).find(x => noms.indexOf(nomSimple(x.name)) >= 0);
   // 1. l'enceinte est visible par Spotify (déjà allumée sur Spotify) : on joue directement
@@ -1672,8 +1691,9 @@ async function lancerPlaylist(env, compte, lecteurId, nomEnceinte, p) {
     const ha = (service, donnees) => fetch(haUrl(env, '/api/services/' + service), {
       method: 'POST', headers: { Authorization: 'Bearer ' + env.HA_TOKEN, 'Content-Type': 'application/json' }, body: JSON.stringify(donnees)
     }).catch(() => null);
-    let r = ctx ? await ha('spotcast/play_media', { media_player: { entity_id: lecteurId }, spotify_uri: ctx })
-                : await ha('spotcast/play_liked_songs', { media_player: { entity_id: lecteurId } });
+    const dataSC = { shuffle: !!aleatoire, random: !!aleatoire };
+    let r = ctx ? await ha('spotcast/play_media', { media_player: { entity_id: lecteurId }, spotify_uri: ctx, data: dataSC })
+                : await ha('spotcast/play_liked_songs', { media_player: { entity_id: lecteurId }, data: dataSC });
     if (r && r.ok) return { ok: true, par: 'spotcast' };
     essais.push('spotcast:' + (r ? r.status : 'injoignable'));
     r = await ha('spotcast/start', ctx ? { entity_id: lecteurId, uri: ctx } : { entity_id: lecteurId });
@@ -1684,7 +1704,7 @@ async function lancerPlaylist(env, compte, lecteurId, nomEnceinte, p) {
     } else essais.push('spotcast-ancien:' + (r ? r.status : 'injoignable'));
   }
   // 4. dernier recours : demander à l'Assistant Google
-  const commande = p.uri === 'aimes' ? 'Joue mes titres likés sur Spotify sur ' + nomEnceinte : 'Joue la playlist ' + p.nom + ' sur Spotify sur ' + nomEnceinte;
+  const commande = (p.uri === 'aimes' ? 'Joue mes titres likés sur Spotify' : 'Joue la playlist ' + p.nom + ' sur Spotify') + (aleatoire ? ' en mode aléatoire' : '') + ' sur ' + nomEnceinte;
   const r = await fetch(haUrl(env, '/api/services/google_assistant_sdk/send_text_command'), {
     method: 'POST', headers: { Authorization: 'Bearer ' + env.HA_TOKEN, 'Content-Type': 'application/json' }, body: JSON.stringify({ command: commande })
   });
@@ -1730,7 +1750,7 @@ async function actionMusique(env, c) {
     const L = await playlistsSpotify(env, compte), p = L && L[parseInt(c.index, 10)];
     if (!p) return { ok: false, erreur: 'Playlist inconnue' };
     const e = await fetch(haUrl(env, '/api/states/' + id), { headers: { Authorization: 'Bearer ' + env.HA_TOKEN } }).then(r => r.ok ? r.json() : null).catch(() => null);
-    return lancerPlaylist(env, compte, id, (e && e.attributes && e.attributes.friendly_name) || id.replace('media_player.', ''), p);
+    return lancerPlaylist(env, compte, id, (e && e.attributes && e.attributes.friendly_name) || id.replace('media_player.', ''), p, c.aleatoire !== false);
   }
   if (c.action === 'lancer') {
     const R = await lireReglages(env), f = R.reglages.musique.favoris[parseInt(c.favori, 10)];

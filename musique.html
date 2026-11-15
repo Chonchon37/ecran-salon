@@ -129,7 +129,11 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:32px;heigh
   -webkit-transform:translateX(860px);transform:translateX(860px);-webkit-transition:-webkit-transform .35s ease;transition:transform .35s ease;box-shadow:0 20px 50px -20px rgba(0,0,0,.7)}
 #tiroir.on .panneau{-webkit-transform:none;transform:none}
 .panneau .entete{display:flex;align-items:center}
-#fermer{margin-left:auto;font-size:17px;font-weight:700;color:var(--muted);padding:10px 4px 10px 18px;cursor:pointer}
+/* lecture aléatoire (activée par défaut) */
+.alea{margin-left:auto;display:flex;align-items:center;font-size:17px;font-weight:700;padding:9px 16px;border-radius:999px;background:var(--card2);color:var(--muted);cursor:pointer}
+.alea svg{width:20px;height:20px;margin-right:8px}
+.alea.on{background:var(--accent);color:var(--card)}
+#fermer{margin-left:14px;font-size:17px;font-weight:700;color:var(--muted);padding:10px 4px 10px 18px;cursor:pointer}
 .pls{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;display:flex;flex-wrap:wrap;align-content:flex-start;margin:12px -7px 0}
 .pl{width:33.333%;padding:7px}
 .pl div{height:96px;padding:10px;border-radius:18px 14px 18px 14px}
@@ -245,7 +249,7 @@ html.cachee *,html.cachee *:before,html.cachee *:after{-webkit-animation-play-st
 <div id="tiroir">
   <div class="fond" id="fondTiroir"></div>
   <div class="card panneau">
-    <div class="entete"><div class="label"><span id="titreListes">Lancer</span>&nbsp;sur <span id="cible" style="margin-left:6px;color:var(--ink)"></span></div><div id="fermer">Fermer ✕</div></div>
+    <div class="entete"><div class="label"><span id="titreListes">Lancer</span>&nbsp;sur <span id="cible" style="margin-left:6px;color:var(--ink)"></span></div><div id="aleatoire" class="alea on" data-alea="1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5"/><path d="M4 20 21 3"/><path d="M21 16v5h-5"/><path d="M15 15l6 6"/><path d="M4 4l5 5"/></svg>Aléatoire</div><div id="fermer">Fermer ✕</div></div>
     <div class="fav" id="fav"></div><div class="pls" id="pls"></div><div class="note" id="note"></div>
   </div>
 </div>
@@ -598,6 +602,9 @@ function tiroir(ouvert){ $('tiroir').className = ouvert ? 'on' : ''; }
 $('ouvrir').addEventListener('click', function(){ tiroir(true); });
 $('fermer').addEventListener('click', function(){ tiroir(false); });
 $('fondTiroir').addEventListener('click', function(){ tiroir(false); });
+// Aléatoire : activé par défaut, gardé tant que l'écran n'est pas rechargé
+var ALEATOIRE = true;
+$('aleatoire').addEventListener('click', function(e){ e.stopPropagation(); ALEATOIRE = !ALEATOIRE; this.className = 'alea' + (ALEATOIRE ? ' on' : ''); });
 document.addEventListener('click', function(e){
   var el = e.target;
   for (var o = el; o && o.getAttribute; o = o.parentNode) if (o.getAttribute('data-ouvrir')) { tiroir(true); return; }
@@ -607,7 +614,7 @@ document.addEventListener('click', function(e){
   if (el.getAttribute('data-l') !== null) { choisi = el.getAttribute('data-l'); dessiner(); return; }
   if (el.getAttribute('data-c') !== null) { compteChoisi = el.getAttribute('data-c'); $('pls').scrollTop = 0; dessiner(); return; }
   if (el.getAttribute('data-p') !== null) { el.className = 'pl envoye'; toast('Lancement sur ' + A.nom + '…');
-    envoyer({ action: 'playlist', id: A.id, compte: compteActif(D()).id, index: parseInt(el.getAttribute('data-p'), 10) }, function(ok, j){
+    envoyer({ action: 'playlist', id: A.id, compte: compteActif(D()).id, index: parseInt(el.getAttribute('data-p'), 10), aleatoire: ALEATOIRE }, function(ok, j){
       // (un ancien serveur répond « ok » dès que l'Assistant a reçu la demande, sans vérifier : message prudent)
       var verifie = j && (j.par !== 'assistant' || j.essais);
       toast(ok ? (verifie ? 'C\'est parti sur ' + A.nom : 'Demande envoyée à l\'Assistant Google') : 'La musique n\'a pas démarré' + (j && j.erreur ? ' : ' + j.erreur : ''));
