@@ -35,10 +35,29 @@ body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;fon
 .now-cond{font-size:26px;font-weight:600;margin-top:2px}
 .now-hl{font-size:19px;color:var(--muted);margin-top:4px}
 .chips{display:flex;flex-wrap:wrap}
+.now .label{white-space:nowrap}
 .chip{font-size:17px;padding:7px 14px;margin-right:10px;border-radius:20px;background:var(--card2);font-weight:500}
 .chip b{font-weight:700}
 
-.rain{flex:1;min-width:0;display:flex;flex-direction:column}
+.rain{flex:1;min-width:0;display:flex;flex-direction:column;position:relative;overflow:hidden}
+.vue-pluie{flex:1;min-height:0;display:flex;flex-direction:column;-webkit-transition:opacity .7s;transition:opacity .7s}
+/* vigilance en cours : la carte alterne entre la pluie dans l'heure et le détail de la vigilance */
+.vue-vigi{position:absolute;left:30px;right:30px;top:20px;bottom:20px;opacity:0;pointer-events:none;-webkit-transition:opacity .7s;transition:opacity .7s;display:flex;flex-direction:column}
+.rain.vigi-on .vue-pluie{opacity:0}
+.rain.vigi-on .vue-vigi{opacity:1}
+.vg-t{display:flex;align-items:center;font-size:28px;font-weight:600;line-height:1.1;margin-top:8px}
+.vg-t svg{width:32px;height:32px;margin-right:10px;flex:none}
+.vg-t.jaune svg{color:#C9A400}.vg-t.orange svg{color:#E06F0C}.vg-t.rouge svg{color:#D42F2F}
+.vg-l{margin-top:10px;flex:1;min-height:0;overflow:hidden}
+.vg-p{display:flex;align-items:baseline;font-size:19px;line-height:1.3;margin-top:6px}
+.vg-p i{flex:none;width:11px;height:11px;border-radius:50%;margin-right:10px;position:relative;top:-1px}
+.vg-p i.jaune{background:#E3BE14}.vg-p i.orange{background:#EE8323}.vg-p i.rouge{background:#D42F2F}
+.vg-p b{font-weight:700}
+.vg-p span{color:var(--muted)}
+.vg-b{font-size:16px;line-height:1.3;color:var(--ink);margin:3px 0 0 21px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.vg-b small{font-size:12px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin-right:6px}
+.vg-c{font-size:15px;color:var(--muted);margin-top:6px}
+.vg-src{font-size:13px;opacity:.8}
 .rain-msg{font-size:30px;font-weight:600;margin-top:10px;line-height:1.15}
 .rain-msg.sec{color:var(--muted)}
 .rain-bars{flex:1;display:flex;align-items:flex-end;margin-top:14px;border-bottom:2px solid var(--line)}
@@ -153,11 +172,14 @@ html.cachee *,html.cachee *:before,html.cachee *:after{-webkit-animation-play-st
       </div>
       <div class="chips" id="nowChips"></div>
     </div>
-    <div class="card rain">
-      <div class="label">Pluie dans l'heure</div>
-      <div class="rain-msg h" id="rainMsg"></div>
-      <div class="rain-bars" id="rainBars"></div>
-      <div class="rain-axis"><span>maint.</span><span>+15</span><span>+30</span><span>+45</span><span>+60 min</span></div>
+    <div class="card rain" id="carteDroite">
+      <div class="vue-pluie">
+        <div class="label">Pluie dans l'heure</div>
+        <div class="rain-msg h" id="rainMsg"></div>
+        <div class="rain-bars" id="rainBars"></div>
+        <div class="rain-axis"><span>maint.</span><span>+15</span><span>+30</span><span>+45</span><span>+60 min</span></div>
+      </div>
+      <div class="vue-vigi" id="vueVigi"></div>
     </div>
   </div>
   <div class="card hourly" id="hourly">
@@ -330,6 +352,7 @@ function estJour(date, D){
   return m >= minutesDe(D.lever) && m < minutesDe(D.coucher);
 }
 function afficher(D){
+  DERNIER_ACTUEL = D.actuel; DERNIER_D = D;
   dejaAffiche = true; derniereMeteo = Date.now(); majAttente(); majVieux();
   var now = new Date(), jourMaintenant = estJour(now, D), a = D.actuel;
   $('lieu').innerHTML = CONFIG.NOM;
@@ -339,9 +362,12 @@ function afficher(D){
   $('nowHL').innerHTML = 'Max ' + D.jours[0].max + '° · Min ' + D.jours[0].min + '° · Ressenti ' + a.ressenti + '°';
   $('nowIcon').innerHTML = iconeMeteo(a.code, jourMaintenant, 128);
   $('nowChips').innerHTML =
-    '<span class="chip">Vent <b>' + a.vent + ' km/h</b> ' + a.dir + '</span>' +
+    '<span class="chip">Vent <b>' + a.vent + ' km/h</b> ' + a.dir + (rafaleActuelle() ? ' · rafales <b>' + rafaleActuelle() + '</b>' : '') + '</span>' +
     '<span class="chip">Humidité <b>' + a.humidite + ' %</b></span>' +
     '<span class="chip">Soleil <b>' + D.lever + '</b> → <b>' + D.coucher + '</b></span>';
+  // les puces restent sur une ligne : si elles débordent, celle du soleil (déjà dans la bande horaire) s'efface
+  var PC = $('nowChips');
+  if (PC.lastChild && PC.scrollHeight > PC.firstChild.offsetHeight + 4) PC.removeChild(PC.lastChild);
 
   // Pluie dans l'heure
   var noms = ['', 'faible', 'modérée', 'forte'], debut = -1, maxi = 0, barres = '';
@@ -439,7 +465,7 @@ function marque(heure, lever){
 /* ---------- Vraies données : Open-Meteo (gratuit, sans clé, modèle AROME de Météo-France) ---------- */
 function urlOpenMeteo(){
   return 'https://api.open-meteo.com/v1/forecast?latitude=' + CONFIG.LAT + '&longitude=' + CONFIG.LON +
-    '&current=temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m,wind_direction_10m' +
+    '&current=temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m,wind_direction_10m,wind_gusts_10m' +
     '&minutely_15=precipitation&forecast_minutely_15=8' +
     '&hourly=temperature_2m,weather_code,precipitation_probability&forecast_hours=50' +
     '&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset' +
@@ -458,7 +484,8 @@ function convertir(j){
   var now = new Date(), c = j.current, i, D = { heures: [], jours: [], pluieHeure: [] };
   D.actuel = {
     temp: Math.round(c.temperature_2m), code: c.weather_code, ressenti: Math.round(c.apparent_temperature),
-    vent: Math.round(c.wind_speed_10m), dir: cardinal(c.wind_direction_10m), humidite: Math.round(c.relative_humidity_2m)
+    vent: Math.round(c.wind_speed_10m), dir: cardinal(c.wind_direction_10m), humidite: Math.round(c.relative_humidity_2m),
+    rafales: c.wind_gusts_10m != null ? Math.round(c.wind_gusts_10m) : null
   };
   D.lever = lireHeure(j.daily.sunrise[0]);
   D.astres = [];   // levers et couchers des prochains jours, pour les placer dans la bande horaire
@@ -536,7 +563,54 @@ function chargerVigi(quandOk){
   x.onload = function(){ if (x.status === 200) { try { quandOk(JSON.parse(x.responseText)); } catch (e) {} } };
   x.send();
 }
-function majVigi(){ chargerVigi(function(v){ $('vigi').innerHTML = texteVigi(v); }); }
+function majVigi(){ chargerVigi(function(v){ VIGI = v; $('vigi').innerHTML = texteVigi(v); dessinerVigi(); }); }
+/* ---------- Vigilance détaillée (Météo-France) + rafales des modèles Météo-France ---------- */
+var VIGI = null, RAF = null, VUE_VIGI = false, DERNIER_ACTUEL = null, DERNIER_D = null;
+function chargerRafales(){
+  if (CONFIG.DEMO) return;
+  var x = new XMLHttpRequest();
+  x.open('GET', 'https://api.open-meteo.com/v1/meteofrance?latitude=' + CONFIG.LAT + '&longitude=' + CONFIG.LON + '&hourly=wind_gusts_10m&forecast_hours=30&timezone=Europe%2FParis', true);
+  x.timeout = 20000;
+  x.onload = function(){ if (x.status === 200) { try { var j = JSON.parse(x.responseText); RAF = j.hourly && j.hourly.wind_gusts_10m ? j.hourly : null; if (DERNIER_D) afficher(DERNIER_D); dessinerVigi(); } catch (e) {} } };
+  x.send();
+}
+// rafales de l'heure en cours (modèle Météo-France), sinon celles d'Open-Meteo
+function rafaleActuelle(){
+  if (RAF) { var h = new Date(); h.setMinutes(0, 0, 0); for (var i = 0; i < RAF.time.length; i++) if (lireDate(RAF.time[i]).getTime() === h.getTime() && RAF.wind_gusts_10m[i] != null) return Math.round(RAF.wind_gusts_10m[i]); }
+  return DERNIER_ACTUEL && DERNIER_ACTUEL.rafales != null ? DERNIER_ACTUEL.rafales : null;
+}
+function rafalesMax(){
+  if (!RAF) return null;
+  var t = Date.now(), max = -1, quand = 0;
+  for (var i = 0; i < RAF.time.length; i++) {
+    var d = lireDate(RAF.time[i]).getTime();
+    if (d < t - 3600000 || d > t + 24 * 3600000 || RAF.wind_gusts_10m[i] == null) continue;
+    if (RAF.wind_gusts_10m[i] > max) { max = RAF.wind_gusts_10m[i]; quand = d; }
+  }
+  if (max < 0) return null;
+  var q = new Date(quand);
+  return 'jusqu\'à ' + Math.round(max) + ' km/h' + (quand <= t ? ' en ce moment' : ' vers ' + (q.getDate() !== new Date().getDate() ? 'demain ' : '') + q.getHours() + '\u00a0h');
+}
+function echapperV(t){ return String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;'); }
+function dessinerVigi(){
+  var v = VIGI, C = $('carteDroite'), Z = $('vueVigi');
+  var actif = v && v.trouve && ['jaune', 'orange', 'rouge'].indexOf(v.niveau) >= 0;
+  if (!actif) { Z.innerHTML = ''; C.className = 'card rain'; return; }
+  var h = '<div class="label">Vigilance Météo-France</div><div class="vg-t h ' + v.niveau + '">' + VIGI_ICONE + 'Vigilance ' + v.niveau + '</div><div class="vg-l">';
+  for (var i = 0; i < v.phenomenes.length; i++) {
+    var f = v.phenomenes[i];
+    if (f.niveau === 'vert') continue;
+    var raf = /vent/i.test(f.nom) ? rafalesMax() : null;
+    h += '<div class="vg-p"><i class="' + f.niveau + '"></i><div><b>' + echapperV(f.nom) + '</b>' + (f.periode ? '<span> · ' + echapperV(f.periode) + '</span>' : '') +
+      (raf ? '<span> · rafales ' + raf + ' <span class="vg-src">(modèle Météo-France)</span></span>' : '') + '</div></div>' +
+      (f.conseil ? '<div class="vg-b"><small>Bulletin Météo-France</small>' + echapperV(f.conseil) + '</div>' : '');
+  }
+  h += '</div>' + (v.consigne ? '<div class="vg-c">' + echapperV(v.consigne) + '</div>' : '');
+  Z.innerHTML = h;
+  C.className = 'card rain' + (VUE_VIGI ? ' vigi-on' : '');
+}
+setInterval(function(){ VUE_VIGI = !VUE_VIGI; if (VIGI) dessinerVigi(); }, 10000);
+chargerRafales(); setInterval(chargerRafales, 30 * 60000);
 majVigi(); setInterval(majVigi, 5 * 60000);
 // Lieu du cadre (multi-familles) : reçu du shell avec les réglages
 window.addEventListener('message', function(e){
