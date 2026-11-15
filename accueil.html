@@ -210,16 +210,19 @@ body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;fon
 /* vue vigilance : à gauche le niveau, à droite les conseils */
 .alt > .v-v{flex-direction:row;align-items:center;justify-content:flex-start}
 .vv-g{flex:none;max-width:46%}
-.vv-d{flex:1;min-width:0;margin-left:26px;padding-left:22px;border-left:2px solid var(--line);display:flex;flex-direction:column;justify-content:center}
-.vv-c{display:flex;align-items:flex-start;font-size:17px;line-height:1.3;color:var(--muted)}
-.vv-c + .vv-c{margin-top:10px}
-.vv-c i{flex:none;width:10px;height:10px;border-radius:50%;margin:6px 10px 0 0}
+.vv-d{flex:1;min-width:0;margin-left:20px;padding:10px 16px;border-radius:16px;border-left:6px solid #E3BE14;background:rgba(227,190,20,.26);display:flex;flex-direction:column;justify-content:center}
+.vv-d.orange{border-left-color:#EE8323;background:rgba(238,131,35,.17)}
+.vv-d.rouge{border-left-color:#D42F2F;background:rgba(212,47,47,.15)}
+.vv-c{display:flex;align-items:flex-start;font-size:18px;line-height:1.3;color:var(--ink)}
+.vv-c + .vv-c{margin-top:8px;padding-top:8px;border-top:1px solid rgba(128,128,128,.25)}
+.vv-c i{flex:none;width:14px;height:14px;border-radius:50%;margin:7px 12px 0 0}
 .vv-c i.jaune{background:#E3BE14}.vv-c i.orange{background:#EE8323}.vv-c i.rouge{background:#D42F2F}
-.vv-c b{display:block;color:var(--ink);font-size:18px;font-weight:700}
-.vv-c em{font-style:normal;font-weight:600;color:var(--muted)}
+.vv-c b{display:block;color:var(--ink);font-size:21px;font-weight:800;line-height:1.2}
+.vv-c em{font-style:normal;font-weight:700;color:var(--ink);white-space:nowrap}
+.vv-c strong{font-weight:800;font-size:21px}
 .vv-m{display:block}
 .vv-c b.vv-src{display:inline;font-size:13px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin-right:6px}
-.vv-cons{max-width:420px}.vv-m small{font-size:13px;opacity:.8}
+.vv-cons{max-width:420px}.vv-m small{display:block;margin-top:2px;font-size:13px;opacity:.65;font-weight:400}
 .vv-o{display:block;margin-top:2px;color:var(--ink);overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
 .mini .vv-d{display:none}.mini .vv-g{max-width:none}
 .mini .vv-t{font-size:18px}.mini .vv-t svg{width:22px;height:22px}.mini .vv-l span{font-size:15px;padding:4px 9px}.mini .vv-s{display:none}
@@ -940,14 +943,14 @@ function coucheVigi(){
       var m = mesureVigi(f.nom);
       var off = f.conseil ? '<b class="vv-src">Bulletin Météo-France</b>' + echapper(f.conseil) : '', per = f.periode ? echapper(f.periode) : '';
       if (m || off || per) det += '<div class="vv-c"><i class="' + f.niveau + '"></i><div><b>' + echapper(f.nom) + (per ? '<em> · ' + per + '</em>' : '') + '</b>' +
-        (m ? '<span class="vv-m">' + m.split('|')[0] + ' <small>· ' + (m.split('|')[1] || 'prévision Open-Meteo') + '</small></span>' : '') + (off ? '<span class="vv-o">' + off + '</span>' : '') + '</div></div>';
+        (m ? '<span class="vv-m">' + m.split('|')[0].replace(/(\d+ ?km\/h)/, '<strong>$1</strong>') + ' <small>' + (m.split('|')[1] || 'prévision Open-Meteo') + '</small></span>' : '') + (off ? '<span class="vv-o">' + off + '</span>' : '') + '</div></div>';
       nb++;
     }
   }
   return '<div class="v-v"><div class="vv-g"><div class="vv-t h ' + v.niveau + '">' + VIGI_ICONE + 'Vigilance ' + v.niveau + '</div>' + (ch ? '<div class="vv-l">' + ch + '</div>' : '') +
     '<div class="vv-s">Météo-France · ' + ({ jaune: 'soyez attentifs', orange: 'soyez très vigilants', rouge: 'vigilance absolue' })[v.niveau] + '</div>' +
     (v.consigne && !det ? '<div class="vv-s vv-cons">' + echapper(v.consigne) + '</div>' : '') + '</div>' +
-    (det ? '<div class="vv-d">' + det + '</div>' : '') + '</div>';
+    (det ? '<div class="vv-d ' + v.niveau + '">' + det + '</div>' : '') + '</div>';
 }
 // Pendant la vue « vigilance », la pastille de vigilance de la même tuile est masquée (pas d'information en double)
 function majMasqueVigi(){
