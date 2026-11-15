@@ -114,6 +114,12 @@ body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;fon
 .wl-pluie .alert{margin-top:8px;padding:7px 12px;font-size:17px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .wl-pluie .alert svg{width:20px;height:20px}
 .wx-l1 .vigi{flex:none;margin-top:8px;padding:6px 12px;font-size:16px}
+/* vigilance et pluie : deux pastilles côte à côte, à la largeur de leur texte (plus de bandeaux sur toute la tuile) */
+.wl-bas{display:flex;align-items:flex-end;flex:none;min-width:0}
+.wl-bas .vigi{margin-right:10px;white-space:nowrap}
+.wl-bas .wl-pluie{flex:0 1 auto;min-width:0}
+.wl-bas .wl-pluie .alert{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wl-bas .wl-pluie .alert svg{display:inline-block;vertical-align:-4px;margin-right:8px}
 /* Grande tuile météo */
 .wg-haut{display:flex;align-items:center;flex:none}
 .wg-temp{display:flex;align-items:center;flex:none}
@@ -750,7 +756,7 @@ function tuileMeteoLarge(T, now, l){
         '<div class="wl-lib h">' + libelleMeteo(c.weather_code, c.is_day === 1) + '</div>' +
         '<div class="wl-det">' + Math.round(D.temperature_2m_min[0]) + '° / <b>' + Math.round(D.temperature_2m_max[0]) + '°</b> · ressenti ' + Math.round(c.apparent_temperature) + '°</div></div>' +
       '<div class="wl-courbe"></div>' +
-    '</div>' + texteVigi() + '<div class="wl-pluie">' + textePluie(now) + '</div>';
+    '</div><div class="wl-bas">' + texteVigi() + '<div class="wl-pluie">' + textePluie(now) + '</div></div>';
   var zone = T.querySelector('.wl-courbe'), W = zone.clientWidth, Hc = zone.clientHeight;
   var cb = courbe(serieHeures(now, Math.min(12, Math.max(6, Math.floor(W / 46))), demain), W, Hc, !demain), jj = joursPrevus(Math.max(3, Math.min(6, Math.floor(W / 92))), Hc >= 140 ? 44 : 36);
   zone.className += ' alt' + (VUE_JOURS && jj ? ' jours' : '');
