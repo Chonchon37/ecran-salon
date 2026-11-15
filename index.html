@@ -84,6 +84,18 @@ html.nuit #stage.teinte .tab.on{background:rgba(255,255,255,.13)}
 .tab.on span{max-width:200px;opacity:1;margin-left:10px}
 .tab.on svg{color:var(--accent)}
 #right{margin-left:auto;display:flex;align-items:center}
+/* Vigilance Météo-France rappelée dans la barre du bas sur les onglets qui ne l'affichent pas (musique, agenda…) */
+.vn{display:none;position:relative;z-index:0;align-items:center;margin-right:16px;padding:7px 14px;border-radius:999px;font-size:16px;font-weight:700;white-space:nowrap;cursor:pointer;max-width:420px;overflow:visible}
+.vn.on{display:flex}
+.vn svg{width:19px;height:19px;margin-right:7px;flex:none;-webkit-animation:vn-icone 2.2s ease-in-out infinite;animation:vn-icone 2.2s ease-in-out infinite}
+.vn span{overflow:hidden;text-overflow:ellipsis}
+.vn:after{content:'';position:absolute;left:0;top:0;right:0;bottom:0;border-radius:inherit;background:inherit;opacity:0;z-index:-1;-webkit-animation:vn-halo 2.2s ease-out infinite;animation:vn-halo 2.2s ease-out infinite}
+.vn.jaune{background:#F5D33C;color:#3B3000}.vn.orange{background:#EE8323;color:#2B1400}.vn.rouge{background:#D42F2F;color:#FFFFFF}
+.vn.orange svg,.vn.orange:after{-webkit-animation-duration:1.5s;animation-duration:1.5s}.vn.rouge svg,.vn.rouge:after{-webkit-animation-duration:1s;animation-duration:1s}
+@-webkit-keyframes vn-halo{0%{-webkit-transform:scale(1,1);opacity:.9}75%,100%{-webkit-transform:scale(1.12,1.7);opacity:0}}
+@keyframes vn-halo{0%{transform:scale(1,1);opacity:.9}75%,100%{transform:scale(1.12,1.7);opacity:0}}
+@-webkit-keyframes vn-icone{0%,100%{opacity:1}50%{opacity:.35}}
+@keyframes vn-icone{0%,100%{opacity:1}50%{opacity:.35}}
 #pause{
   display:none;align-items:center;height:36px;padding:0 14px;margin-right:16px;border-radius:18px;white-space:nowrap;
   background:var(--warn-soft);color:var(--warn);font-size:15px;font-weight:700;cursor:pointer;
@@ -243,6 +255,7 @@ body.en-veille #slides iframe.on{visibility:hidden}
         <svg class="tour"><rect class="fond" x="1.5" y="1.5" width="100%" height="100%" rx="16.5" ry="16.5" style="width:calc(100% - 3px);height:calc(100% - 3px)"/><rect id="pauseTour" x="1.5" y="1.5" width="100%" height="100%" rx="16.5" ry="16.5" pathLength="100" style="width:calc(100% - 3px);height:calc(100% - 3px)"/></svg>
       </div>
       <div id="fixe"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg><span id="fixeTexte"></span></div>
+      <div id="vigiNav" class="vn"></div>
       <div id="clock">--:--</div>
       <div id="rouage" title="Réglages rapides"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></div>
     </div>
@@ -608,6 +621,32 @@ function majTeinte(){
     st.className = 'teinte';
   } else { st.className = ''; st.style.removeProperty('--accent'); }
 }
+/* ---------- Vigilance Météo-France dans la barre du bas ---------- */
+var VIGI_NAV = null;
+function chargerVigiNav(){
+  if (!CLE || !CONFIG.WORKER) return;
+  var x = new XMLHttpRequest();
+  x.open('GET', CONFIG.WORKER + '/vigilance?cle=' + encodeURIComponent(CLE), true);
+  x.timeout = 20000;
+  x.onload = function(){ if (x.status === 200) { try { VIGI_NAV = JSON.parse(x.responseText); } catch (e) { VIGI_NAV = null; } majVigiNav(); } };
+  x.send();
+}
+function majVigiNav(){
+  var el = document.getElementById('vigiNav'), v = VIGI_NAV;
+  var actif = v && v.trouve && ['jaune', 'orange', 'rouge'].indexOf(v.niveau) >= 0;
+  var id = S && S[actuel] ? S[actuel].id : '';
+  if (!actif || id === 'accueil' || id === 'meteo') { el.className = 'vn'; return; }
+  var f = null;
+  for (var i = 0; i < v.phenomenes.length && !f; i++) if (v.phenomenes[i].niveau === v.niveau) f = v.phenomenes[i];
+  var txt = 'Vigilance ' + v.niveau + (f ? ' · ' + f.nom + (f.periode ? ' ' + f.periode : '') : '');
+  el.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5 2.8 19.5h18.4z"/><path d="M12 10v4.5M12 17.2v.1"/></svg><span>' + txt.replace(/&/g, '&amp;').replace(/</g, '&lt;') + '</span>';
+  el.className = 'vn on ' + v.niveau;
+}
+// toucher la pastille ouvre l'onglet Météo
+document.getElementById('vigiNav').addEventListener('click', function(){
+  for (var k = 0; k < S.length; k++) if (S[k].id === 'meteo') { pauseJusqua = Date.now() + CONFIG.PAUSE_APRES_TOUCHER * 1000; majPause(); afficher(k); return; }
+});
+setTimeout(chargerVigiNav, 3000); setInterval(chargerVigiNav, 5 * 60000);
 function afficher(index){
   if (index === actuel) return;
   for (var j = 0; j < frames.length; j++) {
@@ -618,7 +657,7 @@ function afficher(index){
   // chaque page sait si elle est à l'écran (la page Musique se met à jour plus souvent quand on la regarde)
   for (var q = 0; q < frames.length; q++) { try { frames[q].contentWindow.postMessage({ type: 'actif', value: S[index].id }, '*'); } catch (err) {} }
   document.documentElement.className = (theme === 'nuit' ? 'nuit' : '') + classeOrga();
-  majTeinte();
+  majTeinte(); majVigiNav();
   majHorloge();
   programmer();
 }
