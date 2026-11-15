@@ -33,7 +33,7 @@ const FLUX_TR = 'https://data.filbleu.fr/ws-tr/gtfs-rt/opendata/trip-updates';
 const FLUX_ALERTES = 'https://data.filbleu.fr/ws-tr/gtfs-rt/opendata/service-alerts';
 const FLUX_INCIDENTS = 'https://www.filbleu.fr/rss-incident.xml';   // l'info trafic du site filbleu.fr (travaux, déviations…)
 const CACHE_SECONDES = 30;   // les écrans redemandent toutes les 30 s
-const VERSION = '57';   // à changer à chaque mise à jour du code : vide les caches
+const VERSION = '58';   // à changer à chaque mise à jour du code : vide les caches
 
 // Horaires prévus, format compact : "jours" = n° de grille pour chaque jour depuis "debut",
 // chaque ligne "g=" = minutes depuis minuit, écrites en écarts successifs.
@@ -1177,7 +1177,7 @@ async function executerActions(env, liste) {
   }
 }
 /* ---------- Musique : enceintes Google (intégration Cast de Home Assistant), Spotify compris ---------- */
-const TPL_MUSIQUE = "{% set ns = namespace(o=[]) %}{% for s in states.media_player %}{% if s.state not in ['unavailable', 'unknown'] %}" +
+const TPL_MUSIQUE = "{% set ns = namespace(o=[]) %}{% for s in states.media_player %}{% if s.state not in ['unavailable', 'unknown'] or s.attributes.get('friendly_name') %}" +
   "{% set a = s.attributes %}{% set ns.o = ns.o + [{'id': s.entity_id, 'nom': a.get('friendly_name'), 'etat': s.state, 'titre': a.get('media_title'), " +
   "'artiste': a.get('media_artist') or a.get('media_album_artist'), 'app': a.get('app_name'), 'volume': a.get('volume_level'), 'image': a.get('entity_picture'), " +
   "'duree': a.get('media_duration'), 'position': a.get('media_position'), " +
@@ -1190,9 +1190,13 @@ async function construireMusique(env) {
   const t = await r.text();
   if (!r.ok) throw new Error('Home Assistant : ' + t.slice(0, 160));
   // Les lecteurs créés par Spotcast ou l'intégration Spotify (appareils Spotify Connect, pas des enceintes) sont ignorés
-  const TOUS = JSON.parse(t).filter(x => !/spotcast|^media_player\.spotify/i.test(x.id) && !/^spotcast\b/i.test(String(x.nom || '')));
-  // Toutes les enceintes Google (Hub compris) : pour régler le volume du groupe « Maison » enceinte par enceinte
+  const BRUT = JSON.parse(t).filter(x => !/spotcast|^media_player\.spotify/i.test(x.id) && !/^spotcast\b/i.test(String(x.nom || '')));
+  const HS = x => x.etat === 'unavailable' || x.etat === 'unknown';
+  const TOUS = BRUT.filter(x => !HS(x));
+  // Toutes les enceintes Google (Hub compris) : pour régler le volume du groupe « Maison » enceinte par enceinte.
+  // Une enceinte injoignable par Home Assistant (hors doublons « _2 ») empêche ce réglage un par un : on passe alors par le groupe.
   E(env).ENCEINTES = TOUS.map(x => x.id).filter(i => !/freebox/.test(i));
+  E(env).ENCEINTES_HS = BRUT.filter(x => HS(x) && !/freebox|_\d+$/.test(x.id) && x.id !== PRINCIPALE_MUSIQUE).map(x => x.id);
   const L = TOUS.filter(x => masques.indexOf(x.id) < 0 && !/freebox|^media_player\.hub/.test(x.id));
   const lecteurs = L.map(x => {
     let v = null;
@@ -1706,6 +1710,12 @@ async function actionMusique(env, c) {
     // « Maison » est le groupe Google de toutes les enceintes : régler le groupe ne fait que décaler chaque
     // enceinte en gardant leurs écarts. On règle donc chaque enceinte au même niveau, et pas le groupe
     // (son volume affiché devient la moyenne, donc ce même niveau).
+    if (id === PRINCIPALE_MUSIQUE && !E(env).ENCEINTES) await construireMusique(env).catch(() => null);
+    if (id === PRINCIPALE_MUSIQUE && (E(env).ENCEINTES_HS || []).length) {
+      // certaines enceintes ne répondent pas à Home Assistant : seul le groupe Google peut toutes les régler
+      E(env).MUSIQUE_MEMO = null;
+      return appel('media_player/volume_set', { volume_level: niveau }).then(r => Object.assign({ groupe: true, injoignables: E(env).ENCEINTES_HS }, r));
+    }
     if (id === PRINCIPALE_MUSIQUE) {
       if (!E(env).ENCEINTES) await construireMusique(env).catch(() => null);
       const ids = (E(env).ENCEINTES || []).filter(i => i !== id);
