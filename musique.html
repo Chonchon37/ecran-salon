@@ -543,7 +543,7 @@ function charger(){
   var xhr = new XMLHttpRequest();
   xhr.open('GET', CONFIG.WORKER + '/musique?cle=' + encodeURIComponent(CLE) + '&t=' + Date.now(), true);
   xhr.timeout = 10000;
-  xhr.onload = function(){ var j = null; try { j = JSON.parse(xhr.responseText); } catch (err) {} if (xhr.status === 200 && j && j.lecteurs) { var avant = donnees && donnees.absent; donnees = j; if (avant && !j.absent) liens = null; dessiner(); signalerMaison(); } };
+  xhr.onload = function(){ var j = null; try { j = JSON.parse(xhr.responseText); } catch (err) {} if (xhr.status === 200 && j && j.lecteurs) { var avant = donnees && donnees.absent; garderVolumes(j); donnees = j; if (avant && !j.absent) liens = null; dessiner(); signalerMaison(); } };
   xhr.send();
 }
 // Prévient l'écran quand « Maison » joue : il garde alors l'onglet Musique affiché
@@ -617,6 +617,24 @@ document.addEventListener('click', function(e){
   if (a === 'lecture') A.etat = A.etat === 'playing' ? 'paused' : 'playing';
   envoyer({ action: a, id: A.id }); dessiner();
 });
+// Volume demandé : pendant 12 s, il l'emporte sur le volume renvoyé par le serveur
+// (les enceintes mettent quelques secondes à confirmer ; une réponse partie avant le réglage ramènerait l'ancien volume)
+var VOL_VOULU = {};
+function retenirVolume(A, v){
+  var fin = Date.now() + 12000, L = D().lecteurs, i;
+  VOL_VOULU[A.id] = { v: v, fin: fin };
+  if (A.id === PRINCIPALE) for (i = 0; i < L.length; i++) if (L[i].volume !== null && L[i].volume !== undefined) VOL_VOULU[L[i].id] = { v: v, fin: fin };
+}
+function garderVolumes(j){
+  var t = Date.now();
+  for (var i = 0; i < j.lecteurs.length; i++) {
+    var l = j.lecteurs[i], w = VOL_VOULU[l.id];
+    if (!w) continue;
+    if (t > w.fin || l.volume === null || l.volume === undefined) { delete VOL_VOULU[l.id]; continue; }
+    if (Math.abs(l.volume - w.v) <= 1) delete VOL_VOULU[l.id];   // confirmé par l'enceinte
+    else l.volume = w.v;
+  }
+}
 // Volume : suit le doigt, envoyé au lâcher
 document.addEventListener('input', function(e){ if (e.target.id === 'vol') { regleVolume = true; $('volv').innerHTML = e.target.value; } });
 document.addEventListener('change', function(e){
@@ -626,6 +644,7 @@ document.addEventListener('change', function(e){
     A.volume = parseInt(e.target.value, 10);
     // Maison est l'enceinte maître : les autres prennent le même volume
     if (A.id === PRINCIPALE) { var L = D().lecteurs; for (var i = 0; i < L.length; i++) L[i].volume = A.volume; }
+    retenirVolume(A, A.volume);
     envoyer({ action: 'volume', id: A.id, valeur: A.volume }); dessiner();
   }
 });
@@ -641,6 +660,7 @@ document.addEventListener('click', function(e){
   if (v === A.volume) return;
   A.volume = v;
   if (A.id === PRINCIPALE) { var L = D().lecteurs; for (var i = 0; i < L.length; i++) L[i].volume = v; }
+  retenirVolume(A, v);
   regleVolume = true;   // pas de redessin complet pendant les appuis
   if ($('vol')) $('vol').value = v;
   if ($('volv')) $('volv').innerHTML = v;
