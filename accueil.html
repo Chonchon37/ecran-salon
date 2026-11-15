@@ -660,7 +660,11 @@ function chargerMeteo(){
     '&current=temperature_2m,weather_code,is_day,apparent_temperature,wind_speed_10m,wind_direction_10m,wind_gusts_10m,relative_humidity_2m&minutely_15=precipitation&forecast_minutely_15=26' +
     '&hourly=temperature_2m,weather_code,is_day,precipitation,precipitation_probability,wind_gusts_10m&forecast_hours=40' +
     '&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset&timezone=Europe%2FParis&forecast_days=7', function(j){ meteo = j; afficher(); });
+  // rafales : modèles de Météo-France (Arome / Arpège), plus justes sur la France que le modèle par défaut
+  lireJson('https://api.open-meteo.com/v1/meteofrance?latitude=' + CONFIG.LAT + '&longitude=' + CONFIG.LON + '&hourly=wind_gusts_10m&forecast_hours=30&timezone=Europe%2FParis',
+    function(j){ rafalesMF = j && j.hourly && j.hourly.wind_gusts_10m ? j.hourly : null; afficher(); });
 }
+var rafalesMF = null;
 function chargerTransports(){ if (CONFIG.WORKER_TRANSPORTS) lireJson(CONFIG.WORKER_TRANSPORTS + (CLE ? '?cle=' + encodeURIComponent(CLE) : ''), function(j){ transportsReels = j; if (j.config) LIGNES = lignesDepuis(j.config); afficher(); }, function(j){ return JSON.stringify([j.lignes, j.config]); }); }
 function chargerAgenda(){ if (prive()) lireJson(CONFIG.WORKER + '/agenda?cle=' + encodeURIComponent(CLE), function(j){ agendaReel = j; afficher(); }); }
 function chargerMaison(){ if (prive()) lireJson(CONFIG.WORKER + '/maison?cle=' + encodeURIComponent(CLE), function(j){ maisonReelle = j; afficher(); }); }
@@ -908,7 +912,7 @@ function mesureVigi(nom){
   if (!c) return '';
   if (/vent/i.test(nom)) {
     // rafales les plus fortes prévues sur les 24 prochaines heures (et à quelle heure)
-    var H = meteo.hourly, t = Date.now(), max = -1, quand = null;
+    var H = rafalesMF || meteo.hourly, t = Date.now(), max = -1, quand = null, src = rafalesMF ? 'modèle Météo-France' : 'prévision Open-Meteo';
     if (H && H.wind_gusts_10m) for (var i = 0; i < H.time.length; i++) {
       var d = new Date(H.time[i]).getTime();
       if (d < t - 3600000 || d > t + 24 * 3600000 || H.wind_gusts_10m[i] == null) continue;
@@ -916,7 +920,7 @@ function mesureVigi(nom){
     }
     if (max >= 0) {
       var q = new Date(quand), maint = quand <= t;
-      return 'Rafales jusqu\'à ' + Math.round(max) + ' km/h' + (maint ? ' en ce moment' : ' vers ' + (q.getDate() !== new Date().getDate() ? 'demain ' : '') + q.getHours() + '\u00a0h');
+      return 'Rafales jusqu\'à ' + Math.round(max) + ' km/h' + (maint ? ' en ce moment' : ' vers ' + (q.getDate() !== new Date().getDate() ? 'demain ' : '') + q.getHours() + '\u00a0h') + '|' + src;
     }
     if (c.wind_gusts_10m != null) return 'Rafales ' + Math.round(c.wind_gusts_10m) + ' km/h';
     if (/vent/i.test(nom) && c.wind_speed_10m != null) return 'Vent ' + Math.round(c.wind_speed_10m) + ' km/h';
@@ -936,7 +940,7 @@ function coucheVigi(){
       var m = mesureVigi(f.nom);
       var off = f.conseil ? '<b class="vv-src">Bulletin Météo-France</b>' + echapper(f.conseil) : '', per = f.periode ? echapper(f.periode) : '';
       if (m || off || per) det += '<div class="vv-c"><i class="' + f.niveau + '"></i><div><b>' + echapper(f.nom) + (per ? '<em> · ' + per + '</em>' : '') + '</b>' +
-        (m ? '<span class="vv-m">' + m + ' <small>· prévision Open-Meteo</small></span>' : '') + (off ? '<span class="vv-o">' + off + '</span>' : '') + '</div></div>';
+        (m ? '<span class="vv-m">' + m.split('|')[0] + ' <small>· ' + (m.split('|')[1] || 'prévision Open-Meteo') + '</small></span>' : '') + (off ? '<span class="vv-o">' + off + '</span>' : '') + '</div></div>';
       nb++;
     }
   }
