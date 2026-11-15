@@ -217,6 +217,8 @@ body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;fon
 .vv-c i.jaune{background:#E3BE14}.vv-c i.orange{background:#EE8323}.vv-c i.rouge{background:#D42F2F}
 .vv-c b{display:block;color:var(--ink);font-size:18px;font-weight:700}
 .vv-c em{font-style:normal;font-weight:600;color:var(--muted)}
+.vv-m{display:block}.vv-m small{font-size:13px;opacity:.8}
+.vv-o{display:block;margin-top:2px;color:var(--ink);overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical}
 .mini .vv-d{display:none}.mini .vv-g{max-width:none}
 .mini .vv-t{font-size:18px}.mini .vv-t svg{width:22px;height:22px}.mini .vv-l span{font-size:15px;padding:4px 9px}.mini .vv-s{display:none}
 .mini.alt > .v-j{top:auto;height:auto}
@@ -898,21 +900,7 @@ function classeVue(aJours, aVigi){
   if (VUE_METEO === 1 && aJours) return ' jours';
   return '';
 }
-// Conseil court pour chaque phénomène (+ la mesure du moment quand on l'a)
-var CONSEILS_VIGI = [
-  [/vent/i, 'Rentrez ou attachez ce qui traîne sur la terrasse. Prudence sur la route et sous les arbres.'],
-  [/orage/i, 'Mettez à l\'abri les objets du balcon, débranchez les appareils sensibles.'],
-  [/pluie|inond/i, 'Évitez les routes inondées et les sous-sols ; ne traversez pas une zone d\'eau.'],
-  [/crue/i, 'Ne vous approchez pas des berges de la Loire et du Cher.'],
-  [/neige|verglas/i, 'Routes glissantes : partez plus tôt ou décalez vos trajets.'],
-  [/canicule/i, 'Buvez souvent, fermez volets et fenêtres en journée.'],
-  [/froid/i, 'Couvrez-vous et prenez des nouvelles des proches fragiles.'],
-  [/vague|submersion|avalanche/i, 'Restez à l\'écart des zones exposées.']
-];
-function conseilVigi(nom){
-  for (var i = 0; i < CONSEILS_VIGI.length; i++) if (CONSEILS_VIGI[i][0].test(nom)) return CONSEILS_VIGI[i][1];
-  return 'Soyez attentifs si vous avez des activités en extérieur.';
-}
+// Conseils : uniquement ceux de Météo-France (fournis par le serveur quand l'API vigilance est branchée), jamais inventés
 function mesureVigi(nom){
   var c = meteo && meteo.current;
   if (!c) return '';
@@ -944,7 +932,9 @@ function coucheVigi(){
     ch += '<span class="' + f.niveau + '">' + echapper(f.nom) + '</span>';
     if (nb < 2) {
       var m = mesureVigi(f.nom);
-      det += '<div class="vv-c"><i class="' + f.niveau + '"></i><div><b>' + echapper(f.nom) + (m ? '<em> · ' + m + '</em>' : '') + '</b>' + conseilVigi(f.nom) + '</div></div>';
+      var off = f.conseil ? echapper(f.conseil) : '', per = f.periode ? echapper(f.periode) : '';
+      if (m || off || per) det += '<div class="vv-c"><i class="' + f.niveau + '"></i><div><b>' + echapper(f.nom) + (per ? '<em> · ' + per + '</em>' : '') + '</b>' +
+        (m ? '<span class="vv-m">' + m + ' <small>(prévision Open-Meteo)</small></span>' : '') + (off ? '<span class="vv-o">' + off + '</span>' : '') + '</div></div>';
       nb++;
     }
   }

@@ -254,6 +254,13 @@ button.discret{background:transparent;color:var(--muted);padding:8px 10px;font-s
         </ol>
         <div class="rang"><input type="password" id="appTomtomCle" placeholder="Clé API TomTom" style="flex:1;min-width:200px" autocomplete="new-password"></div>
       </div>
+      <div class="app-bloc">
+        <h3>Météo-France (vigilance) <span class="puce" id="appMeteofranceEtat"></span></h3>
+        <ol class="etapes">
+          <li>Facultatif : chronologie et conseils officiels de la vigilance pour le département. Compte sur <a href="https://portail-api.meteofrance.fr/" target="_blank" rel="noopener">portail-api.meteofrance.fr</a>, abonnement à l'API <b>Bulletin Vigilance</b>, puis génération d'une clé de type <b>API Key</b>.</li>
+        </ol>
+        <div class="rang"><input type="password" id="appMeteofranceCle" placeholder="Clé API Météo-France" style="flex:1;min-width:200px" autocomplete="new-password"></div>
+      </div>
       <div class="rang" style="margin-top:14px"><button type="button" class="principal" id="appsEnregistrer">Enregistrer les applications</button><span id="appsEtat" class="aide" style="margin:0"></span></div>
     </section>
   </div>
@@ -1141,8 +1148,8 @@ $('connexions').addEventListener('click', e => {
 });
 
 /* ---------- Applications Sonos et Spotify (super-admin) ---------- */
-const CHAMPS_APPS = { sonos: [['SONOS_ID', 'appSonosId'], ['SONOS_SECRET', 'appSonosSecret']], spotify: [['SPOTIFY_ID', 'appSpotifyId'], ['SPOTIFY_SECRET', 'appSpotifySecret']], tomtom: [['TOMTOM_CLE', 'appTomtomCle']] };
-const NOMS_APPS = { sonos: 'Sonos', spotify: 'Spotify', tomtom: 'Tomtom' };
+const CHAMPS_APPS = { sonos: [['SONOS_ID', 'appSonosId'], ['SONOS_SECRET', 'appSonosSecret']], spotify: [['SPOTIFY_ID', 'appSpotifyId'], ['SPOTIFY_SECRET', 'appSpotifySecret']], tomtom: [['TOMTOM_CLE', 'appTomtomCle']], meteofrance: [['MF_VIGILANCE_CLE', 'appMeteofranceCle']] };
+const NOMS_APPS = { sonos: 'Sonos', spotify: 'Spotify', tomtom: 'Tomtom', meteofrance: 'Meteofrance' };
 async function chargerApps() {
   try {
     const a = await fetch(WORKER + '/apps?cle=' + encodeURIComponent(CLE)).then(r => r.json());

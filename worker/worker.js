@@ -33,7 +33,7 @@ const FLUX_TR = 'https://data.filbleu.fr/ws-tr/gtfs-rt/opendata/trip-updates';
 const FLUX_ALERTES = 'https://data.filbleu.fr/ws-tr/gtfs-rt/opendata/service-alerts';
 const FLUX_INCIDENTS = 'https://www.filbleu.fr/rss-incident.xml';   // l'info trafic du site filbleu.fr (travaux, déviations…)
 const CACHE_SECONDES = 30;   // les écrans redemandent toutes les 30 s
-const VERSION = '54';   // à changer à chaque mise à jour du code : vide les caches
+const VERSION = '55';   // à changer à chaque mise à jour du code : vide les caches
 
 // Horaires prévus, format compact : "jours" = n° de grille pour chaque jour depuis "debut",
 // chaque ligne "g=" = minutes depuis minuit, écrites en écarts successifs.
@@ -1371,7 +1371,8 @@ async function suivreLien(envBase, url) {
 const APPS = {
   sonos: [['SONOS_ID', false], ['SONOS_SECRET', true]],
   spotify: [['SPOTIFY_ID', false], ['SPOTIFY_SECRET', true]],
-  tomtom: [['TOMTOM_CLE', true]]
+  tomtom: [['TOMTOM_CLE', true]],
+  meteofrance: [['MF_VIGILANCE_CLE', true]]   // API « Bulletin Vigilance » de Météo-France (portail-api.meteofrance.fr)
 };
 let APPS_MEMO = null;
 const appCloudflare = (env, a) => APPS[a].every(([k]) => !!env[k]);
