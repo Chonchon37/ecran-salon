@@ -207,6 +207,17 @@ body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;fon
 .vv-l span{display:inline-flex;align-items:center;margin:4px;padding:6px 12px;border-radius:12px;font-size:18px;font-weight:700;white-space:nowrap}
 .vv-l span.jaune{background:#F5D33C;color:#3B3000}.vv-l span.orange{background:#EE8323;color:#2B1400}.vv-l span.rouge{background:#D42F2F;color:#FFFFFF}
 .vv-s{font-size:15px;color:var(--muted);margin-top:8px}
+/* vue vigilance : à gauche le niveau, à droite les conseils */
+.alt > .v-v{flex-direction:row;align-items:center;justify-content:flex-start}
+.vv-g{flex:none;max-width:46%}
+.vv-d{flex:1;min-width:0;margin-left:26px;padding-left:22px;border-left:2px solid var(--line);display:flex;flex-direction:column;justify-content:center}
+.vv-c{display:flex;align-items:flex-start;font-size:17px;line-height:1.3;color:var(--muted)}
+.vv-c + .vv-c{margin-top:10px}
+.vv-c i{flex:none;width:10px;height:10px;border-radius:50%;margin:6px 10px 0 0}
+.vv-c i.jaune{background:#E3BE14}.vv-c i.orange{background:#EE8323}.vv-c i.rouge{background:#D42F2F}
+.vv-c b{display:block;color:var(--ink);font-size:18px;font-weight:700}
+.vv-c em{font-style:normal;font-weight:600;color:var(--muted)}
+.mini .vv-d{display:none}.mini .vv-g{max-width:none}
 .mini .vv-t{font-size:18px}.mini .vv-t svg{width:22px;height:22px}.mini .vv-l span{font-size:15px;padding:4px 9px}.mini .vv-s{display:none}
 .mini.alt > .v-j{top:auto;height:auto}
 .wj{display:flex;height:100%;align-items:center}
@@ -887,12 +898,44 @@ function classeVue(aJours, aVigi){
   if (VUE_METEO === 1 && aJours) return ' jours';
   return '';
 }
+// Conseil court pour chaque phénomène (+ la mesure du moment quand on l'a)
+var CONSEILS_VIGI = [
+  [/vent/i, 'Rentrez ou attachez ce qui traîne sur la terrasse. Prudence sur la route et sous les arbres.'],
+  [/orage/i, 'Mettez à l\'abri les objets du balcon, débranchez les appareils sensibles.'],
+  [/pluie|inond/i, 'Évitez les routes inondées et les sous-sols ; ne traversez pas une zone d\'eau.'],
+  [/crue/i, 'Ne vous approchez pas des berges de la Loire et du Cher.'],
+  [/neige|verglas/i, 'Routes glissantes : partez plus tôt ou décalez vos trajets.'],
+  [/canicule/i, 'Buvez souvent, fermez volets et fenêtres en journée.'],
+  [/froid/i, 'Couvrez-vous et prenez des nouvelles des proches fragiles.'],
+  [/vague|submersion|avalanche/i, 'Restez à l\'écart des zones exposées.']
+];
+function conseilVigi(nom){
+  for (var i = 0; i < CONSEILS_VIGI.length; i++) if (CONSEILS_VIGI[i][0].test(nom)) return CONSEILS_VIGI[i][1];
+  return 'Soyez attentifs si vous avez des activités en extérieur.';
+}
+function mesureVigi(nom){
+  var c = meteo && meteo.current;
+  if (!c) return '';
+  if (/vent/i.test(nom) && c.wind_speed_10m != null) return 'Vent actuel ' + Math.round(c.wind_speed_10m) + ' km/h';
+  if (/froid|canicule/i.test(nom) && c.temperature_2m != null) return 'Il fait ' + Math.round(c.temperature_2m) + '°';
+  return '';
+}
 function coucheVigi(){
   if (!vigilanceActive()) return '';
-  var v = vigilance, ch = '';
-  for (var i = 0; i < v.phenomenes.length; i++) if (v.phenomenes[i].niveau !== 'vert') ch += '<span class="' + v.phenomenes[i].niveau + '">' + echapper(v.phenomenes[i].nom) + '</span>';
-  return '<div class="v-v"><div class="vv-t h ' + v.niveau + '">' + VIGI_ICONE + 'Vigilance ' + v.niveau + '</div>' + (ch ? '<div class="vv-l">' + ch + '</div>' : '') +
-    '<div class="vv-s">Météo-France · ' + ({ jaune: 'soyez attentifs', orange: 'soyez très vigilants', rouge: 'vigilance absolue' })[v.niveau] + '</div></div>';
+  var v = vigilance, ch = '', det = '', nb = 0;
+  for (var i = 0; i < v.phenomenes.length; i++) {
+    var f = v.phenomenes[i];
+    if (f.niveau === 'vert') continue;
+    ch += '<span class="' + f.niveau + '">' + echapper(f.nom) + '</span>';
+    if (nb < 2) {
+      var m = mesureVigi(f.nom);
+      det += '<div class="vv-c"><i class="' + f.niveau + '"></i><div><b>' + echapper(f.nom) + (m ? '<em> · ' + m + '</em>' : '') + '</b>' + conseilVigi(f.nom) + '</div></div>';
+      nb++;
+    }
+  }
+  return '<div class="v-v"><div class="vv-g"><div class="vv-t h ' + v.niveau + '">' + VIGI_ICONE + 'Vigilance ' + v.niveau + '</div>' + (ch ? '<div class="vv-l">' + ch + '</div>' : '') +
+    '<div class="vv-s">Météo-France · ' + ({ jaune: 'soyez attentifs', orange: 'soyez très vigilants', rouge: 'vigilance absolue' })[v.niveau] + '</div></div>' +
+    (det ? '<div class="vv-d">' + det + '</div>' : '') + '</div>';
 }
 // Pendant la vue « vigilance », la pastille de vigilance de la même tuile est masquée (pas d'information en double)
 function majMasqueVigi(){
