@@ -33,7 +33,7 @@ const FLUX_TR = 'https://data.filbleu.fr/ws-tr/gtfs-rt/opendata/trip-updates';
 const FLUX_ALERTES = 'https://data.filbleu.fr/ws-tr/gtfs-rt/opendata/service-alerts';
 const FLUX_INCIDENTS = 'https://www.filbleu.fr/rss-incident.xml';   // l'info trafic du site filbleu.fr (travaux, déviations…)
 const CACHE_SECONDES = 30;   // les écrans redemandent toutes les 30 s
-const VERSION = '58';   // à changer à chaque mise à jour du code : vide les caches
+const VERSION = '59';   // à changer à chaque mise à jour du code : vide les caches
 
 // Horaires prévus, format compact : "jours" = n° de grille pour chaque jour depuis "debut",
 // chaque ligne "g=" = minutes depuis minuit, écrites en écarts successifs.
@@ -1197,11 +1197,14 @@ async function construireMusique(env) {
   // Une enceinte injoignable par Home Assistant (hors doublons « _2 ») empêche ce réglage un par un : on passe alors par le groupe.
   E(env).ENCEINTES = TOUS.map(x => x.id).filter(i => !/freebox/.test(i));
   E(env).ENCEINTES_HS = BRUT.filter(x => HS(x) && !/freebox|_\d+$/.test(x.id) && x.id !== PRINCIPALE_MUSIQUE).map(x => x.id);
+  // Volume affiché pour « Maison » : la moyenne des enceintes qu'on règle (celui que Home Assistant donne pour le groupe ne suit pas)
+  const membres = TOUS.filter(x => x.id !== PRINCIPALE_MUSIQUE && !/freebox/.test(x.id) && typeof x.volume === 'number');
+  const volMaison = membres.length ? membres.reduce((a, x) => a + x.volume, 0) / membres.length : null;
   const L = TOUS.filter(x => masques.indexOf(x.id) < 0 && !/freebox|^media_player\.hub/.test(x.id));
   const lecteurs = L.map(x => {
     let v = null;
     if (x.image) { E(env).IMAGES_MUSIQUE[x.id] = x.image; const m = /[?&]cache=([^&]+)/.exec(x.image); v = m ? m[1] : String(x.titre || '').length + '-' + (x.titre || ''); }
-    return { id: x.id, nom: x.nom || x.id, etat: x.etat, titre: x.titre || '', artiste: x.artiste || '', app: x.app || '', volume: typeof x.volume === 'number' ? Math.round(x.volume * 100) : null,
+    return { id: x.id, nom: x.nom || x.id, etat: x.etat, titre: x.titre || '', artiste: x.artiste || '', app: x.app || '', volume: x.id === PRINCIPALE_MUSIQUE && volMaison !== null ? Math.round(volMaison * 100) : (typeof x.volume === 'number' ? Math.round(x.volume * 100) : null),
       image: v, duree: x.duree || 0, position: x.position || 0, majPos: x.majPos ? Math.round(x.majPos * 1000) : 0 };
   });
   lecteurs.sort((a, b) => a.nom.localeCompare(b.nom, 'fr'));
@@ -1711,11 +1714,6 @@ async function actionMusique(env, c) {
     // enceinte en gardant leurs écarts. On règle donc chaque enceinte au même niveau, et pas le groupe
     // (son volume affiché devient la moyenne, donc ce même niveau).
     if (id === PRINCIPALE_MUSIQUE && !E(env).ENCEINTES) await construireMusique(env).catch(() => null);
-    if (id === PRINCIPALE_MUSIQUE && (E(env).ENCEINTES_HS || []).length) {
-      // certaines enceintes ne répondent pas à Home Assistant : seul le groupe Google peut toutes les régler
-      E(env).MUSIQUE_MEMO = null;
-      return appel('media_player/volume_set', { volume_level: niveau }).then(r => Object.assign({ groupe: true, injoignables: E(env).ENCEINTES_HS }, r));
-    }
     if (id === PRINCIPALE_MUSIQUE) {
       if (!E(env).ENCEINTES) await construireMusique(env).catch(() => null);
       const ids = (E(env).ENCEINTES || []).filter(i => i !== id);
