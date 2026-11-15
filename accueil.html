@@ -653,8 +653,8 @@ var meteo = null, transportsReels = null, agendaReel = null, maisonReelle = null
 function chargerMeteo(){
   if (!CONFIG.METEO_REELLE) return;
   lireJson('https://api.open-meteo.com/v1/forecast?latitude=' + CONFIG.LAT + '&longitude=' + CONFIG.LON +
-    '&current=temperature_2m,weather_code,is_day,apparent_temperature,wind_speed_10m,wind_direction_10m,relative_humidity_2m&minutely_15=precipitation&forecast_minutely_15=26' +
-    '&hourly=temperature_2m,weather_code,is_day,precipitation,precipitation_probability&forecast_hours=40' +
+    '&current=temperature_2m,weather_code,is_day,apparent_temperature,wind_speed_10m,wind_direction_10m,wind_gusts_10m,relative_humidity_2m&minutely_15=precipitation&forecast_minutely_15=26' +
+    '&hourly=temperature_2m,weather_code,is_day,precipitation,precipitation_probability,wind_gusts_10m&forecast_hours=40' +
     '&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset&timezone=Europe%2FParis&forecast_days=7', function(j){ meteo = j; afficher(); });
 }
 function chargerTransports(){ if (CONFIG.WORKER_TRANSPORTS) lireJson(CONFIG.WORKER_TRANSPORTS + (CLE ? '?cle=' + encodeURIComponent(CLE) : ''), function(j){ transportsReels = j; if (j.config) LIGNES = lignesDepuis(j.config); afficher(); }, function(j){ return JSON.stringify([j.lignes, j.config]); }); }
@@ -916,7 +916,22 @@ function conseilVigi(nom){
 function mesureVigi(nom){
   var c = meteo && meteo.current;
   if (!c) return '';
-  if (/vent/i.test(nom) && c.wind_speed_10m != null) return 'Vent actuel ' + Math.round(c.wind_speed_10m) + ' km/h';
+  if (/vent|orage/i.test(nom)) {
+    // rafales les plus fortes prévues sur les 24 prochaines heures (et à quelle heure)
+    var H = meteo.hourly, t = Date.now(), max = -1, quand = null;
+    if (H && H.wind_gusts_10m) for (var i = 0; i < H.time.length; i++) {
+      var d = new Date(H.time[i]).getTime();
+      if (d < t - 3600000 || d > t + 24 * 3600000 || H.wind_gusts_10m[i] == null) continue;
+      if (H.wind_gusts_10m[i] > max) { max = H.wind_gusts_10m[i]; quand = d; }
+    }
+    if (max >= 0) {
+      var q = new Date(quand), maint = quand <= t;
+      return 'Rafales jusqu\'à ' + Math.round(max) + ' km/h' + (maint ? ' en ce moment' : ' vers ' + (q.getDate() !== new Date().getDate() ? 'demain ' : '') + q.getHours() + '\u00a0h');
+    }
+    if (c.wind_gusts_10m != null) return 'Rafales ' + Math.round(c.wind_gusts_10m) + ' km/h';
+    if (/vent/i.test(nom) && c.wind_speed_10m != null) return 'Vent ' + Math.round(c.wind_speed_10m) + ' km/h';
+    return '';
+  }
   if (/froid|canicule/i.test(nom) && c.temperature_2m != null) return 'Il fait ' + Math.round(c.temperature_2m) + '°';
   return '';
 }
