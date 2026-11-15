@@ -85,13 +85,13 @@ html.nuit #stage.teinte .tab.on{background:rgba(255,255,255,.13)}
 .tab.on svg{color:var(--accent)}
 #right{margin-left:auto;display:flex;align-items:center}
 /* Vigilance Météo-France rappelée dans la barre du bas sur les onglets qui ne l'affichent pas (musique, agenda…) */
-.vn{display:none;position:relative;z-index:0;align-items:center;margin-right:16px;padding:7px 14px;border-radius:999px;font-size:16px;font-weight:700;white-space:nowrap;cursor:pointer;max-width:420px;overflow:visible}
-.vn.on{display:flex}
-.vn svg{width:19px;height:19px;margin-right:7px;flex:none;-webkit-animation:vn-icone 2.2s ease-in-out infinite;animation:vn-icone 2.2s ease-in-out infinite}
-.vn span{overflow:hidden;text-overflow:ellipsis}
-.vn:after{content:'';position:absolute;left:0;top:0;right:0;bottom:0;border-radius:inherit;background:inherit;opacity:0;z-index:-1;-webkit-animation:vn-halo 2.2s ease-out infinite;animation:vn-halo 2.2s ease-out infinite}
-.vn.jaune{background:#F5D33C;color:#3B3000}.vn.orange{background:#EE8323;color:#2B1400}.vn.rouge{background:#D42F2F;color:#FFFFFF}
-.vn.orange svg,.vn.orange:after{-webkit-animation-duration:1.5s;animation-duration:1.5s}.vn.rouge svg,.vn.rouge:after{-webkit-animation-duration:1s;animation-duration:1s}
+.vgn{display:none;position:relative;z-index:0;align-items:center;margin-right:16px;padding:7px 14px;border-radius:999px;font-size:16px;font-weight:700;white-space:nowrap;cursor:pointer;max-width:420px;overflow:visible}
+.vgn.on{display:flex}
+.vgn svg{width:19px;height:19px;margin-right:7px;flex:none;-webkit-animation:vn-icone 2.2s ease-in-out infinite;animation:vn-icone 2.2s ease-in-out infinite}
+.vgn span{overflow:hidden;text-overflow:ellipsis}
+.vgn:after{content:'';position:absolute;left:0;top:0;right:0;bottom:0;border-radius:inherit;background:inherit;opacity:0;z-index:-1;-webkit-animation:vn-halo 2.2s ease-out infinite;animation:vn-halo 2.2s ease-out infinite}
+.vgn.jaune{background:#F5D33C;color:#3B3000}.vgn.orange{background:#EE8323;color:#2B1400}.vgn.rouge{background:#D42F2F;color:#FFFFFF}
+.vgn.orange svg,.vgn.orange:after{-webkit-animation-duration:1.5s;animation-duration:1.5s}.vgn.rouge svg,.vgn.rouge:after{-webkit-animation-duration:1s;animation-duration:1s}
 @-webkit-keyframes vn-halo{0%{-webkit-transform:scale(1,1);opacity:.9}75%,100%{-webkit-transform:scale(1.12,1.7);opacity:0}}
 @keyframes vn-halo{0%{transform:scale(1,1);opacity:.9}75%,100%{transform:scale(1.12,1.7);opacity:0}}
 @-webkit-keyframes vn-icone{0%,100%{opacity:1}50%{opacity:.35}}
@@ -143,7 +143,10 @@ body.en-veille #slides iframe.on{visibility:hidden}
 #clock{
   font-family:Fraunces,"Bricolage Grotesque",Figtree,Arial,sans-serif;font-size:30px;font-weight:600;
   letter-spacing:-.01em;font-variant-numeric:tabular-nums;
+  /* même hauteur que les onglets et la pastille : tout est centré sur la même ligne */
+  height:50px;line-height:50px;display:flex;align-items:center;padding-top:2px;box-sizing:border-box;
 }
+.vgn{height:50px;box-sizing:border-box;padding:0 18px;border-radius:25px;font-size:17px}
 
 /* Roue crantée et volet de réglages rapides */
 #rouage{width:46px;height:46px;margin-left:14px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:var(--muted);cursor:pointer}
@@ -255,7 +258,7 @@ body.en-veille #slides iframe.on{visibility:hidden}
         <svg class="tour"><rect class="fond" x="1.5" y="1.5" width="100%" height="100%" rx="16.5" ry="16.5" style="width:calc(100% - 3px);height:calc(100% - 3px)"/><rect id="pauseTour" x="1.5" y="1.5" width="100%" height="100%" rx="16.5" ry="16.5" pathLength="100" style="width:calc(100% - 3px);height:calc(100% - 3px)"/></svg>
       </div>
       <div id="fixe"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg><span id="fixeTexte"></span></div>
-      <div id="vigiNav" class="vn"></div>
+      <div id="vigiNav" class="vgn"></div>
       <div id="clock">--:--</div>
       <div id="rouage" title="Réglages rapides"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></div>
     </div>
@@ -635,12 +638,12 @@ function majVigiNav(){
   var el = document.getElementById('vigiNav'), v = VIGI_NAV;
   var actif = v && v.trouve && ['jaune', 'orange', 'rouge'].indexOf(v.niveau) >= 0;
   var id = S && S[actuel] ? S[actuel].id : '';
-  if (!actif || id === 'accueil' || id === 'meteo') { el.className = 'vn'; return; }
+  if (!actif || id === 'accueil' || id === 'meteo') { el.className = 'vgn'; return; }
   var f = null;
   for (var i = 0; i < v.phenomenes.length && !f; i++) if (v.phenomenes[i].niveau === v.niveau) f = v.phenomenes[i];
   var txt = 'Vigilance ' + v.niveau + (f ? ' · ' + f.nom + (f.periode ? ' ' + f.periode : '') : '');
   el.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5 2.8 19.5h18.4z"/><path d="M12 10v4.5M12 17.2v.1"/></svg><span>' + txt.replace(/&/g, '&amp;').replace(/</g, '&lt;') + '</span>';
-  el.className = 'vn on ' + v.niveau;
+  el.className = 'vgn on ' + v.niveau;
 }
 // toucher la pastille ouvre l'onglet Météo
 document.getElementById('vigiNav').addEventListener('click', function(){
