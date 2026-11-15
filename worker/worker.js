@@ -1073,33 +1073,36 @@ async function construireVigilanceMF(env) {
       }
     }
   }
-  // textes officiels du bulletin départemental (publié en orange et rouge, parfois en jaune)
-  let textes = {};
+  // textes officiels du bulletin de suivi départemental (publié en orange et rouge, parfois en jaune) :
+  // bloc_items[].text_items[].term_items[].subdivision_text[] { bold_text, text[] }
+  const textes = {}, conseils = {}; let situation = '';
   try {
     const tx = await mfVigilance(env, 'textesvigilance/encours');
     const blocs = ((tx.product && tx.product.text_bloc_items) || []).filter(b => String(b.domain_id) === dep);
-    for (const b of blocs) for (const it of b.bloc_items || []) {
-      if (it.type_group !== 'QUALIFICATION') continue;
-      for (const ti of it.text_items || []) {
-        const lignes = [];
-        for (const st of ti.term_items || []) for (const sd of st.subdivision_text || []) for (const l of sd.text || []) lignes.push(l);
-        for (const sd of ti.subdivision_text || []) for (const l of sd.text || []) lignes.push(l);
-        if (lignes.length) textes[nomSimple(ti.hazard_name || '')] = lignes.join(' ').replace(/\s+/g, ' ').trim();
+    for (const b of blocs) for (const it of b.bloc_items || []) for (const ti of it.text_items || []) {
+      const morceaux = [].concat(...(ti.term_items || []).map(t => t.subdivision_text || []), ti.subdivision_text || []);
+      for (const sd of morceaux) {
+        const txt = (sd.text || []).join(' ').replace(/\s+/g, ' ').trim();
+        if (!txt) continue;
+        const titre = String(sd.bold_text || ''), hz = nomSimple(ti.hazard_name || '');
+        if (/conseil/i.test(titre)) conseils[hz] = (conseils[hz] ? conseils[hz] + ' ' : '') + txt;
+        else if (it.type_group === 'SITUATION') { if (/situation|faits/i.test(titre)) situation = (situation ? situation + ' ' : '') + txt; }
+        else textes[hz] = (textes[hz] ? textes[hz] + ' ' : '') + txt;
       }
     }
   } catch (e) {}
+  const pour = (table, nom) => { const n = nomSimple(nom).split(' ')[0]; const k = Object.keys(table).find(x => x && (x.indexOf(n) >= 0 || n.indexOf(x.split(' ')[0]) >= 0)); return k ? table[k] : ''; };
   const now = Date.now(), phenomenes = [];
   for (const id in parPh) {
     const P = parPh[id];
     if (P.couleur < 2 || !P.fin || Date.parse(P.fin) < now) continue;
     const debut = Date.parse(P.debut) <= now ? null : P.debut;
     const periode = debut ? 'de ' + heureParis(debut) + ' à ' + heureParis(P.fin) : 'jusqu\'à ' + heureParis(P.fin);
-    const cle = Object.keys(textes).find(k => k && (nomSimple(P.nom).indexOf(k.split(' ')[0]) >= 0 || k.indexOf(nomSimple(P.nom).split(' ')[0]) >= 0));
-    phenomenes.push({ nom: P.nom, niveau: MF_COULEURS[P.couleur], periode, conseil: cle ? textes[cle] : '', aVenir: !!debut });
+    phenomenes.push({ nom: P.nom, niveau: MF_COULEURS[P.couleur], periode, conseil: pour(conseils, P.nom) || pour(textes, P.nom), aVenir: !!debut });
   }
   phenomenes.sort((a, b) => COULEURS_VIGI[b.niveau] - COULEURS_VIGI[a.niveau]);
   const niveau = phenomenes.length ? phenomenes[0].niveau : 'vert';
-  return { maj: Date.now(), trouve: true, source: 'meteofrance', departement: dep, niveau, phenomenes, consigne: MF_CONSIGNES[niveau] || '', miseAJourMF: carte.product && carte.product.update_time };
+  return { maj: Date.now(), trouve: true, source: 'meteofrance', departement: dep, niveau, phenomenes, consigne: MF_CONSIGNES[niveau] || '', situation, miseAJourMF: carte.product && carte.product.update_time };
 }
 async function construireVigilance(env) {
   const h = { Authorization: 'Bearer ' + env.HA_TOKEN };
