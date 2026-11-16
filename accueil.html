@@ -218,7 +218,9 @@ body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;fon
 .vv-c i{flex:none;width:14px;height:14px;border-radius:50%;margin:7px 12px 0 0}
 .vv-c i.jaune{background:#E3BE14}.vv-c i.orange{background:#EE8323}.vv-c i.rouge{background:#D42F2F}
 .vv-c b{display:block;color:var(--ink);font-size:21px;font-weight:800;line-height:1.2}
-.vv-c em{font-style:normal;font-weight:700;color:var(--ink);white-space:nowrap}
+.vv-c em{display:block;font-style:normal;font-size:18px;font-weight:700;color:var(--ink)}
+.vv-d{overflow:hidden}.vv-c > div{min-width:0}
+.vv-d.serre .vv-c b{font-size:19px}.vv-d.serre .vv-c em,.vv-d.serre .vv-c{font-size:16px}.vv-d.serre .vv-c strong{font-size:18px}.vv-d.serre .vv-m small{display:none}
 .vv-c strong{font-weight:800;font-size:21px}
 .vv-m{display:block}
 .vv-c b.vv-src{display:inline;font-size:13px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin-right:6px}
@@ -942,7 +944,7 @@ function coucheVigi(){
     if (nb < 2) {
       var m = mesureVigi(f.nom);
       var off = f.conseil ? '<b class="vv-src">Bulletin Météo-France</b>' + echapper(f.conseil) : '', per = f.periode ? echapper(f.periode) : '';
-      if (m || off || per) det += '<div class="vv-c"><i class="' + f.niveau + '"></i><div><b>' + echapper(f.nom) + (per ? '<em> · ' + per + '</em>' : '') + '</b>' +
+      if (m || off || per) det += '<div class="vv-c"><i class="' + f.niveau + '"></i><div><b>' + echapper(f.nom) + (per ? '<em>' + per.charAt(0).toUpperCase() + per.slice(1) + '</em>' : '') + '</b>' +
         (m ? '<span class="vv-m">' + m.split('|')[0].replace(/(\d+ ?km\/h)/, '<strong>$1</strong>') + ' <small>' + (m.split('|')[1] || 'prévision Open-Meteo') + '</small></span>' : '') + (off ? '<span class="vv-o">' + off + '</span>' : '') + '</div></div>';
       nb++;
     }
@@ -958,7 +960,9 @@ function majMasqueVigi(){
   var VV = document.querySelectorAll('.v-v');
   for (var k = 0; k < VV.length; k++) {
     var C = VV[k].querySelectorAll('.vv-c'), n = C.length;
-    while (n > 1 && VV[k].scrollHeight > VV[k].clientHeight + 1) { C[n - 1].parentNode.removeChild(C[n - 1]); n--; }
+    var D = VV[k].querySelector('.vv-d'), trop = function(){ return VV[k].scrollHeight > VV[k].clientHeight + 1 || (D && (D.scrollHeight > D.clientHeight + 1 || D.scrollWidth > D.clientWidth + 1)); };
+    if (D && trop()) D.className += ' serre';
+    while (n > 1 && trop()) { C[n - 1].parentNode.removeChild(C[n - 1]); n--; }
   }
   var T = document.querySelectorAll('.tuile');
   for (var i = 0; i < T.length; i++) {
