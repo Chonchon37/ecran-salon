@@ -35,7 +35,9 @@ body{color:var(--ink);font-family:Figtree,Roboto,"Segoe UI",Arial,sans-serif;fon
 .now-cond{font-size:26px;font-weight:600;margin-top:2px}
 .now-hl{font-size:19px;color:var(--muted);margin-top:4px}
 .chips{display:flex;flex-wrap:wrap}
-.now .label{white-space:nowrap}
+.now .label{white-space:nowrap;overflow:hidden;padding:8px 8px 8px 0;margin:-8px 0}
+.now-top > div:first-child{flex:1;min-width:0}
+#nowIcon{flex:none;margin-left:12px}
 .chip{font-size:17px;padding:7px 14px;margin-right:10px;border-radius:20px;background:var(--card2);font-weight:500}
 .chip b{font-weight:700}
 
@@ -563,7 +565,13 @@ function chargerVigi(quandOk){
   x.onload = function(){ if (x.status === 200) { try { quandOk(JSON.parse(x.responseText)); } catch (e) {} } };
   x.send();
 }
-function majVigi(){ chargerVigi(function(v){ VIGI = v; $('vigi').innerHTML = texteVigi(v); dessinerVigi(); }); }
+function majVigi(){ chargerVigi(function(v){ VIGI = v; $('vigi').innerHTML = texteVigi(v); ajusterVigi(); dessinerVigi(); }); }
+// Pastille trop longue pour la place (l'icône météo doit rester visible) : on n'affiche que le niveau
+function ajusterVigi(){
+  var L = $('vigi').parentNode, p = $('vigi').firstChild;
+  if (p && VIGI && L.scrollWidth > L.clientWidth + 1) p.innerHTML = VIGI_ICONE + 'Vigilance ' + VIGI.niveau;
+  if (p && L.scrollWidth > L.clientWidth + 1) $('lieu').parentNode.firstChild.style.display = 'none';
+}
 /* ---------- Vigilance détaillée (Météo-France) + rafales des modèles Météo-France ---------- */
 var VIGI = null, RAF = null, VUE_VIGI = false, DERNIER_ACTUEL = null, DERNIER_D = null;
 function chargerRafales(){
