@@ -520,7 +520,7 @@ function charger(){
   xhr.timeout = 20000;
   xhr.onload = function(){
     if (xhr.status !== 200) { erreur(); return; }
-    try { afficher(convertir(JSON.parse(xhr.responseText))); } catch (e) { erreur(); }
+    try { DERNIER_J = JSON.parse(xhr.responseText); afficher(convertir(fusionPluie(DERNIER_J, MF))); } catch (e) { erreur(); }
   };
   xhr.onerror = xhr.ontimeout = erreur;
   xhr.send();
@@ -573,13 +573,45 @@ function ajusterVigi(){
   if (p && L.scrollWidth > L.clientWidth + 1) $('lieu').parentNode.firstChild.style.display = 'none';
 }
 /* ---------- Vigilance détaillée (Météo-France) + rafales des modèles Météo-France ---------- */
+var MF = null, DERNIER_J = null;
+// Pluie : le modèle par défaut d'Open-Meteo rate souvent les averses locales ; le modèle AROME de Météo-France
+// (même source que l'appli Météo-France) fait foi pour la pluie actuelle, des prochains quarts d'heure et des prochaines heures.
+var URL_MF = 'https://api.open-meteo.com/v1/meteofrance?latitude=' + CONFIG.LAT + '&longitude=' + CONFIG.LON +
+  '&current=precipitation&minutely_15=precipitation&forecast_minutely_15=26&hourly=wind_gusts_10m,precipitation,weather_code&forecast_hours=42&timezone=Europe%2FParis';
+function estPluie(c){ return (c >= 51 && c <= 67) || (c >= 80 && c <= 82) || c >= 95; }
+function fusionPluie(j, mf){
+  if (!j || !mf) return j;
+  var i, k, idx = {};
+  if (j.minutely_15 && mf.minutely_15) {
+    for (i = 0; i < mf.minutely_15.time.length; i++) idx[mf.minutely_15.time[i]] = mf.minutely_15.precipitation[i];
+    for (i = 0; i < j.minutely_15.time.length; i++) { k = idx[j.minutely_15.time[i]]; if (k != null) j.minutely_15.precipitation[i] = k; }
+  }
+  if (j.hourly && mf.hourly && mf.hourly.precipitation) {
+    idx = {};
+    for (i = 0; i < mf.hourly.time.length; i++) if (mf.hourly.precipitation[i] != null) idx[mf.hourly.time[i]] = i;
+    for (i = 0; i < j.hourly.time.length; i++) {
+      k = idx[j.hourly.time[i]]; if (k == null) continue;
+      var mm = mf.hourly.precipitation[k], code = j.hourly.weather_code[i], cmf = mf.hourly.weather_code ? mf.hourly.weather_code[k] : null;
+      if (j.hourly.precipitation) j.hourly.precipitation[i] = mm;
+      if (mm >= 0.1 && !estPluie(code)) j.hourly.weather_code[i] = estPluie(cmf) ? cmf : (mm >= 2.5 ? 63 : 61);
+      else if (mm < 0.1 && estPluie(code) && code < 95) j.hourly.weather_code[i] = 3;
+      if (j.hourly.precipitation_probability) j.hourly.precipitation_probability[i] = mm >= 0.1 ? Math.max(j.hourly.precipitation_probability[i] || 0, 80) : Math.min(j.hourly.precipitation_probability[i] || 0, 30);
+    }
+  }
+  if (j.current && mf.current && mf.current.precipitation != null) {
+    var p = mf.current.precipitation;
+    if (p >= 0.1 && !estPluie(j.current.weather_code)) j.current.weather_code = p >= 2.5 ? 63 : 61;
+    else if (p < 0.1 && estPluie(j.current.weather_code) && j.current.weather_code < 95) j.current.weather_code = 3;
+  }
+  return j;
+}
 var VIGI = null, RAF = null, VUE_VIGI = false, DERNIER_ACTUEL = null, DERNIER_D = null;
 function chargerRafales(){
   if (CONFIG.DEMO) return;
   var x = new XMLHttpRequest();
-  x.open('GET', 'https://api.open-meteo.com/v1/meteofrance?latitude=' + CONFIG.LAT + '&longitude=' + CONFIG.LON + '&hourly=wind_gusts_10m&forecast_hours=30&timezone=Europe%2FParis', true);
+  x.open('GET', URL_MF, true);
   x.timeout = 20000;
-  x.onload = function(){ if (x.status === 200) { try { var j = JSON.parse(x.responseText); RAF = j.hourly && j.hourly.wind_gusts_10m ? j.hourly : null; if (DERNIER_D) afficher(DERNIER_D); dessinerVigi(); } catch (e) {} } };
+  x.onload = function(){ if (x.status === 200) { try { var j = JSON.parse(x.responseText); RAF = j.hourly && j.hourly.wind_gusts_10m ? j.hourly : null; MF = j; if (DERNIER_J) afficher(convertir(fusionPluie(DERNIER_J, MF))); else if (DERNIER_D) afficher(DERNIER_D); dessinerVigi(); } catch (e) {} } };
   x.send();
 }
 // rafales de l'heure en cours (modèle Météo-France), sinon celles d'Open-Meteo

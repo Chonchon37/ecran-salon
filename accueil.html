@@ -664,12 +664,43 @@ function chargerMeteo(){
   lireJson('https://api.open-meteo.com/v1/forecast?latitude=' + CONFIG.LAT + '&longitude=' + CONFIG.LON +
     '&current=temperature_2m,weather_code,is_day,apparent_temperature,wind_speed_10m,wind_direction_10m,wind_gusts_10m,relative_humidity_2m&minutely_15=precipitation&forecast_minutely_15=26' +
     '&hourly=temperature_2m,weather_code,is_day,precipitation,precipitation_probability,wind_gusts_10m&forecast_hours=40' +
-    '&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset&timezone=Europe%2FParis&forecast_days=7', function(j){ meteo = j; afficher(); });
+    '&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset&timezone=Europe%2FParis&forecast_days=7', function(j){ meteo = fusionPluie(j, MF); afficher(); });
   // rafales : modèles de Météo-France (Arome / Arpège), plus justes sur la France que le modèle par défaut
-  lireJson('https://api.open-meteo.com/v1/meteofrance?latitude=' + CONFIG.LAT + '&longitude=' + CONFIG.LON + '&hourly=wind_gusts_10m&forecast_hours=30&timezone=Europe%2FParis',
-    function(j){ rafalesMF = j && j.hourly && j.hourly.wind_gusts_10m ? j.hourly : null; afficher(); });
+  lireJson(URL_MF, function(j){ rafalesMF = j && j.hourly && j.hourly.wind_gusts_10m ? j.hourly : null; MF = j; fusionPluie(meteo, MF); afficher(); });
 }
-var rafalesMF = null;
+var rafalesMF = null, MF = null;
+// Pluie : le modèle par défaut d'Open-Meteo rate souvent les averses locales ; le modèle AROME de Météo-France
+// (même source que l'appli Météo-France) fait foi pour la pluie actuelle, des prochains quarts d'heure et des prochaines heures.
+var URL_MF = 'https://api.open-meteo.com/v1/meteofrance?latitude=' + CONFIG.LAT + '&longitude=' + CONFIG.LON +
+  '&current=precipitation&minutely_15=precipitation&forecast_minutely_15=26&hourly=wind_gusts_10m,precipitation,weather_code&forecast_hours=42&timezone=Europe%2FParis';
+function estPluie(c){ return (c >= 51 && c <= 67) || (c >= 80 && c <= 82) || c >= 95; }
+function fusionPluie(j, mf){
+  if (!j || !mf) return j;
+  var i, k, idx = {};
+  if (j.minutely_15 && mf.minutely_15) {
+    for (i = 0; i < mf.minutely_15.time.length; i++) idx[mf.minutely_15.time[i]] = mf.minutely_15.precipitation[i];
+    for (i = 0; i < j.minutely_15.time.length; i++) { k = idx[j.minutely_15.time[i]]; if (k != null) j.minutely_15.precipitation[i] = k; }
+  }
+  if (j.hourly && mf.hourly && mf.hourly.precipitation) {
+    idx = {};
+    for (i = 0; i < mf.hourly.time.length; i++) if (mf.hourly.precipitation[i] != null) idx[mf.hourly.time[i]] = i;
+    for (i = 0; i < j.hourly.time.length; i++) {
+      k = idx[j.hourly.time[i]]; if (k == null) continue;
+      var mm = mf.hourly.precipitation[k], code = j.hourly.weather_code[i], cmf = mf.hourly.weather_code ? mf.hourly.weather_code[k] : null;
+      if (j.hourly.precipitation) j.hourly.precipitation[i] = mm;
+      if (mm >= 0.1 && !estPluie(code)) j.hourly.weather_code[i] = estPluie(cmf) ? cmf : (mm >= 2.5 ? 63 : 61);
+      else if (mm < 0.1 && estPluie(code) && code < 95) j.hourly.weather_code[i] = 3;
+      if (j.hourly.precipitation_probability) j.hourly.precipitation_probability[i] = mm >= 0.1 ? Math.max(j.hourly.precipitation_probability[i] || 0, 80) : Math.min(j.hourly.precipitation_probability[i] || 0, 30);
+    }
+  }
+  if (j.current && mf.current && mf.current.precipitation != null) {
+    var p = mf.current.precipitation;
+    if (p >= 0.1 && !estPluie(j.current.weather_code)) j.current.weather_code = p >= 2.5 ? 63 : 61;
+    else if (p < 0.1 && estPluie(j.current.weather_code) && j.current.weather_code < 95) j.current.weather_code = 3;
+  }
+  return j;
+}
+
 function chargerTransports(){ if (CONFIG.WORKER_TRANSPORTS) lireJson(CONFIG.WORKER_TRANSPORTS + (CLE ? '?cle=' + encodeURIComponent(CLE) : ''), function(j){ transportsReels = j; if (j.config) LIGNES = lignesDepuis(j.config); afficher(); }, function(j){ return JSON.stringify([j.lignes, j.config]); }); }
 function chargerAgenda(){ if (prive()) lireJson(CONFIG.WORKER + '/agenda?cle=' + encodeURIComponent(CLE), function(j){ agendaReel = j; afficher(); }); }
 function chargerMaison(){ if (prive()) lireJson(CONFIG.WORKER + '/maison?cle=' + encodeURIComponent(CLE), function(j){ maisonReelle = j; afficher(); }); }
