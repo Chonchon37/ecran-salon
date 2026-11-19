@@ -1691,17 +1691,30 @@ async function lancerPlaylist(env, compte, lecteurId, nomEnceinte, p, aleatoire)
     const ha = (service, donnees) => fetch(haUrl(env, '/api/services/' + service), {
       method: 'POST', headers: { Authorization: 'Bearer ' + env.HA_TOKEN, 'Content-Type': 'application/json' }, body: JSON.stringify(donnees)
     }).catch(() => null);
-    const dataSC = { shuffle: !!aleatoire, random: !!aleatoire };
-    let r = ctx ? await ha('spotcast/play_media', { media_player: { entity_id: lecteurId }, spotify_uri: ctx, data: dataSC })
-                : await ha('spotcast/play_liked_songs', { media_player: { entity_id: lecteurId }, data: dataSC });
-    if (r && r.ok) return { ok: true, par: 'spotcast' };
-    essais.push('spotcast:' + (r ? r.status : 'injoignable'));
+    const detail = async r => { if (!r) return 'injoignable'; let t = ''; try { t = (await r.text()).replace(/\s+/g, ' ').slice(0, 160); } catch (e) {} return r.status + (t ? ' ' + t : ''); };
+    // plusieurs formes d'appel : avec l'aléatoire en option, puis sans option (selon la version de Spotcast,
+    // une option inconnue fait échouer tout l'appel), puis l'aléatoire activé ensuite par l'API Spotify
+    const variantes = [{ shuffle: !!aleatoire, random: !!aleatoire }, null, aleatoire ? { random: true } : undefined].filter(v => v !== undefined);
+    let r = null;
+    for (const d of variantes) {
+      const donnees = { media_player: { entity_id: lecteurId } };
+      if (ctx) donnees.spotify_uri = ctx;
+      if (d) donnees.data = d;
+      r = await ha(ctx ? 'spotcast/play_media' : 'spotcast/play_liked_songs', donnees);
+      if (r && r.ok) {
+        if (!d && aleatoire) { await attendre(3000); const a = await chercher(); await melangeSpotify(env, compte, a ? a.id : null, true); }
+        return { ok: true, par: 'spotcast' };
+      }
+      essais.push('spotcast:' + await detail(r));
+      if (r && r.status === 400 && /not found|unknown|n.existe/i.test(essais[essais.length - 1]) && !d) break;
+    }
     r = await ha('spotcast/start', ctx ? { entity_id: lecteurId, uri: ctx } : { entity_id: lecteurId });
     if (r && r.ok) {
       if (ctx) return { ok: true, par: 'spotcast-ancien' };
       for (let k = 0; k < 3; k++) { await attendre(2500); cible = await chercher(); if (cible && await jouer(cible.id)) return { ok: true, par: 'spotcast+spotify' }; }
       essais.push('spotcast-ancien:sans-appareil');
     } else essais.push('spotcast-ancien:' + (r ? r.status : 'injoignable'));
+    try { await env.REGLAGES.put(cleKV(env, 'diag-musique'), JSON.stringify({ quand: new Date().toISOString(), lecteurId, essais })); } catch (e) {}
   }
   // 4. dernier recours : demander à l'Assistant Google
   const commande = (p.uri === 'aimes' ? 'Joue mes titres likés sur Spotify' : 'Joue la playlist ' + p.nom + ' sur Spotify') + (aleatoire ? ' en mode aléatoire' : '') + ' sur ' + nomEnceinte;
@@ -1715,7 +1728,15 @@ async function lancerPlaylist(env, compte, lecteurId, nomEnceinte, p, aleatoire)
     const e = await fetch(haUrl(env, '/api/states/' + lecteurId), { headers: { Authorization: 'Bearer ' + env.HA_TOKEN } }).then(x => x.ok ? x.json() : null).catch(() => null);
     joue = !!(e && e.state === 'playing');
   }
-  return { ok: r.ok && joue, par: 'assistant', commande, essais, erreur: joue ? undefined : (essais.join(' ').indexOf('spotcast:4') >= 0 ? 'Spotify ne voit pas « ' + nomEnceinte + ' » au repos (Spotcast à installer)' : 'Spotify ne voit pas « ' + nomEnceinte + ' » au repos') };
+  return { ok: r.ok && joue, par: 'assistant', commande, essais, erreur: joue ? undefined : messageEchec(nomEnceinte, essais) };
+}
+// Message lisible sur le cadre, avec la raison donnée par Spotcast quand il y en a une
+function messageEchec(nom, essais) {
+  const sc = essais.filter(e => /^spotcast:/.test(e)).pop();
+  if (!sc) return 'Spotify ne voit pas « ' + nom + ' » au repos';
+  if (/^spotcast:400 .*(not found|unknown service)/i.test(sc) || /^spotcast:404/.test(sc)) return 'Spotify ne voit pas « ' + nom + ' » au repos (Spotcast absent de Home Assistant)';
+  const m = /"message"\s*:\s*"([^"]{3,110})/.exec(sc);
+  return 'Spotcast n\'a pas pu lancer « ' + nom + ' »' + (m ? ' : ' + m[1] : ' (erreur ' + sc.slice(9, 12) + ')');
 }
 async function actionMusique(env, c) {
   const id = String(c.id || '');
