@@ -33,7 +33,7 @@ const FLUX_TR = 'https://data.filbleu.fr/ws-tr/gtfs-rt/opendata/trip-updates';
 const FLUX_ALERTES = 'https://data.filbleu.fr/ws-tr/gtfs-rt/opendata/service-alerts';
 const FLUX_INCIDENTS = 'https://www.filbleu.fr/rss-incident.xml';   // l'info trafic du site filbleu.fr (travaux, déviations…)
 const CACHE_SECONDES = 30;   // les écrans redemandent toutes les 30 s
-const VERSION = '60';   // à changer à chaque mise à jour du code : vide les caches
+const VERSION = '61';   // à changer à chaque mise à jour du code : vide les caches
 
 // Horaires prévus, format compact : "jours" = n° de grille pour chaque jour depuis "debut",
 // chaque ligne "g=" = minutes depuis minuit, écrites en écarts successifs.
@@ -1575,10 +1575,21 @@ async function jetonSpotify(env, compte) {
   E(env).SPOTIFY_JETON[compte] = n;
   return n.acces;
 }
+// Limite de requêtes Spotify (429) : on se met en pause le temps demandé (partagé entre les instances du Worker),
+// pour ne pas prolonger le blocage — qui toucherait aussi Spotcast s'il utilise la même appli Spotify
+const REQ_PAUSE_SPOTIFY = new Request('https://cache.ecran-salon.local/spotify-pause');
 async function spotify(env, compte, chemin, options) {
+  if (E(env).SPOTIFY_PAUSE && Date.now() < E(env).SPOTIFY_PAUSE) return null;
+  try { const m = await caches.default.match(REQ_PAUSE_SPOTIFY); if (m) { const t = parseInt(await m.text(), 10); if (Date.now() < t) { E(env).SPOTIFY_PAUSE = t; return null; } } } catch (e) {}
   const j = await jetonSpotify(env, compte);
   if (!j) return null;
-  return fetch('https://api.spotify.com/v1' + chemin, Object.assign({}, options || {}, { headers: Object.assign({ Authorization: 'Bearer ' + j }, (options && options.headers) || {}) }));
+  const r = await fetch('https://api.spotify.com/v1' + chemin, Object.assign({}, options || {}, { headers: Object.assign({ Authorization: 'Bearer ' + j }, (options && options.headers) || {}) }));
+  if (r.status === 429) {
+    const s = Math.min(3600, Math.max(5, parseInt(r.headers.get('Retry-After') || '30', 10) || 30)), t = Date.now() + s * 1000;
+    E(env).SPOTIFY_PAUSE = t;
+    try { await caches.default.put(REQ_PAUSE_SPOTIFY, new Response(String(t), { headers: { 'Cache-Control': 'max-age=' + s } })); } catch (e) {}
+  }
+  return r;
 }
 // Mes playlists (gardées 30 min) : nom, petite pochette, adresse Spotify
 async function playlistsSpotify(env, compte) {
@@ -1696,6 +1707,19 @@ async function lancerPlaylist(env, compte, lecteurId, nomEnceinte, p, aleatoire)
     // une option inconnue fait échouer tout l'appel), puis l'aléatoire activé ensuite par l'API Spotify
     const variantes = [{ shuffle: !!aleatoire, random: !!aleatoire }, null, aleatoire ? { random: true } : undefined].filter(v => v !== undefined);
     let r = null;
+    // Spotcast « en erreur » dans Home Assistant (ex. : limite de requêtes Spotify dépassée au démarrage) : on le recharge
+    const reparerSpotcast = async () => {
+      const hdr = { Authorization: 'Bearer ' + env.HA_TOKEN };
+      const l = await fetch(haUrl(env, '/api/config/config_entries/entry?domain=spotcast'), { headers: hdr }).then(x => x.ok ? x.json() : []).catch(() => []);
+      let fait = false;
+      for (const e of l) if (e.state && e.state !== 'loaded') {
+        const rr = await fetch(haUrl(env, '/api/config/config_entries/entry/' + e.entry_id + '/reload'), { method: 'POST', headers: hdr }).catch(() => null);
+        essais.push('spotcast-recharge:' + e.state + '>' + (rr ? rr.status : 'injoignable')); fait = fait || !!(rr && rr.ok);
+      }
+      if (fait) await attendre(4000);
+      return fait;
+    };
+    await reparerSpotcast();
     for (const d of variantes) {
       const donnees = { media_player: { entity_id: lecteurId } };
       if (ctx) donnees.spotify_uri = ctx;
