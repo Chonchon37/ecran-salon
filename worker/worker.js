@@ -33,7 +33,7 @@ const FLUX_TR = 'https://data.filbleu.fr/ws-tr/gtfs-rt/opendata/trip-updates';
 const FLUX_ALERTES = 'https://data.filbleu.fr/ws-tr/gtfs-rt/opendata/service-alerts';
 const FLUX_INCIDENTS = 'https://www.filbleu.fr/rss-incident.xml';   // l'info trafic du site filbleu.fr (travaux, déviations…)
 const CACHE_SECONDES = 30;   // les écrans redemandent toutes les 30 s
-const VERSION = '61';   // à changer à chaque mise à jour du code : vide les caches
+const VERSION = '62';   // à changer à chaque mise à jour du code : vide les caches
 
 // Horaires prévus, format compact : "jours" = n° de grille pour chaque jour depuis "debut",
 // chaque ligne "g=" = minutes depuis minuit, écrites en écarts successifs.
@@ -630,7 +630,7 @@ async function construireAgenda(env) {
 }
 
 // Abréviations des lieux de travail 💼 écrites dans l'agenda → nom complet (affichage et recherche du centre)
-const ABREVIATIONS_LIEUX = { spdc: 'Saint-Pierre-des-Corps' };
+const ABREVIATIONS_LIEUX = { spdc: 'Saint-Pierre-des-Corps', cdl: 'Château-du-Loir' };
 function developperLieu(t) {
   return String(t || '').replace(/[A-Za-zÀ-ÿ]+/g, m => ABREVIATIONS_LIEUX[m.toLowerCase()] || m);
 }
