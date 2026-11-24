@@ -421,6 +421,11 @@ button.discret{background:transparent;color:var(--muted);padding:8px 10px;font-s
       <p class="aide">Jusqu'à 5 boutons (automatisations, scènes ou scripts de Home Assistant). Les 4 premiers apparaissent aussi sur l'accueil. Tu peux changer le nom affiché sur chaque bouton.</p>
       <div id="modes"></div>
     </section>
+    <section data-groupe="maison" data-module="maison">
+      <h2>Bouton « Tout éteindre »</h2>
+      <p class="aide">Les lumières que le bouton « Tout éteindre » éteint. Sans choix, il éteint toutes les lumières de la maison.</p>
+      <div id="eteindre"></div>
+    </section>
     <section data-groupe="maison" data-module="sonos">
       <h2>Sonos</h2>
       <p class="aide">Pour piloter des enceintes <b>Sonos</b> depuis l'écran (lecture, volume, favoris), sans Home Assistant. Connecte le compte Sonos du foyer une seule fois.</p>
@@ -560,7 +565,7 @@ function remplir() {
   majVeille();
   dessinerDispo(); dessinerMoments();
   dessinerSlides(); dessinerPlages(); dessinerLignes(); dessinerDechets(); dessinerAgendas(); dessinerFavoris(); etatSpotify();
-  $('lumieres').innerHTML = $('modes').innerHTML = '<p class="vide">Lecture de Home Assistant…</p>';
+  $('lumieres').innerHTML = $('modes').innerHTML = $('eteindre').innerHTML = '<p class="vide">Lecture de Home Assistant…</p>';
   majResume();
 }
 function majVeille() { $('veilleDetails').hidden = $('veilleReveil').hidden = !R.reglages.veille.actif; }
@@ -974,6 +979,8 @@ function dessinerMaison() {
   dessinerChoix($('lumieres'), M.lumieres, catalogue.lumieres, 8, 'Choix automatique (toutes les lumières sauf les segments).');
   M.noms = M.noms || {};
   dessinerChoix($('modes'), M.modes, catalogue.modes, 5, 'Aucun bouton de mode.', M.noms);
+  M.eteindre = M.eteindre || [];
+  dessinerChoix($('eteindre'), M.eteindre, catalogue.lumieres, 30, 'Toutes les lumières de la maison.');
 }
 $('modes').addEventListener('input', e => {
   const id = e.target.dataset.renommer;
@@ -981,6 +988,7 @@ $('modes').addEventListener('input', e => {
 });
 brancherChoix($('lumieres'), () => R.reglages.maison.lumieres, dessinerMaison);
 brancherChoix($('modes'), () => R.reglages.maison.modes, dessinerMaison);
+brancherChoix($('eteindre'), () => (R.reglages.maison.eteindre = R.reglages.maison.eteindre || []), dessinerMaison);
 
 /* ---------- Musique : favoris (phrases pour l'Assistant Google) ---------- */
 function favoris() { R.reglages.musique = R.reglages.musique || { favoris: [], masques: [] }; return R.reglages.musique.favoris; }

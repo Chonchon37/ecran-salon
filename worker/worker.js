@@ -892,6 +892,7 @@ function nettoyerReglages(r) {
   const ma = r.maison || {};
   res.maison = {
     lumieres: (Array.isArray(ma.lumieres) ? ma.lumieres : []).filter(x => /^light\.[a-z0-9_]+$/.test(x)).slice(0, 8),
+    eteindre: (Array.isArray(ma.eteindre) ? ma.eteindre : []).filter(x => /^light\.[a-z0-9_]+$/.test(x)).slice(0, 30),
     modes: (Array.isArray(ma.modes) ? ma.modes : D.maison.modes).filter(x => /^(automation|scene|script)\.[a-z0-9_]+$/.test(x) || x === 'special.tout_eteindre').slice(0, 5),
     noms: {}
   };
@@ -1815,7 +1816,10 @@ async function actionMaison(env, corps) {
   let service, donnees = { entity_id: id };
   if (corps.action === 'basculer' && /^light\.[a-z0-9_]+$/.test(id)) service = '/api/services/light/toggle';
   else if (corps.action === 'scene' && R.reglages.maison.modes.indexOf(id) >= 0) {     // seuls les modes choisis sont autorisés
-    if (id === 'special.tout_eteindre') { service = '/api/services/light/turn_off'; donnees = { entity_id: 'all' }; }
+    if (id === 'special.tout_eteindre') {   // les lumières choisies dans l'admin, sinon toutes celles de la maison
+      const L = R.reglages.maison.eteindre || [];
+      service = '/api/services/light/turn_off'; donnees = { entity_id: L.length ? L : 'all' };
+    }
     else if (id.startsWith('automation.')) {
       // Automatisation « interrupteur » (si allumé → tout éteindre, sinon → allumer) : depuis l'écran,
       // on veut toujours le mode, donc on joue directement la branche « sinon » quand elle existe
