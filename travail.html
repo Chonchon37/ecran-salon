@@ -260,7 +260,7 @@ function afficher(){
   // Jour mis en avant : le prochain jour travaillé (aujourd'hui tant que la journée n'est pas finie)
   var L0 = duJour(liste, auj), fini = L0.length > 0;
   for (var i = 0; i < L0.length; i++) if (L0[i].journee || L0[i].fin > now.getTime()) fini = false;
-  var k0 = (fini || now.getHours() >= 19) ? 1 : 0;
+  var k0 = (fini || now.getHours() >= 16) ? 1 : 0;
   while (k0 < 14 && !duJour(liste, jourPlus(auj, k0)).length) k0++;
   teintesVues = [];
   if (k0 >= 14) {

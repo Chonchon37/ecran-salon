@@ -1445,11 +1445,11 @@ function heuresDu(j, court){
   function f(t){ var x = new Date(t); return court ? x.getHours() + ' h' + (x.getMinutes() ? ' ' + pad(x.getMinutes()) : '') : pad(x.getHours()) + ' h ' + pad(x.getMinutes()); }
   return f(a) + ' – ' + f(b);
 }
-// Jour mis en avant : aujourd'hui, ou demain une fois la journée de travail finie (ou le soir)
+// Jour mis en avant : aujourd'hui, ou demain une fois la journée de travail finie (ou à partir de 16 h)
 function jourTravailVise(J, now){
   var hr = now.getHours(), L = J[0].liste, fini = L.length > 0;
   for (var i = 0; i < L.length; i++) if (L[i].journee || L[i].fin > now.getTime()) fini = false;
-  return (fini || hr >= 19 || (demainDabord(now) && hr >= 12)) ? 1 : 0;
+  return (fini || hr >= 16 || (demainDabord(now) && hr >= 12)) ? 1 : 0;
 }
 // Heure de départ pour arriver au centre à 8 h 50 (temps de route calculé par le Worker, gardé ici)
 var VOITURE_TV = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M5 17h14v-4.5l-1.8-4.6A2 2 0 0 0 15.3 6.6H8.7a2 2 0 0 0-1.9 1.3L5 12.5z"/><path d="M5 12.5h14"/><circle cx="8" cy="15" r="1"/><circle cx="16" cy="15" r="1"/><path d="M6.5 17v2M17.5 17v2"/></svg>';
