@@ -33,7 +33,7 @@ const FLUX_TR = 'https://data.filbleu.fr/ws-tr/gtfs-rt/opendata/trip-updates';
 const FLUX_ALERTES = 'https://data.filbleu.fr/ws-tr/gtfs-rt/opendata/service-alerts';
 const FLUX_INCIDENTS = 'https://www.filbleu.fr/rss-incident.xml';   // l'info trafic du site filbleu.fr (travaux, déviations…)
 const CACHE_SECONDES = 30;   // les écrans redemandent toutes les 30 s
-const VERSION = '62';   // à changer à chaque mise à jour du code : vide les caches
+const VERSION = '63';   // à changer à chaque mise à jour du code : vide les caches
 
 // Horaires prévus, format compact : "jours" = n° de grille pour chaque jour depuis "debut",
 // chaque ligne "g=" = minutes depuis minuit, écrites en écarts successifs.
@@ -648,6 +648,11 @@ async function enCache(cle, secondes, calcul) {
   if (val) await cache.put(req, new Response(JSON.stringify(val), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'max-age=' + secondes } }));
   return val;
 }
+function distanceKm(lon1, lat1, lon2, lat2) {
+  const r = Math.PI / 180, dLat = (lat2 - lat1) * r, dLon = (lon2 - lon1) * r;
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * r) * Math.cos(lat2 * r) * Math.sin(dLon / 2) ** 2;
+  return 12742 * Math.asin(Math.sqrt(a));
+}
 // Distance à vol d'oiseau depuis la maison (km) : un centre trop loin est forcément une erreur d'homonyme
 function kmDomicile(lon, lat) {
   const r = Math.PI / 180, dLat = (lat - DOMICILE.lat) * r, dLon = (lon - DOMICILE.lon) * r;
@@ -658,12 +663,28 @@ const RAYON_KM = 120;
 // Adresse précise (champ « Lieu » de l'événement) → coordonnées, via la Base Adresse Nationale
 async function geocoderAdresse(adresseBrute) {
   // « Audilab / Audioprothésiste Amboise, 13 Pl. Saint-Denis, 37400 Amboise, France » → « 13 Pl. Saint-Denis, 37400 Amboise »
-  const morceaux = adresseBrute.split(',').map(x => x.trim()).filter(x => x && !/^france$/i.test(x));
+  const tous = adresseBrute.split(',').map(x => x.trim()).filter(x => x && !/^france$/i.test(x));
+  const morceaux = tous.slice();
   while (morceaux.length > 1 && !/\d/.test(morceaux[0])) morceaux.shift();
   const adresse = morceaux.join(', ').slice(0, 150);
   const r = await fetch('https://api-adresse.data.gouv.fr/search/?limit=5&lat=' + DOMICILE.lat + '&lon=' + DOMICILE.lon + '&q=' + encodeURIComponent(adresse));
   if (!r.ok) return null;
   const f = ((await r.json()).features || []).filter(x => x.properties.score > 0.4 && kmDomicile(x.geometry.coordinates[0], x.geometry.coordinates[1]) < RAYON_KM)[0];
+  // Adresse sans rue (« CCAL Intermarché, 37800 Sainte-Maure-de-Touraine ») : la Base Adresse ne trouve que la commune ;
+  // on cherche alors le lieu nommé (magasin, centre commercial…) dans OpenStreetMap, près de cette commune
+  if (f && f.properties.type === 'municipality') {
+    const ville = f.properties.city, lon0 = f.geometry.coordinates[0], lat0 = f.geometry.coordinates[1];
+    const noms = tous.filter(x => !/\d{5}/.test(x)).map(x => x.replace(/^(c\.?c\.?a?\.?l\.?|centre commercial|galerie( marchande)?|zone commerciale|za[ce]?)\s+/i, '').trim()).filter(x => x.length > 2);
+    for (const n of noms.reverse()) {
+      try {
+        const o = await fetch('https://nominatim.openstreetmap.org/search?format=jsonv2&limit=3&countrycodes=fr&q=' + encodeURIComponent(n + ' ' + ville),
+          { headers: { 'User-Agent': 'ecran-salon/1.0 (cadre photo familial, Tours)', 'Accept-Language': 'fr' } });
+        if (!o.ok) continue;
+        const L = await o.json(), x = (Array.isArray(L) ? L : []).find(e => distanceKm(lon0, lat0, +e.lon, +e.lat) < 10);
+        if (x) return { nom: ville, adresse: n + ', ' + ville, lon: +x.lon, lat: +x.lat, approx: false };
+      } catch (e) {}
+    }
+  }
   return f ? { nom: f.properties.city, adresse: f.properties.label, lon: f.geometry.coordinates[0], lat: f.geometry.coordinates[1], approx: false } : null;
 }
 async function trouverCentre(lieu) {
@@ -724,7 +745,7 @@ async function construireTrajet(lieuBrut, adresseBrute, arriveeBrute, env) {
   const lieu = texte(lieuBrut, 80).replace(/\s+puis\s+.*$/i, ''), adresse = texte(adresseBrute, 160);
   if (!lieu && !adresse) throw new Error('lieu manquant');
   // L'adresse de l'événement (si elle est remplie) est prioritaire sur la recherche du centre Audilab
-  let centre = adresse ? await enCache('adresse:' + adresse.toLowerCase(), 30 * 86400, () => geocoderAdresse(adresse)) : null;
+  let centre = adresse ? await enCache('adresse2:' + adresse.toLowerCase(), 30 * 86400, () => geocoderAdresse(adresse)) : null;
   if (!centre && lieu) centre = await enCache('centre:' + lieu.toLowerCase(), 30 * 86400, () => trouverCentre(lieu));
   if (!centre) return { lieu, trouve: false };
   // une estimation n'est gardée qu'une heure (on retentera un vrai itinéraire)
